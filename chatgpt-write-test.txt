@@ -1,0 +1,4 @@
+GitHub write access test
+Repository: Udopamyu/minigame1go
+Created by ChatGPT at user request on 2026-11-04 (JST).
+This file can be deleted after verifying the integration.
