@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#091322">
+  <title>TAP SPARK · ミニゲーム1GO</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #091322; color: #f0f8ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100svh; display: grid; place-items: center; background: radial-gradient(ellipse at 80% 0%, #14334c 0%, transparent 55%), #091322; }
+    button { font: inherit; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+    button:focus-visible { outline: 3px solid #fff; outline-offset: 5px; }
+    [hidden] { display: none !important; }
+    main { width: min(100%, 500px); padding: 24px 20px 20px; }
+    .brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 26px; color: #9bb2c8; font-size: 11px; font-weight: 750; letter-spacing: .16em; }
+    .brand span:last-child { color: #70e5dd; font-size: 10px; letter-spacing: .1em; }
+    .brand b { color: #70e5dd; }
+    .eyebrow { margin: 0 0 8px; color: #ffbc76; font-size: 11px; font-weight: 750; letter-spacing: .22em; }
+    h1 { margin: 0; font-size: clamp(34px, 9vw, 46px); line-height: 1; letter-spacing: -.055em; font-weight: 900; }
+    h1 span { color: #70e5dd; }
+    .subtitle { margin: 12px 0 22px; font-size: 13px; line-height: 1.6; color: #9bb2c8; }
+    .hud { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .stat { background: #101f32; border: 1px solid #20364b; border-radius: 16px; padding: 13px 18px; }
+    .label { display: block; color: #9bb2c8; font-size: 10px; letter-spacing: .14em; font-weight: 750; }
+    .value { display: flex; align-items: baseline; gap: 6px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+    .value strong { font-size: 31px; line-height: 1.15; letter-spacing: -.04em; }
+    .value small { font-size: 11px; color: #9bb2c8; }
+    .clock .value strong { color: #70e5dd; }
+    #arena { position: relative; width: 100%; height: clamp(275px, 42svh, 400px); overflow: hidden; border: 1px solid #284257; border-radius: 24px; background: radial-gradient(circle at 50% 50%, #152e43 0%, #0d1e30 72%); isolation: isolate; }
+    #arena::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(#416079 1px, transparent 1px); background-size: 23px 23px; opacity: .32; pointer-events: none; }
+    .corner { position: absolute; top: 15px; left: 17px; color: #7b9bb3; font-size: 9px; font-weight: 700; letter-spacing: .2em; }
+    #target { position: absolute; left: calc(50% - 39px); top: calc(50% - 39px); width: 78px; height: 78px; display: grid; place-items: center; padding: 18px; border-radius: 50%; border: 1px solid #acfff2; color: #092a30; background: #70e5dd; box-shadow: 0 0 0 10px #70e5dd13, 0 0 42px #70e5dd35, inset 0 1px 0 #fff8; cursor: pointer; }
+    #target svg { width: 100%; height: 100%; fill: currentColor; pointer-events: none; }
+    #target:disabled { cursor: default; }
+    #target:active:not(:disabled) { background: #ffbc76; border-color: #ffddad; }
+    body[data-state="playing"] #target { animation: glow 1.2s ease-in-out infinite alternate; }
+    body[data-state="ready"] #target { opacity: .16; }
+    body[data-state="finished"] #target { visibility: hidden; }
+    @keyframes glow { to { box-shadow: 0 0 0 15px #70e5dd0a, 0 0 58px #70e5dd55; } }
+    .cover { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; background: #0d1e30c9; }
+    .cover-icon { display: grid; place-items: center; width: 62px; height: 62px; margin-bottom: 18px; border: 1px solid #ffbc7640; border-radius: 19px; color: #ffbc76; background: #ffbc760c; font-size: 32px; }
+    .cover h2 { font-size: 22px; line-height: 1.4; margin: 0 0 10px; letter-spacing: -.04em; }
+    .cover p { color: #a8bfd1; font-size: 12px; line-height: 1.8; margin: 0; }
+    .cover .result-number { color: #70e5dd; font-size: 66px; font-weight: 900; line-height: 1; letter-spacing: -.06em; margin: 7px 0 9px; }
+    .action { width: 100%; border: 0; border-radius: 14px; padding: 16px; color: #08262c; background: #70e5dd; cursor: pointer; font-weight: 800; font-size: 14px; box-shadow: 0 5px 24px #70e5dd10; }
+    .action:hover { background: #9af5ed; }
+    #start-button { margin-top: 16px; }
+    #restart-button { width: min(100%, 240px); margin-top: 20px; }
+    .play-hint { display: none; margin: 18px 0; text-align: center; font-size: 12px; color: #a8bfd1; }
+    body[data-state="playing"] #start-button, body[data-state="finished"] #start-button { display: none; }
+    body[data-state="playing"] .play-hint { display: block; }
+    .footer { margin: 17px 0 0; display: flex; justify-content: space-between; gap: 8px; font-size: 10px; color: #7f9ab1; }
+    .footer span:last-child { color: #9bb2c8; }
+    @media (max-height: 720px) { main { padding-top: 16px; } .brand { margin-bottom: 17px; } .subtitle { margin: 10px 0 16px; } #arena { height: 275px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+  </style>
+</head>
+<body data-state="ready">
+  <main>
+    <header>
+      <div class="brand"><span>MINIGAME <b>1GO</b></span><span>NO. 001 / REFLEX</span></div>
+      <p class="eyebrow">12 SECONDS. ONE MORE SPARK.</p>
+      <h1>TAP <span>SPARK</span></h1>
+      <p class="subtitle">光を追いかけて、12秒のハイスコアへ。</p>
+    </header>
+    <section class="hud" aria-label="ゲーム状況">
+      <div class="stat"><span class="label">SCORE</span><div class="value"><strong id="score" aria-live="polite">0</strong><small>HITS</small></div></div>
+      <div class="stat clock"><span class="label">TIME LEFT</span><div class="value"><strong id="time-left">12.0</strong><small>SEC</small></div></div>
+    </section>
+    <section id="arena" aria-label="光るターゲットの盤面">
+      <span class="corner" aria-hidden="true">SPARK FIELD</span>
+      <button id="target" type="button" aria-label="光るターゲットをタップして1点" disabled><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 1 20.3 11.7 31 16 20.3 20.3 16 31 11.7 20.3 1 16 11.7 11.7Z"/></svg></button>
+      <div id="intro" class="cover">
+        <div class="cover-icon" aria-hidden="true">✦</div>
+        <h2>光った場所を、タップ。</h2>
+        <p>当たるたびに光が移動。<br>12秒で何回つかまえられる？</p>
+      </div>
+      <div id="result" class="cover" role="status" hidden>
+        <p class="eyebrow">TIME UP!</p>
+        <h2>あなたがつかまえた光</h2>
+        <div class="result-number"><span id="final-score">0</span></div>
+        <p>SPARKS / 12 SEC</p>
+        <button id="restart-button" class="action" type="button">もう一度あそぶ ↗</button>
+      </div>
+    </section>
+    <button id="start-button" class="action" type="button">12秒チャレンジをはじめる ↗</button>
+    <p class="play-hint">光をタップ！ キーボードは Enter / Space</p>
+    <p class="footer"><span>無料・広告なし</span><span>TAP / CLICK / ENTER / SPACE</span></p>
+  </main>
+  <script>
+    (() => {
+      'use strict';
+      const duration = 12000;
+      const arena = document.getElementById('arena');
+      const target = document.getElementById('target');
+      const scoreLabel = document.getElementById('score');
+      const timeLabel = document.getElementById('time-left');
+      const intro = document.getElementById('intro');
+      const result = document.getElementById('result');
+      const restart = document.getElementById('restart-button');
+      let score = 0;
+      let deadline = 0;
+      let frame = 0;
+      let previous = [0.5, 0.5];
+
+      function moveTarget() {
+        let next;
+        do { next = [Math.random(), Math.random()]; }
+        while (Math.hypot(next[0] - previous[0], next[1] - previous[1]) < 0.3);
+        previous = next;
+        const inset = 17;
+        const roomX = Math.max(0, arena.clientWidth - target.offsetWidth - inset * 2);
+        const roomY = Math.max(0, arena.clientHeight - target.offsetHeight - inset * 2);
+        target.style.left = `${inset + next[0] * roomX}px`;
+        target.style.top = `${inset + next[1] * roomY}px`;
+      }
+
+      function finish() {
+        if (document.body.dataset.state !== 'playing') return;
+        cancelAnimationFrame(frame);
+        document.body.dataset.state = 'finished';
+        target.disabled = true;
+        timeLabel.textContent = '0.0';
+        document.getElementById('final-score').textContent = String(score);
+        result.hidden = false;
+        restart.focus({ preventScroll: true });
+      }
+
+      function tick(now) {
+        if (document.body.dataset.state !== 'playing') return;
+        const remaining = Math.max(0, deadline - now);
+        timeLabel.textContent = (remaining / 1000).toFixed(1);
+        if (remaining === 0) finish();
+        else frame = requestAnimationFrame(tick);
+      }
+
+      function start() {
+        cancelAnimationFrame(frame);
+        score = 0;
+        scoreLabel.textContent = '0';
+        timeLabel.textContent = '12.0';
+        intro.hidden = true;
+        result.hidden = true;
+        document.body.dataset.state = 'playing';
+        target.disabled = false;
+        previous = [0.5, 0.5];
+        moveTarget();
+        deadline = performance.now() + duration;
+        target.focus({ preventScroll: true });
+        frame = requestAnimationFrame(tick);
+      }
+
+      target.addEventListener('click', () => {
+        if (document.body.dataset.state !== 'playing') return;
+        if (performance.now() >= deadline) { finish(); return; }
+        score += 1;
+        scoreLabel.textContent = String(score);
+        moveTarget();
+      });
+      document.getElementById('start-button').addEventListener('click', start);
+      restart.addEventListener('click', start);
+      window.addEventListener('resize', () => {
+        if (document.body.dataset.state === 'playing') moveTarget();
+      });
+    })();
+  </script>
+</body>
+</html>
