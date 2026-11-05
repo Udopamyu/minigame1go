@@ -48,14 +48,18 @@ def main():
                                     record_video_size={"width":SIZE[0],"height":SIZE[1]})
         page=context.new_page()
         page.on("pageerror",lambda error: errors.append(str(error)))
-        # Stage 4 intentionally shows moving balloons. No fabricated game footage.
-        page.add_init_script("""localStorage.setItem('pixel-trebuchet-v03',
-            JSON.stringify({stage:3, sound:false}));""")
+        # Record from fresh stage 1, with naturally available equipment and gold.
+        # Do not fabricate progress or unlocked upgrades using localStorage.
         page.goto(url,wait_until="domcontentloaded",timeout=20000)
         page.locator("#fire").wait_for()
         page.wait_for_timeout(800)
-        if "04 / 10" not in page.locator("#stageText").inner_text():
-            raise RuntimeError("Expected stage 4 preview")
+        if "01 / 10" not in page.locator("#stageText").inner_text():
+            raise RuntimeError("Expected first stage without fabricated progression")
+        # Predictive ballistics: pin=114, wind=85 lands near the first target.
+        # The ensuing destruction must be measured from the real game.
+        page.locator("#pin").evaluate("""el => {
+            el.value = "114"; el.dispatchEvent(new Event("input", {bubbles: true}));
+        }""")
         page.locator("#fire").click()
         shots+=1
         page.wait_for_timeout(6500)
@@ -65,6 +69,8 @@ def main():
         page.wait_for_timeout(8500)
         state=page.locator("#status").inner_text()
         percent=page.locator("#percentText").inner_text()
+        if int(percent.rstrip("%")) <= 0:
+            raise RuntimeError("Gameplay footage had 0% destruction; retune the aim")
         video=page.video
         context.close()
         if errors:
@@ -93,7 +99,7 @@ def main():
         "game_id":"catapult","timestamp":datetime.now(timezone.utc).isoformat(),
         "source_sha256":source_hash,"status":"passed",
         "capture_method":"Playwright Chromium record_video of the real game",
-        "stage_recorded":"04 / 10 (moving balloons stage)",
+        "stage_recorded":"01 / 10 (unmodified starter progression; no cheats)",
         "shots_fired":shots,"final_status_display":state,
         "final_destruction_percentage_display":percent,
         "file":"videos/catapult/gameplay.mp4",
