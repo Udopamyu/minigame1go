@@ -117,8 +117,32 @@ def view(browser, url, name, width, height, result):
     page.wait_for_timeout(180)
     check(result, f"{name}: launch started",
           page.locator("#status").inner_text() in ("winding", "swing", "flight", "settle"))
+    check(result, f"{name}: pin setting locked during shot",
+          page.locator("#pin").is_disabled())
+    check(result, f"{name}: wind setting locked during shot",
+          page.locator("#wind").is_disabled())
+    check(result, f"{name}: upgrades locked during shot",
+          page.locator('[data-buy="cw"]').is_disabled())
     page.wait_for_timeout(1450)
     page.screenshot(path=str(OUT / f"{name}-firing.png"), full_page=True)
+    if name == "desktop":
+        # Verify the whole actual shot finishes, then controls unlock.
+        try:
+            page.wait_for_function(
+                "() => !document.querySelector('#fire').disabled",
+                timeout=35000)
+            check(result, "desktop: shot completes and fire unlocks", True)
+            check(result, "desktop: pin unlocks after shot",
+                  page.locator("#pin").is_enabled())
+            check(result, "desktop: wind unlocks after shot",
+                  page.locator("#wind").is_enabled())
+            shots = page.evaluate("""() => {
+                const saved = JSON.parse(localStorage.getItem('pixel-trebuchet-v03'));
+                return saved && saved.shots || 0;
+            }""")
+            check(result, "desktop: completed shot persisted", shots >= 1, shots)
+        except Exception as exc:
+            check(result, "desktop: shot completes and fire unlocks", False, str(exc))
     check(result, f"{name}: no JavaScript exceptions", len(errors) == 0, errors)
     context.close()
 
