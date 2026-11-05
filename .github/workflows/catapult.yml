@@ -1,0 +1,58 @@
+name: Catapult four-team verification
+
+on:
+  push:
+    paths:
+      - 'games/catapult/**'
+      - 'scripts/verify_catapult.py'
+      - 'scripts/evaluate_catapult.py'
+      - 'scripts/record_catapult.py'
+      - '.github/workflows/catapult.yml'
+  pull_request:
+    paths:
+      - 'games/catapult/**'
+      - 'scripts/verify_catapult.py'
+      - 'scripts/evaluate_catapult.py'
+      - 'scripts/record_catapult.py'
+      - '.github/workflows/catapult.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  game-evaluation-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout game and rules
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser dependencies
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Game evaluation department - actual browser checks
+        run: python scripts/verify_catapult.py
+      - name: Game evaluation department - release decision
+        run: python scripts/evaluate_catapult.py
+      - name: Video department - real gameplay capture
+        run: python scripts/record_catapult.py
+      - name: Upload evaluation evidence and video
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catapult-four-team-evidence
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            evaluation/catapult/
+            videos/catapult/gameplay.mp4
+            videos/catapult/recording.json
+            videos/catapult/script.md
+            videos/catapult/post-draft.md
