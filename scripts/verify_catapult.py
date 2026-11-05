@@ -64,6 +64,26 @@ def view(browser, url, name, width, height, result):
     check(result, f"{name}: no horizontal overflow",
           dimensions["width"] <= dimensions["viewport"] + 2, dimensions)
     page.screenshot(path=str(OUT / f"{name}-start.png"), full_page=True)
+    # Keep stage HUD, target preview and the floating upgrade button separate.
+    overlaps = page.evaluate("""() => {
+      const rect = el => el.getBoundingClientRect();
+      const overlap = (a, b) => {
+        const x = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+        const y = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+        return Math.round(x * y);
+      };
+      const hud = rect(document.querySelector('.viewtop'));
+      const target = rect(document.querySelector('.target-inset'));
+      const upgrade = rect(document.querySelector('#openShop'));
+      return {hud_target:overlap(hud,target),hud_upgrade:overlap(hud,upgrade),
+              upgrade_target:overlap(upgrade,target)};
+    }""")
+    check(result, f"{name}: HUD does not cover target preview",
+          overlaps["hud_target"] == 0, overlaps)
+    if width < 880:
+        check(result, f"{name}: mobile upgrade button does not cover HUD",
+              overlaps["hud_upgrade"] == 0, overlaps)
+
     if name == "mobile":
         check(result, "mobile: upgrade button visible", page.locator("#openShop").is_visible())
         page.locator("#openShop").click()
@@ -72,8 +92,22 @@ def view(browser, url, name, width, height, result):
         page.locator("#closeShop").click()
         check(result, "mobile: upgrade panel closes",
               not page.locator("#shop").evaluate("(el)=>el.classList.contains('open')"))
+        page.locator("#openShop").focus()
+        page.keyboard.press("Space")
+        check(result, "mobile: Space activates focused upgrade button",
+              page.locator("#shop").evaluate("(el)=>el.classList.contains('open')"))
+        check(result, "mobile: Space on upgrade does not fire",
+              page.locator("#fire").is_enabled())
+        page.locator("#closeShop").click()
     else:
         check(result, "desktop: upgrade panel visible", page.locator("#shop").is_visible())
+        original_gold = page.locator("#goldText").inner_text()
+        page.locator('[data-buy="cw"]').focus()
+        page.keyboard.press("Space")
+        check(result, "desktop: Space activates focused purchase button",
+              page.locator("#goldText").inner_text() != original_gold)
+        check(result, "desktop: purchase does not fire",
+              page.locator("#fire").is_enabled())
     page.locator("#cameraSlide").evaluate("""el => {
         el.value = '80'; el.dispatchEvent(new Event('input', {bubbles: true}));
     }""")
@@ -104,6 +138,9 @@ def stage_check(browser, url, stage_zero_based, result):
     check(result, f"stage {stage_zero_based+1}: state loads",
           wanted in page.locator("#stageText").inner_text())
     check(result, f"stage {stage_zero_based+1}: fire enabled", page.locator("#fire").is_enabled())
+    if stage_zero_based >= 3:
+        check(result, f"stage {stage_zero_based+1}: balloon target in objective",
+              "🎈" in page.locator("#goalText").inner_text())
     check(result, f"stage {stage_zero_based+1}: no exceptions", not errors, errors)
     if stage_zero_based == 3:
         page.screenshot(path=str(OUT / "stage4-balloon.png"))
@@ -124,9 +161,11 @@ def main():
             browser = p.chromium.launch(**kw)
             try:
                 view(browser, url, "mobile", 390, 844, result)
+                view(browser, url, "narrow", 320, 700, result)
+                view(browser, url, "tablet", 768, 1024, result)
                 view(browser, url, "desktop", 1280, 800, result)
-                stage_check(browser, url, 3, result)
-                stage_check(browser, url, 9, result)
+                for stage in range(10):
+                    stage_check(browser, url, stage, result)
             finally:
                 browser.close()
     except Exception as exc:
