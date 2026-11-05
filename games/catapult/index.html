@@ -30,7 +30,7 @@ header .brand small{font-size:8px;letter-spacing:1.25px}.mechanic,.shop-note,.up
 .shop{padding:13px 12px 23px}.shop-head{margin-bottom:10px}.upgrades{gap:7px}.upgrade{padding:8px 9px}
 .upgrade-title b{font-size:12px}.upgrade-bottom{margin-top:8px}.prog{gap:2px}.upgrade .tune-row{display:flex;align-items:center;gap:8px;margin:3px 0 1px;min-height:17px}.upgrade .tune-row input{flex:1;min-width:0;accent-color:var(--accent);height:20px}.upgrade .tune-row strong{width:47px;text-align:right;color:var(--accent);font:700 11px 'Courier New',monospace}
 .upgrade .tune-row .not-owned{display:block;height:1px}.fire{letter-spacing:2px}
-@media(max-width:880px){.target-inset{top:8px;right:7px;width:clamp(140px,37%,185px);border-width:2px}.target-caption{height:17px;line-height:15px;font-size:10px}.viewtop{top:6px;left:6px}.viewtop .pixelbox{font-size:9px;padding:4px 5px}.footer-controls{padding:11px 11px 8px}.ammo-row{padding:0 11px 14px}.ammo-btn{font-size:11px;padding:7px 3px}.shop.open .upgrade{padding:8px 10px}}
+@media(max-width:880px){.target-inset{top:8px;right:7px;width:clamp(140px,37%,185px);border-width:2px}.target-caption{height:17px;line-height:15px;font-size:10px}.viewtop{top:54px;left:8px;max-width:calc(100% - clamp(140px,37%,185px) - 24px);flex-direction:column;align-items:flex-start}.viewtop .pixelbox{font-size:9px;padding:4px 5px}.footer-controls{padding:11px 11px 8px}.ammo-row{padding:0 11px 14px}.ammo-btn{font-size:11px;padding:7px 3px}.shop.open .upgrade{padding:8px 10px}}
 @media(max-width:370px){.target-inset{width:140px}.viewtop{max-width:42%;display:block}.viewtop .pixelbox{display:inline-block;margin-bottom:5px}}
 </style></head>
 <body><header><div class="brand"><b>投石機研究所</b><small>PIXEL TREBUCHET</small></div><div class="stats"><div class="stat">STAGE<b id="stageText">01 / 10</b></div><div class="stat">GOLD<b id="goldText">120 G</b></div><div class="stat">破壊率<b id="percentText">0%</b></div></div></header>
@@ -221,7 +221,7 @@ $('ammoRow').onclick=e=>{const el=e.target.closest('[data-ammo]');if(el)chooseAm
 $('openShop').onclick=()=>$('shop').classList.add('open');$('closeShop').onclick=()=>$('shop').classList.remove('open');$('next').onclick=()=>nextStage(false);$('showShop').onclick=()=>nextStage(true);
 $('sound').onclick=()=>{save.sound=!save.sound;$('sound').textContent=save.sound?'♪ ON':'♪ OFF';store()};$('sound').textContent=save.sound?'♪ ON':'♪ OFF';
 $('reset').onclick=()=>{if(!confirm('所持金・強化・ステージを初期化しますか？'))return;save=structuredClone(BASE);store();loadStage();$('shop').classList.remove('open')};
-window.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&!(e.target instanceof HTMLInputElement)){e.preventDefault();shoot()}});
+window.addEventListener('keydown',e=>{if(e.code!=='Space'||e.repeat||e.altKey||e.ctrlKey||e.metaKey)return;if(e.target instanceof Element&&e.target.closest('button,input,textarea,select,a,[contenteditable]'))return;e.preventDefault();shoot()});
 
 loadStage();requestAnimationFrame(tick);
 })();
