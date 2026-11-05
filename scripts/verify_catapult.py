@@ -84,7 +84,7 @@ def view(browser, url, name, width, height, result):
         check(result, f"{name}: mobile upgrade button does not cover HUD",
               overlaps["hud_upgrade"] == 0, overlaps)
 
-    if name == "mobile":
+    if width < 880:
         check(result, "mobile: upgrade button visible", page.locator("#openShop").is_visible())
         page.locator("#openShop").click()
         check(result, "mobile: upgrade panel opens",
