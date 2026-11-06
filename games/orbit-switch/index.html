@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#090f22">
+<meta name="description" content="ORBIT SWITCH — タップひとつで内側と外側の軌道を切り替える30秒サバイバル。無料・広告なし。">
+<title>ORBIT SWITCH | ミニゲーム1GO #003</title>
+<style>
+:root{color-scheme:dark;--bg:#090f22;--panel:#111b32;--line:#2e405d;--text:#e9f5ff;--muted:#91a7be;--cyan:#68f1f5;--amber:#ffd179;--red:#ff6385}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;min-height:100%;background:var(--bg);overscroll-behavior:none}
+body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);background:radial-gradient(circle at 50% 20%,#1e3150 0,#0b1327 47%,#090f22 80%);display:flex;justify-content:center;align-items:center;padding:12px 10px calc(12px + env(safe-area-inset-bottom))}
+button{font:inherit;cursor:pointer;touch-action:manipulation}
+.shell{width:min(100%,460px);margin:auto}
+.brand{display:flex;align-items:center;justify-content:space-between;padding:2px 3px 11px}
+.brand-left{display:flex;gap:9px;align-items:center}
+.logo{width:29px;height:29px;border:1px solid #53809b;border-radius:9px;display:grid;place-items:center;color:var(--cyan);font-weight:900;box-shadow:inset 0 0 12px #1c5473}
+.brand strong{display:block;font-size:12px;letter-spacing:2px}
+.brand small{display:block;font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-top:2px}
+.sound{border:1px solid #394d66;background:#17233a;color:#bcd3e5;border-radius:11px;min-width:66px;padding:8px 10px;font-size:11px;font-weight:800}
+.metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:8px}
+.metric{background:linear-gradient(180deg,#16223a,#111b31);border:1px solid #2d405b;border-radius:12px;padding:8px 11px;min-height:60px;box-shadow:0 5px 13px #0002}
+.metric .label{font-size:9px;letter-spacing:1.6px;color:#92adc4;font-weight:800}
+.metric .value{display:block;font-size:25px;line-height:1.25;font-weight:900;letter-spacing:1px;font-variant-numeric:tabular-nums}
+.metric .unit{font-size:11px;color:#a8c8da;margin-left:2px}
+.metric:last-child .value{font-size:21px;letter-spacing:4px;color:var(--red);white-space:nowrap}
+.board{position:relative;border:1px solid #38516d;border-radius:20px;overflow:hidden;background:#0b1730;box-shadow:0 18px 44px #0006,inset 0 0 42px #1a3459}
+canvas{display:block;width:100%;aspect-ratio:390/520;max-height:min(64svh,560px);object-fit:contain;touch-action:none;user-select:none}
+.board:after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:20px;box-shadow:inset 0 0 0 1px #fff1}
+.board-label{position:absolute;top:12px;left:14px;display:flex;align-items:center;gap:7px;font-size:10px;letter-spacing:2px;font-weight:800;color:#9cc7e7;pointer-events:none}
+.pip{width:6px;height:6px;border-radius:50%;background:#6af2e7;box-shadow:0 0 9px #6af2e7}
+.stage-tag{position:absolute;top:10px;right:12px;font-size:10px;letter-spacing:1px;color:#e9cb83;border:1px solid #786445;background:#3a30245c;padding:4px 9px;border-radius:20px;pointer-events:none}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;background:linear-gradient(180deg,#0b1423b5 0%,#0b1428e9 47%,#091528ef 100%);text-align:center;z-index:2}
+.overlay[hidden]{display:none}
+.eyebrow{font-size:10px;letter-spacing:3px;font-weight:900;color:var(--cyan);margin-bottom:9px}
+.overlay h1{font-size:clamp(27px,8vw,42px);line-height:1.06;letter-spacing:1px;margin:0 0 7px;font-weight:950;text-shadow:0 0 22px #39c9fb4a}
+.overlay h1 span{color:var(--cyan)}
+.ja{font-size:13px;color:#a9c6dd;font-weight:700;margin:0 0 25px;letter-spacing:2px}
+.tutorial{border:1px solid #3a5773;background:#15253dc7;border-radius:16px;padding:15px 18px;margin-bottom:22px;max-width:300px;width:100%}
+.orbits{display:flex;align-items:center;justify-content:center;gap:15px;font-size:13px;font-weight:900;margin-bottom:10px}
+.dot{width:12px;height:12px;display:inline-block;border:3px solid var(--cyan);border-radius:50%;vertical-align:middle;margin-right:5px}
+.dot.outer{border-color:var(--amber)}
+.tutorial p{font-size:12px;line-height:1.85;color:#c1d9e8;margin:0}
+.tutorial .warning{color:#ff8ca0;font-weight:800}
+.cta{border:0;background:linear-gradient(130deg,#79fff5,#63bcef);color:#0c2841;border-radius:15px;min-height:51px;padding:10px 25px;font-size:15px;font-weight:1000;letter-spacing:1.2px;box-shadow:0 6px 0 #258eaf,0 12px 30px #22bff341}
+.cta:active{transform:translateY(3px);box-shadow:0 3px 0 #258eaf}
+.subtext{font-size:10px;color:#809eb6;margin-top:16px;letter-spacing:.6px}
+#result-title{font-size:31px}
+#result-summary{font-size:14px;color:#d4e6f4;line-height:2;margin-bottom:15px}
+#result-best{font-size:12px;color:var(--amber);margin:-2px 0 22px}
+.controls{display:flex;gap:9px;align-items:stretch;margin-top:10px}
+.switch{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(180deg,#173f5c,#132b49);border:1px solid #4ba7b1;border-radius:15px;color:#e3feff;padding:11px 12px;min-height:61px;font-weight:900;font-size:15px;letter-spacing:1px;box-shadow:inset 0 1px #ffffff1c}
+.switch:active{background:#225571;transform:translateY(1px)}
+.switch:disabled{opacity:.48;cursor:default}
+.switch .arrows{font-size:23px;color:var(--cyan)}
+.how{flex:0 0 109px;border:1px solid #354960;border-radius:15px;display:grid;place-items:center;background:#101b2e;color:#c4d7e8;font-size:11px;line-height:1.5;text-align:center}
+.bottom{display:flex;justify-content:space-between;padding:10px 4px 0;font-size:10px;letter-spacing:.5px;color:#7795ae}
+.bottom strong{color:#b4d2e4}
+@media (max-height:740px){body{padding-top:5px;padding-bottom:5px}.brand{padding-bottom:5px}.metric{min-height:49px;padding:6px 9px}.metric .value{font-size:21px}.metrics{margin-bottom:6px}.controls{margin-top:6px}.switch{min-height:50px}.board canvas{max-height:calc(100svh - 222px)}.bottom{padding-top:4px}.overlay{padding:13px}.overlay h1{font-size:30px}.ja{margin-bottom:12px}.tutorial{padding:10px 13px;margin-bottom:16px}.subtext{margin-top:10px}}
+@media (prefers-reduced-motion:reduce){.cta,.switch{transition:none}}
+</style>
+</head>
+<body data-state="ready">
+<main class="shell">
+ <header class="brand">
+  <div class="brand-left"><div class="logo" aria-hidden="true">✦</div><div><strong>MINIGAME 1GO <span style="color:#779fb8">/ 003</span></strong><small>ORBITAL SURVIVAL SYSTEM</small></div></div>
+  <button id="sound-button" class="sound" type="button" aria-pressed="false">♪ OFF</button>
+ </header>
+ <section class="metrics" aria-label="ゲーム情報">
+  <div class="metric"><div class="label">TIME</div><span class="value"><span id="time-left">30</span><span class="unit">s</span></span></div>
+  <div class="metric"><div class="label">SCORE</div><span class="value" id="score">000</span></div>
+  <div class="metric"><div class="label">LIVES</div><span class="value" id="hearts" aria-label="残り3機">♥♥♥</span></div>
+ </section>
+ <section class="board" aria-label="ゲーム盤面">
+  <canvas id="game" width="780" height="1040" aria-label="中心を回る衛星。タップで内外の軌道を切り替え、赤い障害物を避ける" tabindex="0"></canvas>
+  <div class="board-label"><span class="pip"></span> LIVE ORBIT</div><div class="stage-tag" id="phase">SECTOR 01</div>
+  <div class="overlay" id="intro">
+   <div class="eyebrow">ONE TAP / TWO ORBITS</div>
+   <h1>ORBIT <span>SWITCH</span></h1>
+   <p class="ja">軌道スイッチ</p>
+   <div class="tutorial">
+    <div class="orbits"><span><i class="dot"></i>内側</span><span>⇄</span><span><i class="dot outer"></i>外側</span></div>
+    <p>タップで軌道を切り替えよう。<br><span class="warning">赤いブロック</span>を避け、<span style="color:#76f2ed">光る星</span>を集める。<br>30秒生き残れ！ ミスは3回まで。</p>
+   </div>
+   <button id="start-button" class="cta" type="button">▶ MISSION START</button>
+   <div class="subtext">TAP / SPACE · 無料 · 広告なし</div>
+  </div>
+  <div class="overlay" id="outro" hidden>
+   <div class="eyebrow" id="result-eyebrow">MISSION REPORT</div>
+   <h1 id="result-title">GAME OVER</h1>
+   <p class="ja" id="result-label">また挑戦しよう</p>
+   <div id="result-summary">スコア 000<br>生存 0.0 秒</div>
+   <div id="result-best">BEST 000</div>
+   <button id="restart-button" class="cta" type="button">↻ RETRY MISSION</button>
+   <div class="subtext">タップで再挑戦・Spaceでも開始</div>
+  </div>
+ </section>
+ <section class="controls" aria-label="操作">
+  <button id="switch-button" class="switch" type="button" disabled><span class="arrows" aria-hidden="true">⇄</span> <span id="switch-label">軌道を切り替える</span></button>
+  <div class="how">画面タップ<br>または Space</div>
+ </section>
+ <footer class="bottom"><span>✦ COLLECT STARS</span><span>BEST <strong id="best-score">000</strong></span></footer>
+ <div id="announcer" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap"></div>
+</main>
+<script>
+(() => {
+"use strict";
+const W=390,H=520,CX=195,CY=265,INNER=95,OUTER=154,DURATION=30;
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
+const $=id=>document.getElementById(id);
+const el={intro:$("intro"),outro:$("outro"),start:$("start-button"),retry:$("restart-button"),toggle:$("switch-button"),sound:$("sound-button"),phase:$("phase"),time:$("time-left"),score:$("score"),lives:$("hearts"),best:$("best-score"),switchLabel:$("switch-label"),resultTitle:$("result-title"),resultLabel:$("result-label"),resultSummary:$("result-summary"),resultBest:$("result-best"),announcer:$("announcer")};
+const params=new URLSearchParams(location.search);
+const testMode=params.get("e2e")==="1";
+let seed=(Number(params.get("seed"))||730021)>>>0;
+let rngSeed=seed;
+function rand(){rngSeed^=rngSeed<<13;rngSeed^=rngSeed>>>17;rngSeed^=rngSeed<<5;return (rngSeed>>>0)/4294967296;}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function lerp(a,b,t){return a+(b-a)*t;}
+function angleAt(p){return -Math.PI/2+p;}
+function radius(l){return l===0?INNER:OUTER;}
+let state="ready",elapsed=0,progress=0,score=0,stars=0,lives=3,lane=0,visualLane=0,cooldown=0,invulnerable=0,flash=0,shake=0,nextGate=2.2,events=[],particles=[],trail=[],lastTs=0,ambient=0,muted=true,audio=null;
+let best=0;
+try{best=Number(localStorage.getItem("orbit-switch-best")||0)||0;}catch(_){}
+function pad(n){return String(n).padStart(3,"0");}
+function stats(){
+ el.time.textContent=String(Math.ceil(Math.max(0,DURATION-elapsed)));
+ el.score.textContent=pad(score);
+ el.lives.textContent="♥".repeat(lives)+"♡".repeat(3-lives);
+ el.lives.setAttribute("aria-label","残り"+lives+"機");
+ el.best.textContent=pad(best);
+ el.switchLabel.textContent=lane===0?"内側 → 外側":"外側 → 内側";
+ el.phase.textContent="SECTOR 0"+(Math.min(3,Math.floor(elapsed/10)+1));
+}
+function setState(next){state=next;document.body.dataset.state=next;el.intro.hidden=next!=="ready";el.outro.hidden=next!=="finished";el.toggle.disabled=next!=="playing";}
+function start(){
+ rngSeed=seed;elapsed=0;progress=0;score=0;stars=0;lives=3;lane=0;visualLane=0;cooldown=0;invulnerable=0;flash=0;shake=0;nextGate=2.2;events=[];particles=[];trail=[];lastTs=0;
+ setState("playing");schedule();stats();el.announcer.textContent="ゲーム開始。30秒生き残ろう。";
+ canvas.focus({preventScroll:true});tone(420,.07,"sine",.05);
+}
+function finish(won){
+ if(state!=="playing")return;
+ setState("finished");
+ if(score>best){best=score;try{localStorage.setItem("orbit-switch-best",String(best));}catch(_){}}
+ stats();
+ el.resultTitle.textContent=won?"MISSION CLEAR":"GAME OVER";
+ el.resultTitle.style.color=won?"#78fff2":"#fff0f3";
+ el.resultLabel.textContent=won?"30秒生存！軌道マスター":"次は星をもっと集めよう";
+ el.resultSummary.innerHTML="スコア <strong>"+pad(score)+"</strong>　/　星 "+stars+" 個<br>生存 "+elapsed.toFixed(1)+" 秒";
+ el.resultBest.textContent="PERSONAL BEST "+pad(best);
+ el.announcer.textContent=won?"30秒生存成功。スコア"+score:"ゲームオーバー。スコア"+score;
+ tone(won?690:230,.20,"triangle",.08);
+}
+function schedule(){
+ const lookahead=3.65;
+ while(nextGate<=progress+lookahead && nextGate<120){
+  const n=events.length;
+  let hazardLane=n===0?0:(rand()<.52?0:1);
+  if(n>1 && events[n-1].hazardLane===events[n-2].hazardLane){hazardLane=1-events[n-1].hazardLane;}
+  events.push({at:nextGate,hazardLane,resolved:false,id:n});
+  const speed=angularSpeed();
+  nextGate+=Math.max(1.58,speed*(1.12+rand()*.29));
+ }
+}
+function angularSpeed(){return elapsed<10?1.48:elapsed<20?1.78:2.04;}
+function tone(freq,dur,type,vol){
+ if(muted)return;
+ try{
+  if(!audio)audio=new(window.AudioContext||window.webkitAudioContext)();
+  if(audio.state==="suspended")audio.resume();
+  const osc=audio.createOscillator(),gain=audio.createGain(),t=audio.currentTime;
+  osc.type=type;osc.frequency.setValueAtTime(freq,t);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(60,freq*.72),t+dur);
+  gain.gain.setValueAtTime(vol,t);gain.gain.exponentialRampToValueAtTime(.001,t+dur);
+  osc.connect(gain).connect(audio.destination);osc.start(t);osc.stop(t+dur);
+ }catch(_){}
+}
+function spawnBurst(x,y,kind){
+ for(let i=0;i<15;i++){
+  const a=rand()*Math.PI*2,s=30+rand()*125;
+  particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.5+rand()*.4,max:.9,color:kind==="hit"?"#ff6588":"#86fff3"});
+ }
+}
+function switchOrbit(){
+ if(state!=="playing"||cooldown>0)return;
+ lane=1-lane;cooldown=.15;
+ const r=radius(lane),a=angleAt(progress);
+ spawnBurst(CX+Math.cos(a)*r,CY+Math.sin(a)*r,"star");
+ stats();tone(lane?560:430,.09,"sine",.035);
+}
+function update(dt){
+ if(state!=="playing")return;
+ dt=clamp(dt,0,.05);
+ const prev=progress;
+ elapsed=Math.min(DURATION,elapsed+dt);
+ progress+=angularSpeed()*dt;
+ cooldown=Math.max(0,cooldown-dt);
+ invulnerable=Math.max(0,invulnerable-dt);
+ flash=Math.max(0,flash-dt);
+ shake=Math.max(0,shake-dt);
+ visualLane=lerp(visualLane,lane,Math.min(1,dt*13));
+ schedule();
+ for(const ev of events){
+  if(ev.resolved||ev.at>progress)continue;
+  if(ev.at>=prev-.1){
+   const a=angleAt(ev.at),r=radius(ev.hazardLane);
+   if(lane===ev.hazardLane && invulnerable<=0){
+    lives--;flash=.36;shake=.22;invulnerable=.48;
+    spawnBurst(CX+Math.cos(a)*r,CY+Math.sin(a)*r,"hit");
+    tone(170,.23,"sawtooth",.1);
+    if(lives<=0){ev.resolved=true;stats();finish(false);break;}
+   }else if(lane!==ev.hazardLane){
+    score+=10;stars++;const safeR=radius(1-ev.hazardLane);
+    spawnBurst(CX+Math.cos(a)*safeR,CY+Math.sin(a)*safeR,"star");
+    tone(780,.12,"sine",.06);
+   }
+  }
+  ev.resolved=true;
+ }
+ events=events.filter(e=>!e.resolved||e.at>progress-.42);
+ const ar=lerp(INNER,OUTER,visualLane),a=angleAt(progress);
+ trail.unshift({x:CX+Math.cos(a)*ar,y:CY+Math.sin(a)*ar,life:1});
+ if(trail.length>22)trail.length=22;
+ for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.98;p.vy*=.98;p.life-=dt;}
+ particles=particles.filter(p=>p.life>0);
+ for(const p of trail)p.life-=dt*3.1;
+ trail=trail.filter(p=>p.life>0);
+ stats();
+ if(elapsed>=DURATION&&state==="playing")finish(true);
+}
+const starsBg=Array.from({length:75},(_,i)=>({x:(i*73.37+19)%W,y:(i*131.7+43)%H,r:.4+(i%3)*.35,f:.35+(i%7)*.12}));
+function ring(r,col,line=1,dash=[]){
+ ctx.beginPath();ctx.arc(CX,CY,r,0,Math.PI*2);
+ ctx.setLineDash(dash);ctx.lineWidth=line;ctx.strokeStyle=col;ctx.stroke();ctx.setLineDash([]);
+}
+function polygon(x,y,n,r,rotation=0){
+ ctx.beginPath();
+ for(let i=0;i<n;i++){const a=rotation+i*Math.PI*2/n;const px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;i?ctx.lineTo(px,py):ctx.moveTo(px,py);}
+ ctx.closePath();
+}
+function draw(){
+ ambient+=.012;ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,W,H);
+ const bg=ctx.createRadialGradient(CX,CY,10,CX,CY,290);
+ bg.addColorStop(0,"#1e3457");bg.addColorStop(.6,"#0d1f3b");bg.addColorStop(1,"#081429");
+ ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ ctx.lineWidth=.5;ctx.strokeStyle="#253e594d";
+ for(let x=0;x<W;x+=26){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+ for(let y=0;y<H;y+=26){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+ for(const p of starsBg){ctx.globalAlpha=clamp(p.f+Math.sin(ambient+p.x)*.20,.15,.9);ctx.fillStyle="#c0e9ff";ctx.fillRect(p.x,p.y,p.r,p.r);}
+ ctx.globalAlpha=1;
+ ctx.save();
+ if(shake>0){ctx.translate((rand()-.5)*shake*14,(rand()-.5)*shake*14);}
+ ring(OUTER+13,"#3a688144",.7,[3,9]);ring(INNER-13,"#3a688144",.7,[3,9]);
+ ring(OUTER,"#557f9a",1.5);ring(INNER,"#557f9a",1.5);
+ ring(OUTER,"#83f4ff1b",12);ring(INNER,"#83f4ff16",9);
+ const progressAngle=angleAt(progress);
+ ctx.lineCap="round";
+ for(let l=0;l<2;l++){
+  ctx.beginPath();ctx.arc(CX,CY,radius(l),progressAngle-.62,progressAngle+.20);
+  ctx.strokeStyle=l===lane?"#81f9f5":"#f5cc825e";ctx.lineWidth=l===lane?2.8:1.6;ctx.stroke();
+ }
+ ctx.lineCap="butt";
+ // Core, a slowly spinning geometric reactor.
+ const glow=ctx.createRadialGradient(CX,CY,9,CX,CY,77);
+ glow.addColorStop(0,"#30667e99");glow.addColorStop(1,"#27608200");
+ ctx.fillStyle=glow;ctx.beginPath();ctx.arc(CX,CY,77,0,Math.PI*2);ctx.fill();
+ ctx.save();ctx.translate(CX,CY);ctx.rotate(ambient*.23);
+ for(let i=0;i<8;i++){
+  const a=i*Math.PI/4;ctx.beginPath();ctx.moveTo(Math.cos(a)*32,Math.sin(a)*32);
+  ctx.lineTo(Math.cos(a+.19)*43,Math.sin(a+.19)*43);
+  ctx.strokeStyle=i%2?"#477b9d":"#61bacc";ctx.lineWidth=2.5;ctx.stroke();
+ }
+ ctx.restore();
+ polygon(CX,CY,6,30,ambient*.12);ctx.fillStyle="#142f4f";ctx.fill();ctx.strokeStyle="#568dab";ctx.lineWidth=2;ctx.stroke();
+ polygon(CX,CY,4,13,Math.PI/4);ctx.fillStyle="#74f7e5";ctx.shadowColor="#74f7e5";ctx.shadowBlur=18;ctx.fill();ctx.shadowBlur=0;
+ ctx.textAlign="center";ctx.font="800 10px ui-sans-serif,system-ui";ctx.fillStyle="#9ab8cb";ctx.fillText("CORE",CX,CY+57);
+ for(const ev of events){
+  if(ev.resolved||ev.at<progress-.3||ev.at>progress+3.65)continue;
+  const a=angleAt(ev.at),r=radius(ev.hazardLane);
+  const early=clamp((ev.at-progress)/.85,0,1);
+  ctx.globalAlpha=1-early*.27;
+  // Warning arc has a finite width matching the collision line crossing.
+  ctx.beginPath();ctx.arc(CX,CY,r,a-.16,a+.16);
+  ctx.strokeStyle="#ff6685";ctx.lineWidth=16;ctx.lineCap="round";ctx.shadowColor="#ff3666";ctx.shadowBlur=12;ctx.stroke();ctx.shadowBlur=0;ctx.lineCap="butt";
+  const hx=CX+Math.cos(a)*r,hy=CY+Math.sin(a)*r;
+  ctx.save();ctx.translate(hx,hy);ctx.rotate(a+Math.PI/2);
+  ctx.fillStyle="#442137";ctx.fillRect(-12,-7,24,14);
+  ctx.strokeStyle="#fff0f3";ctx.lineWidth=1.4;ctx.strokeRect(-12,-7,24,14);
+  for(let k=-7;k<=7;k+=7){ctx.beginPath();ctx.moveTo(k-2,-4);ctx.lineTo(k+3,4);ctx.strokeStyle="#ff8fab";ctx.stroke();}
+  ctx.restore();
+  const sr=radius(1-ev.hazardLane),sx=CX+Math.cos(a)*sr,sy=CY+Math.sin(a)*sr;
+  const pulse=8+Math.sin(ambient*3+ev.id)*1.5;
+  polygon(sx,sy,4,pulse,Math.PI/4);
+  ctx.fillStyle="#77fff4";ctx.shadowColor="#4ff9f1";ctx.shadowBlur=19;ctx.fill();ctx.shadowBlur=0;
+  ctx.globalAlpha=1;
+ }
+ for(let i=trail.length-1;i>=0;i--){const p=trail[i];ctx.globalAlpha=p.life*.40;ctx.beginPath();ctx.arc(p.x,p.y,2.5+(p.life*4),0,Math.PI*2);ctx.fillStyle="#7cf7f8";ctx.fill();}
+ ctx.globalAlpha=1;
+ if(state==="playing"||state==="finished"){
+  const a=angleAt(progress),r=lerp(INNER,OUTER,visualLane),x=CX+Math.cos(a)*r,y=CY+Math.sin(a)*r;
+  ctx.beginPath();ctx.arc(x,y,15,0,2*Math.PI);ctx.fillStyle="#58e9fb20";ctx.fill();
+  ctx.save();ctx.translate(x,y);ctx.rotate(a+Math.PI/2);
+  ctx.shadowColor="#7dfff7";ctx.shadowBlur=19;
+  polygon(0,0,3,12,-Math.PI/2);ctx.fillStyle=invulnerable>0?"#fff4ba":"#defeff";ctx.fill();ctx.shadowBlur=0;
+  ctx.strokeStyle="#58eff0";ctx.lineWidth=2;ctx.stroke();
+  ctx.restore();
+ }
+ for(const p of particles){ctx.globalAlpha=clamp(p.life/p.max,0,1);ctx.fillStyle=p.color;ctx.fillRect(p.x-2,p.y-2,4,4);}
+ ctx.globalAlpha=1;
+ ctx.restore();
+ if(flash>0){ctx.fillStyle="rgba(255,85,118,"+(flash*.35)+")";ctx.fillRect(0,0,W,H);}
+ ctx.fillStyle="#7da3bd";ctx.font="700 10px ui-sans-serif,system-ui";ctx.textAlign="left";ctx.fillText("IN",CX-INNER-22,CY+4);
+ ctx.textAlign="right";ctx.fillText("OUT",CX+OUTER+31,CY+4);
+ ctx.textAlign="center";ctx.font="700 10px ui-sans-serif,system-ui";
+ ctx.fillStyle="#aac6dc";ctx.fillText(state==="playing"?"TAP ANYWHERE TO SWITCH":"A TWO-ORBIT ARCADE",CX,493);
+}
+function frame(ts){
+ const dt=lastTs?Math.min((ts-lastTs)/1000,.045):0;
+ lastTs=ts;if(state==="playing")update(dt);
+ draw();requestAnimationFrame(frame);
+}
+el.start.addEventListener("click",start);
+el.retry.addEventListener("click",start);
+el.toggle.addEventListener("click",switchOrbit);
+canvas.addEventListener("pointerdown",e=>{if(state==="playing"){e.preventDefault();switchOrbit();}});
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
+document.addEventListener("keydown",e=>{
+ if(e.code==="Space"||e.code==="Enter"&&state!=="playing"){
+  if(e.repeat)return;
+  e.preventDefault();
+  if(state==="playing")switchOrbit();
+  else start();
+ }
+});
+el.sound.addEventListener("click",()=>{muted=!muted;el.sound.textContent=muted?"♪ OFF":"♪ ON";el.sound.setAttribute("aria-pressed",String(!muted));if(!muted)tone(630,.10,"sine",.06);});
+document.addEventListener("visibilitychange",()=>{lastTs=0;});
+stats();setState("ready");requestAnimationFrame(frame);
+if(testMode){
+ // Only exposed with explicit ?e2e=1. Never use it for recordings or public claims.
+ window.__orbitTest={
+  snapshot:()=>({state,elapsed,progress,lane,score,lives,stars,best,eventCount:events.length}),
+  advance:seconds=>{for(let t=0;t<seconds*60&&state==="playing";t++)update(1/60);draw();return window.__orbitTest.snapshot();},
+  gates:()=>events.map(e=>({at:e.at,hazardLane:e.hazardLane,resolved:e.resolved}))
+ };
+}
+})();
+</script>
+</body>
+</html>
