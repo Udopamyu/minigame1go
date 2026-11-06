@@ -1,6 +1,6 @@
-# #002 投石機研究所 — 本人テストプレイ手順
+# #002 投石機 — 本人テストプレイ手順
 
-対象: [PR #2](https://github.com/Udopamyu/minigame1go/pull/2) の「PIXEL TREBUCHET」最新版。
+対象: [PR #2](https://github.com/Udopamyu/minigame1go/pull/2) の「投石機」最新版。
 
 ## テスト方法
 
