@@ -43,7 +43,28 @@ const $=id=>document.getElementById(id),canvas=$('game'),ctx=canvas.getContext('
 canvas.width=W;canvas.height=H;
 ctx.imageSmoothingEnabled=false;
 const STAGES=[
- ['木の物見台',58,.54,110,'wood'],['二連の柵',68,.55,150,'wood'],['石積みの塀',80,.56,210,'stone'],['見張りの塔',90,.56,275,'stone'],['橋の関所',101,.59,340,'wood'],['鉄の城門',108,.58,440,'metal'],['高塔の砦',118,.59,560,'stone'],['三重の城壁',125,.61,690,'stone'],['王城の外壁',136,.63,850,'metal'],['最後の大要塞',147,.66,1250,'metal']];
+ ['木の物見台',58,.54,110,'wood'],['二連の柵',68,.55,150,'wood'],['石積みの塀',80,.56,210,'stone'],['見張りの塔',90,.56,275,'stone'],['橋の関所',101,.59,340,'wood'],['峡谷のつり橋',108,.56,440,'wood'],['山上の古城',118,.57,560,'stone'],['戦車の進軍',125,.58,690,'metal'],['赤い峡谷の城塞',136,.59,850,'stone'],['天空の王城',147,.60,1250,'metal']];
+// Later levels have real, collidable elevated foundations. Elevation is in world units.
+const SCENES=[
+ {theme:'plain',height:0,wind:0,gust:0},
+ {theme:'plain',height:0,wind:0,gust:0},
+ {theme:'plain',height:0,wind:0,gust:0},
+ {theme:'plain',height:0,wind:0,gust:0},
+ {theme:'plain',height:0,wind:0,gust:0},
+ {theme:'bridge',height:11,wind:-.22,gust:.08},
+ {theme:'mountain',height:14,wind:.18,gust:.06},
+ {theme:'tank',height:5,wind:-.18,gust:.09},
+ {theme:'canyon',height:10,wind:.24,gust:.08},
+ {theme:'royal',height:12,wind:-.28,gust:.12}
+];
+function scene(){return SCENES[save.stage]||SCENES[0]}
+function terrainHeight(x){
+ const e=scene().height,t=STAGES[save.stage][1];
+ if(!e)return 0;
+ const left=save.stage===5? t-5:t-12, right=save.stage===5?t+29:t+43;
+ return x>=left&&x<=right?e:0;
+}
+function windAt(t){const m=scene();return m.wind + m.gust*Math.sin(t*2.3) +m.gust*.35*Math.sin(t*5.6)}
 const M={wood:{hp:50,gold:17,base:'#a86e43',hi:'#dba36b',dark:'#5f3d35'},stone:{hp:105,gold:34,base:'#829294',hi:'#b5c5ba',dark:'#536c78'},metal:{hp:175,gold:55,base:'#526e87',hi:'#8ca6a8',dark:'#293e59'}};
 const TECH=[
  {id:'cw',title:'▣ 重り増量',desc:'重り100kg → 最大740kg',max:8,price:65,rate:1.62},
@@ -61,13 +82,34 @@ function clampStage(i){return Math.max(0,Math.min(9,i|0))}
 let barriers=[],balloons=[],balloonTotal=0,balloonDown=0,manualCamera=false,camGoal=HOME,blocks=[],targetBounds=null,brokenCount=0,stageGoal=0,stagePaid=false,winAll=false,mode='idle',actionTime=0,clock=0,last=0,sim=null,projectiles=[],impactHold=0,camera=HOME,visualShake=0,flash=0,particles=[],texts=[],preview=null,stageStartCount=0,stageRestored=false;
 const lv=id=>save.active[id]||0,owned=id=>save.lv[id]||0, clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), money=n=>Math.floor(n).toLocaleString('ja-JP'),cost=t=>Math.round(t.price*Math.pow(t.rate,owned(t.id))/5)*5;
 function store(){try{localStorage.setItem(KEY,JSON.stringify(save))}catch{}}
-function addBlock(col,row,mat= 'wood'){return {x:STAGES[save.stage][1]+col*3.4,y:row*3.4,w:3.4,h:3.4,mat,hp:M[mat].hp,max:M[mat].hp,dead:false,fall:false,vy:0,vx:0,rot:0}}
-function blueprint(){let stage=save.stage,list=[],ids=new Set();const add=(x,y,type)=>{let k=x+':'+y;if(ids.has(k))return;ids.add(k);list.push(addBlock(x,y,type))},rect=(x0,x1,y0,y1,mt)=>{for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)add(x,y,mt)},tower=(c,h,mt)=>{rect(c,c+1,0,h-1,mt);rect(c-1,c+2,h,h,mt==='metal'?'stone':'wood')};
- switch(stage){case 0: tower(0,3,'wood');break;case 1:tower(0,3,'wood');tower(4,3,'wood');rect(2,3,0,1,'wood');break;case 2:rect(0,5,0,2,'stone');rect(1,4,3,3,'wood');break;case 3:tower(0,5,'stone');tower(5,4,'wood');rect(2,4,0,1,'stone');break;case 4:tower(0,4,'wood');tower(6,4,'stone');rect(2,5,3,3,'wood');rect(2,5,0,1,'wood');break;case 5:rect(0,6,0,2,'stone');rect(2,4,3,4,'metal');tower(1,4,'stone');break;case 6:tower(0,6,'stone');tower(5,7,'metal');rect(2,4,0,2,'stone');break;case 7:tower(0,5,'stone');tower(4,7,'wood');tower(8,6,'stone');rect(2,7,0,2,'stone');break;case 8:rect(0,10,0,3,'stone');rect(1,9,4,4,'metal');tower(0,7,'metal');tower(9,7,'metal');break;case 9:tower(0,9,'metal');tower(10,9,'metal');rect(2,9,0,5,'stone');rect(3,8,6,7,'metal');break}
- return list}
+function addBlock(col,row,mat= 'wood'){return {x:STAGES[save.stage][1]+col*3.4,y:scene().height+row*3.4,w:3.4,h:3.4,mat,hp:M[mat].hp,max:M[mat].hp,dead:false,fall:false,vy:0,vx:0,rot:0}}
+function blueprint(){
+ let stage=save.stage,list=[],ids=new Set();
+ const add=(x,y,type)=>{let k=x+':'+y;if(ids.has(k))return;ids.add(k);list.push(addBlock(x,y,type))};
+ const rect=(x0,x1,y0,y1,mt)=>{for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)add(x,y,mt)};
+ const tower=(c,h,mt)=>{rect(c,c+1,0,h-1,mt);rect(c-1,c+2,h,h,mt==='metal'?'stone':'wood')};
+ switch(stage){
+ case 0:tower(0,3,'wood');break;
+ case 1:tower(0,3,'wood');tower(4,3,'wood');rect(2,3,0,1,'wood');break;
+ case 2:rect(0,5,0,2,'stone');rect(1,4,3,3,'wood');break;
+ case 3:tower(0,5,'stone');tower(5,4,'wood');rect(2,4,0,1,'stone');break;
+ case 4:tower(0,4,'wood');tower(6,4,'stone');rect(2,5,3,3,'wood');rect(2,5,0,1,'wood');break;
+ // A suspended destructible bridge across a genuine valley, higher than launch level.
+ case 5:tower(0,2,'wood');tower(6,2,'wood');rect(0,7,0,0,'wood');rect(2,5,2,2,'wood');break;
+ // A compact hilltop castle, with battlements instead of a plain vertical wall.
+ case 6:tower(0,4,'stone');tower(5,4,'stone');rect(2,4,0,2,'stone');rect(2,4,3,3,'wood');break;
+ // Battlefield: low bunkers and moving armoured targets.
+ case 7:rect(0,3,0,1,'metal');tower(6,2,'stone');rect(4,7,0,0,'wood');break;
+ // A fortress split into two groups on the canyon mesa.
+ case 8:tower(0,4,'stone');tower(8,4,'stone');rect(2,6,0,2,'wood');rect(2,6,3,3,'stone');break;
+ // Final royal keep with towers, roof and battlements, on an elevated plateau.
+ case 9:tower(0,4,'metal');tower(8,4,'metal');rect(2,7,0,3,'stone');rect(3,6,4,4,'metal');break;
+ }
+ return list;
+}
 function maxCam(){return Math.max(HOME,STAGES[save.stage][1]+62-VIEW*.48)}
 function makeBarriers(){
- const i=save.stage;if(i<1)return [];
+ const i=save.stage;if(i<1||i>=5)return [];
  const x=STAGES[i][1];
  // Unbreakable obstacles: each stage is a distinct trajectory puzzle.
  const layouts=[[],
@@ -83,14 +125,50 @@ function makeBarriers(){
  return layouts[i].map((b,n)=>({...b,x:x+b.x,kind:b.y===0?'pillar':'floating',stripe:n%2}));
 }
 function balloonX(b){return b.x+Math.sin(clock*(b.speed||.6)+b.phase)*(b.range||0)}
-function makeBalloons(){const i=save.stage;if(i<3)return [];
- const n=i>=8?3:i>=5?2:1;
- return Array.from({length:n},(_,j)=>({x:STAGES[i][1]+8+j*13,y:25+j*10+(i-3)*1.6,r:i<5?2.25:2.6,dead:false,phase:j*2.3+1.1,speed:.48+j*.15+i*.035,range:3.5+i*.75}));
+function makeBalloons(){
+ const i=save.stage;if(i<3)return [];
+ if(i===7||i===9){
+  const n=i===7?2:1,t=STAGES[i][1],h=scene().height;
+  return Array.from({length:n},(_,j)=>({
+   kind:'tank',x:t+8+j*11,y:h+2.5,r:2.9,dead:false,
+   phase:j*1.3+.5,speed:.44+j*.09,range:5.5+j*1.5
+  }));
+ }
+ const n=i>=8?2:1;
+ return Array.from({length:n},(_,j)=>({
+  kind:'balloon',x:STAGES[i][1]+8+j*13,
+  y:Math.max(scene().height+12,25+j*10+(i-3)*1.6),
+  r:i<5?2.25:2.6,dead:false,phase:j*2.3+1.1,
+  speed:.48+j*.15+i*.035,range:3.5+i*.75
+ }));
 }
 function drawBarriers(){for(const b of barriers){let x=sx(b.x),y=sy(b.y+b.h),w=b.w*PS,h=b.h*PS;if(x+w<0||x-w>W)continue;rect(x-w/2,y,w,h,'#243545');rect(x-w/2+4,y+3,w-8,h-5,'#66737a');for(let j=4;j<h;j+=13)line(x-w/2+3,y+j,x+w/2-3,y+j,'#364b59',2);}}
-function drawBalloons(){for(const b of balloons){if(b.dead)continue;let trackY=sy(b.y);line(sx(b.x-b.range),trackY,sx(b.x+b.range),trackY,'#d3c0a0',1);let x=sx(balloonX(b)),y=sy(b.y+Math.sin(clock*.8+b.phase)*.5),r=Math.max(7,b.r*PS);rect(x-r*.65,y-r*.85,r*1.3,r*1.55,'#b65c71');rect(x-r*.43,y-r*.7,r*.86,r*1.2,'#f4a7a0');rect(x-2,y+r*.7,4,7,'#ebd5a0');line(x,y+r*.75,x,y+r*1.8,'#ead5a8',2);rect(x-5,y+r*1.7,10,6,'#72543e');}}
+function drawBalloons(){
+ for(const b of balloons){
+  if(b.dead)continue;
+  let x=sx(balloonX(b)),y=sy(b.y+ (b.kind==='tank'?0:Math.sin(clock*.8+b.phase)*.5));
+  let r=Math.max(7,b.r*PS);
+  if(b.kind==='tank'){
+   // Genuine moving, shootable armoured target (uses the existing hit system).
+   rect(x-r*1.5,y-r*.15,r*3,r*.7,'#303947');
+   rect(x-r*1.22,y-r*.85,r*2.44,r*.74,'#657368');
+   rect(x-r*.5,y-r*1.35,r*1.2,r*.5,'#798773');
+   rect(x+r*.1,y-r*1.2,r*1.45,r*.18,'#374d4b');
+   for(let k=-1;k<=1;k++)rect(x+k*r*.75-3,y+r*.2,6,5,'#a1a78e');
+   rect(x-r*1.38,y+r*.38,r*2.76,2,'#c0b08b');
+  }else{
+   let trackY=sy(b.y);
+   line(sx(b.x-b.range),trackY,sx(b.x+b.range),trackY,'#d3c0a0',1);
+   rect(x-r*.65,y-r*.85,r*1.3,r*1.55,'#b65c71');
+   rect(x-r*.43,y-r*.7,r*.86,r*1.2,'#f4a7a0');
+   rect(x-2,y+r*.7,4,7,'#ebd5a0');
+   line(x,y+r*.75,x,y+r*1.8,'#ead5a8',2);
+   rect(x-5,y+r*1.7,10,6,'#72543e');
+  }
+ }
+}
 function segmentHitsCircle(a,b,x,y,r){let dx=b.x-a.x,dy=b.y-a.y,t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy+1e-8),0,1);return Math.hypot(a.x+t*dx-x,a.y+t*dy-y)<=r}
-function extraCollision(p,prev){if(p.gone)return;for(const b of barriers){if(segmentHitsCircle(prev,p,clamp(p.x,b.x-b.w/2,b.x+b.w/2),clamp(p.y,b.y,b.y+b.h),p.r+1)){particlesAt(p.x,p.y,18,'#a4b1b2',6);p.gone=true;visualShake=3;return}}for(const b of balloons){if(b.dead)continue;let y=b.y+Math.sin(clock*.8+b.phase)*.5;if(segmentHitsCircle(prev,p,balloonX(b),y,b.r+p.r)){b.dead=true;balloonDown++;p.gone=true;particlesAt(balloonX(b),y,35,'#f5b1aa',9);toast('BALLOON!',balloonX(b),y+4,'#ffe6a2');save.gold+=120;ui();store();return}}}
+function extraCollision(p,prev){if(p.gone)return;for(const b of barriers){if(segmentHitsCircle(prev,p,clamp(p.x,b.x-b.w/2,b.x+b.w/2),clamp(p.y,b.y,b.y+b.h),p.r+1)){particlesAt(p.x,p.y,18,'#a4b1b2',6);p.gone=true;visualShake=3;return}}for(const b of balloons){if(b.dead)continue;let y=b.kind==='tank'?b.y:b.y+Math.sin(clock*.8+b.phase)*.5;if(segmentHitsCircle(prev,p,balloonX(b),y,b.r+p.r)){b.dead=true;balloonDown++;p.gone=true;particlesAt(balloonX(b),y,35,'#f5b1aa',9);toast(b.kind==='tank'?'TANK!':'BALLOON!',balloonX(b),y+4,'#ffe6a2');save.gold+=b.kind==='tank'?160:120;ui();store();return}}}
 function resetMechanism(){sim=makeMech();projectiles=[];impactHold=0;mode='idle';actionTime=0;camera=manualCamera?camGoal:HOME;preview=predict();}
 function loadStage(){blocks=blueprint();barriers=makeBarriers();balloons=makeBalloons();balloonTotal=balloons.length;balloonDown=0;manualCamera=false;camGoal=HOME;targetBounds={minX:Math.min(...blocks.map(b=>b.x-b.w/2),...balloons.map(b=>b.x-b.range-b.r))-3,maxX:Math.max(...blocks.map(b=>b.x+b.w/2),...balloons.map(b=>b.x+b.range+b.r))+3,maxY:Math.max(30,...blocks.map(b=>b.y+b.h),...balloons.map(b=>b.y+5))};stageStartCount=blocks.length;stageGoal=Math.ceil(stageStartCount*STAGES[save.stage][2]);brokenCount=0;stagePaid=false;winAll=false;particles=[];texts=[];resetMechanism();ui()}
 function makeMech(){let a=save.wind/100;return {th:(181+34*a)*DEG,om:0,phi:0.02,pv:0,sphi:0.04,sv:0,alpha:0,tipAX:0,tipAY:0,trail:[],rel:false}}
@@ -113,7 +191,7 @@ function stepMech(s,dt,withBall=true){let L=lengths(),c=coordinates(s,L),u={x:Ma
  s.sv=clamp(s.sv+sa*dt,-32,32);s.sphi+=s.sv*dt;
  return coordinates(s,L)}
 function launchData(s){let L=lengths(),c=coordinates(s,L);const vx=-L.long*Math.sin(s.th)*s.om+L.sling*Math.cos(s.sphi)*s.sv,vy=L.long*Math.cos(s.th)*s.om+L.sling*Math.sin(s.sphi)*s.sv;let eff=1+lv('sling')*.024;return {x:c.pouch.x,y:c.pouch.y,vx:vx*eff,vy:vy*eff,r:.77+lv('ball')*.055}}
-function predict(){let s=makeMech(),release=save.pin*DEG;for(let i=0;i<2600;i++){stepMech(s,1/240);if(s.th<=release){let b=launchData(s);let trail=[];let p={...b};for(let j=0;j<1500;j++){p.vy-=G/120;p.x+=p.vx/120;p.y+=p.vy/120;if(j%13===0)trail.push([p.x,p.y]);if(p.y<0)break;}return {b,trail,land:p.x};}}return null}
+function predict(){let s=makeMech(),release=save.pin*DEG;for(let i=0;i<2600;i++){stepMech(s,1/240);if(s.th<=release){let b=launchData(s);let trail=[];let p={...b};for(let j=0;j<1500;j++){p.vx+=windAt(j/120)/120;p.vy-=G/120;p.x+=p.vx/120;p.y+=p.vy/120;if(j%13===0)trail.push([p.x,p.y]);if(p.y<0)break;}return {b,trail,land:p.x};}}return null}
 function ui(){const st=STAGES[save.stage];$('stageText').textContent=String(save.stage+1).padStart(2,'0')+' / 10';$('stageName').textContent=`${String(save.stage+1).padStart(2,'0')} ${st[0]}`;$('goldText').textContent=money(save.gold)+' G';$('percentText').textContent=Math.round(100*brokenCount/stageStartCount)+'%';$('goalText').textContent=`CLEAR ${Math.round(st[2]*100)}%`+(balloonTotal?` + 🎈${balloonDown}/${balloonTotal}`:'');$('pinOut').textContent=save.pin+'°';$('windOut').textContent=save.wind+'%';$('pin').value=save.pin;$('wind').value=save.wind;$('fire').disabled=mode!=='idle';$('pin').disabled=mode!=='idle';$('wind').disabled=mode!=='idle';$('status').textContent=mode;
  $('upgrades').innerHTML=TECH.map(t=>{const own=owned(t.id),a=lv(t.id);return `<div class="upgrade"><div class="upgrade-title"><b>${t.title}</b><span>Lv.${own}/${t.max}</span></div><div class="upgrade-desc">${t.desc}</div><div class="tune-row">${own?`<input aria-label="${t.title}の使用レベル" type="range" data-tune="${t.id}" min="0" max="${own}" step="1" value="${a}" ${mode!=='idle'?'disabled':''}><strong>使用 ${a}</strong>`:`<span class="not-owned"></span>`}</div><div class="upgrade-bottom"><div class="prog">${Array.from({length:t.max},(_,i)=>`<i class="${i<own?'on':''}"></i>`).join('')}</div><button class="buy" data-buy="${t.id}" ${mode!=='idle'||own>=t.max||save.gold<cost(t)?'disabled':''}>${own>=t.max?'MAX':money(cost(t))+' G'}</button></div></div>`}).join('');
  for(const b of $('ammoRow').querySelectorAll('[data-ammo]')){let type=b.dataset.ammo,bought=type==='stone'||owned(type)>0;b.disabled=!bought||mode!=='idle';b.classList.toggle('active',save.ammo===type);const lock=b.querySelector('small');if(lock)lock.textContent=bought?'':'🔒';}
@@ -141,15 +219,15 @@ function projectileCollision(p,prev){if(p.gone)return;for(let i=0;i<blocks.lengt
  break;
  }}
 
-function checkSupport(b){if(b.y<=.1)return true;return blocks.some(other=>other!==b&&!other.dead&&!other.fall&&Math.abs(other.y+other.h-b.y)<.5&&Math.abs(other.x-b.x)<b.w*.9)}
-function updateBlocks(dt){for(let b of blocks){if(b.dead)continue;if(!b.fall&&brokenCount>0&&!checkSupport(b)){b.fall=true;b.vy=-.3;b.vx=(Math.random()-.5)*1.8}if(!b.fall)continue;b.vy-=G*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.rot+=b.vx*.008;let ground=0;for(let o of blocks){if(o===b||o.dead||o.fall)continue;if(Math.abs(o.x-b.x)<3.0&&o.y+o.h<=b.y+.3)ground=Math.max(ground,o.y+o.h)}if(b.y<=ground){const impact=-b.vy;b.y=ground;b.vy=0;b.vx=0;b.fall=false;if(impact>3.2)hit(b,impact*5,b.x,b.y)}}}
+function checkSupport(b){if(b.y<=.1)return true;return b.y<=terrainHeight(b.x)+.1||blocks.some(other=>other!==b&&!other.dead&&!other.fall&&Math.abs(other.y+other.h-b.y)<.5&&Math.abs(other.x-b.x)<b.w*.9)}
+function updateBlocks(dt){for(let b of blocks){if(b.dead)continue;if(!b.fall&&brokenCount>0&&!checkSupport(b)){b.fall=true;b.vy=-.3;b.vx=(Math.random()-.5)*1.8}if(!b.fall)continue;b.vy-=G*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.rot+=b.vx*.008;let ground=terrainHeight(b.x);for(let o of blocks){if(o===b||o.dead||o.fall)continue;if(Math.abs(o.x-b.x)<3.0&&o.y+o.h<=b.y+.3)ground=Math.max(ground,o.y+o.h)}if(b.y<=ground){const impact=-b.vy;b.y=ground;b.vy=0;b.vx=0;b.fall=false;if(impact>3.2)hit(b,impact*5,b.x,b.y)}}}
 function finishShot(){if(mode!=='flight')return;mode='settle';actionTime=0;projectiles=[];impactHold=Math.max(impactHold,1.4);ui();}
 function settleDone(){mode='idle';actionTime=0;if(brokenCount>=stageGoal&&balloonDown===balloonTotal&&!stagePaid){stagePaid=true;save.gold+=STAGES[save.stage][3];winAll=save.stage===9;$('resultTitle').textContent=winAll?'ALL CLEAR!':'STAGE CLEAR!';$('resultInfo').textContent=`${STAGES[save.stage][0]} を攻略！`;$('reward').textContent='+'+money(STAGES[save.stage][3])+' G';$('next').textContent=winAll?'もう一周 ▶':'次のステージへ ▶';$('overlay').classList.add('show');sfx('win');}else{resetMechanism();}store();ui()}
 function nextStage(openShop=false){$('overlay').classList.remove('show');save.stage=winAll?0:Math.min(9,save.stage+1);loadStage();store();if(openShop)$('shop').classList.add('open');}
 function update(dt){clock+=dt;visualShake=Math.max(0,visualShake-dt*7);flash=Math.max(0,flash-dt);impactHold=Math.max(0,impactHold-dt);for(let p of particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy-=G*.42*dt}particles=particles.filter(x=>x.life>0);for(let t of texts){t.life-=dt;t.y+=dt*2.2}texts=texts.filter(x=>x.life>0);updateBlocks(dt);
  if(mode==='winding'){actionTime+=dt;if(actionTime>.56){mode='swing';actionTime=0;sfx('drop');ui()}}
  if(mode==='swing'){actionTime+=dt;let chunks=Math.ceil(dt/(1/240));for(let k=0;k<chunks;k++){stepMech(sim,dt/chunks);if(sim.th<=save.pin*DEG||actionTime>6){const info=launchData(sim);projectiles=makeProjectiles(info);mode='flight';actionTime=0;sim.rel=true;sfx('release');visualShake=2;flash=.08;particlesAt(info.x,info.y,9,'#f5d08b',5);ui();break}}}
- if(mode==='flight'){actionTime+=dt;let chunks=Math.ceil(dt/(1/240));for(let k=0;k<chunks;k++){const h=dt/chunks;for(const p of projectiles){if(p.gone)continue;let prev={x:p.x,y:p.y};p.vy-=G*h;p.x+=p.vx*h;p.y+=p.vy*h;p.life+=h;projectileCollision(p,prev);extraCollision(p,prev);if(!p.gone&&(p.y<=p.r*.45||p.x>295||p.x<0||p.life>25)){if(p.kind==='explosive'&&p.y<=p.r*.45)explode(p,p.x,0);particlesAt(p.x,Math.max(0,p.y),13,'#ad9a78',5);p.gone=true;visualShake=Math.max(visualShake,2.5);impactHold=Math.max(impactHold,1.15);sfx('hit')}}}
+ if(mode==='flight'){actionTime+=dt;let chunks=Math.ceil(dt/(1/240));for(let k=0;k<chunks;k++){const h=dt/chunks;for(const p of projectiles){if(p.gone)continue;let prev={x:p.x,y:p.y};p.vx+=windAt(p.life)*h;p.vy-=G*h;p.x+=p.vx*h;p.y+=p.vy*h;p.life+=h;projectileCollision(p,prev);extraCollision(p,prev);if(!p.gone&&(p.y<=Math.max(p.r*.45,terrainHeight(p.x)+p.r*.45)||p.x>295||p.x<0||p.life>25)){if(p.kind==='explosive'&&p.y<=p.r*.45)explode(p,p.x,0);particlesAt(p.x,Math.max(0,p.y),13,'#ad9a78',5);p.gone=true;visualShake=Math.max(visualShake,2.5);impactHold=Math.max(impactHold,1.15);sfx('hit')}}}
  for(const p of projectiles){if(!p.gone&&Math.random()<.38){p.trail.push({x:p.x,y:p.y});if(p.trail.length>100)p.trail.shift();}}
  if(projectiles.every(p=>p.gone))finishShot();}
  if(mode==='settle'){actionTime+=dt;if(actionTime>1.12)settleDone()}
