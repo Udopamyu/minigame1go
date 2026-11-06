@@ -1,0 +1,46 @@
+name: Catapult downloadable playtest build
+
+on:
+  push:
+    paths:
+      - 'games/catapult/index.html'
+      - 'docs/manual-playtest.md'
+      - '.github/workflows/catapult-playtest.yml'
+  pull_request:
+    paths:
+      - 'games/catapult/index.html'
+      - 'docs/manual-playtest.md'
+      - '.github/workflows/catapult-playtest.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check HTML and JavaScript syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          file=Path("games/catapult/index.html")
+          text=file.read_text(encoding="utf-8")
+          assert '<!doctype html>' in text.lower()
+          assert len(text)>10000
+          scripts=re.findall(r"<script\\b[^>]*>(.*?)</script\\s*>",text,flags=re.I|re.S)
+          assert scripts
+          Path("/tmp/catapult-inline.js").write_text("\n".join(scripts))
+          PY
+          node --check /tmp/catapult-inline.js
+      - name: Upload playable single-file HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: catapult-playtest-html
+          retention-days: 14
+          path: |
+            games/catapult/index.html
+            docs/manual-playtest.md
