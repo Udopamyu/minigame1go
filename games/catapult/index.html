@@ -54,15 +54,33 @@ const SCENES=[
  {theme:'bridge',height:11,wind:-.22,gust:.08},
  {theme:'mountain',height:14,wind:.18,gust:.06},
  {theme:'tank',height:5,wind:-.18,gust:.09},
- {theme:'canyon',height:10,wind:.24,gust:.08},
- {theme:'royal',height:12,wind:-.28,gust:.12}
+ {theme:'canyon',height:24,wind:.24,gust:.08},
+ {theme:'royal',height:30,wind:-.28,gust:.12}
 ];
 function scene(){return SCENES[save.stage]||SCENES[0]}
+// Three separate, destructible spans with intact islands in between.
+// The ground under each span is genuinely absent; it is not an invisible bridge.
+function bridgeGeometry(t=STAGES[5][1]){
+ return [
+  {x0:t-31,x1:t-18,y:11,h:2},
+  {x0:t-11,x1:t+2,y:11,h:2},
+  {x0:t+9,x1:t+22,y:11,h:2}
+ ];
+}
+function makeBridges(){
+ if(save.stage!==5)return [];
+ return bridgeGeometry().map((b,i)=>({...b,id:i,hp:440,max:440,dead:false}));
+}
 function terrainHeight(x){
  const e=scene().height,t=STAGES[save.stage][1];
  if(!e)return 0;
- const left=save.stage===5? t-5:t-12, right=save.stage===5?t+29:t+43;
- return x>=left&&x<=right?e:0;
+ if(save.stage===5){
+  // Shore -> bridge -> island -> bridge -> island -> bridge -> shore
+  if((x>=t-50&&x<=t-31)||(x>=t-18&&x<=t-11)||
+     (x>=t+2&&x<=t+9)||(x>=t+22&&x<=t+48))return e;
+  return 0;
+ }
+ return x>=t-12&&x<=t+43?e:0;
 }
 function windAt(t){const m=scene();return m.wind + m.gust*Math.sin(t*2.3) +m.gust*.35*Math.sin(t*5.6)}
 const M={wood:{hp:50,gold:17,base:'#a86e43',hi:'#dba36b',dark:'#5f3d35'},stone:{hp:105,gold:34,base:'#829294',hi:'#b5c5ba',dark:'#536c78'},metal:{hp:175,gold:55,base:'#526e87',hi:'#8ca6a8',dark:'#293e59'}};
@@ -79,7 +97,7 @@ const TECH=[
 const BASE={gold:120,stage:0,done:0,pin:112,wind:85,lv:Object.fromEntries(TECH.map(x=>[x.id,0])),active:Object.fromEntries(TECH.map(x=>[x.id,0])),ammo:'stone',sound:true,shots:0};
 let save;try{let old=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem('pixel-trebuchet-v02')||'null');save={...BASE,...(old||{}),lv:{...BASE.lv,...(old?.lv||{})},active:{...BASE.active,...(old?.active||old?.lv||{})}};save.stage=clampStage(save.stage);for(const t of TECH){save.lv[t.id]=Math.max(0,Math.min(t.max,save.lv[t.id]|0));save.active[t.id]=Math.max(0,Math.min(save.lv[t.id],save.active[t.id]|0))}if(!['stone','scatter','explosive'].includes(save.ammo))save.ammo='stone';}catch{save=structuredClone(BASE)};
 function clampStage(i){return Math.max(0,Math.min(9,i|0))}
-let barriers=[],balloons=[],balloonTotal=0,balloonDown=0,manualCamera=false,camGoal=HOME,blocks=[],targetBounds=null,brokenCount=0,stageGoal=0,stagePaid=false,winAll=false,mode='idle',actionTime=0,clock=0,last=0,sim=null,projectiles=[],impactHold=0,camera=HOME,visualShake=0,flash=0,particles=[],texts=[],preview=null,stageStartCount=0,stageRestored=false;
+let barriers=[],balloons=[],balloonTotal=0,balloonDown=0,manualCamera=false,camGoal=HOME,blocks=[],bridges=[],targetBounds=null,brokenCount=0,stageGoal=0,stagePaid=false,winAll=false,mode='idle',actionTime=0,clock=0,last=0,sim=null,projectiles=[],impactHold=0,camera=HOME,visualShake=0,flash=0,particles=[],texts=[],preview=null,stageStartCount=0,stageRestored=false;
 const lv=id=>save.active[id]||0,owned=id=>save.lv[id]||0, clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), money=n=>Math.floor(n).toLocaleString('ja-JP'),cost=t=>Math.round(t.price*Math.pow(t.rate,owned(t.id))/5)*5;
 function store(){try{localStorage.setItem(KEY,JSON.stringify(save))}catch{}}
 function addBlock(col,row,mat= 'wood'){return {x:STAGES[save.stage][1]+col*3.4,y:scene().height+row*3.4,w:3.4,h:3.4,mat,hp:M[mat].hp,max:M[mat].hp,dead:false,fall:false,vy:0,vx:0,rot:0}}
@@ -95,7 +113,7 @@ function blueprint(){
  case 3:tower(0,5,'stone');tower(5,4,'wood');rect(2,4,0,1,'stone');break;
  case 4:tower(0,4,'wood');tower(6,4,'stone');rect(2,5,3,3,'wood');rect(2,5,0,1,'wood');break;
  // A suspended destructible bridge across a genuine valley, higher than launch level.
- case 5:tower(0,2,'wood');tower(6,2,'wood');rect(0,7,0,0,'wood');rect(2,5,2,2,'wood');break;
+ case 5:break; // Three independently destructible bridge objects; islands are terrain.
  // A compact hilltop castle, with battlements instead of a plain vertical wall.
  case 6:tower(0,4,'stone');tower(5,4,'stone');rect(2,4,0,2,'stone');rect(2,4,3,3,'wood');break;
  // Battlefield: low bunkers and moving armoured targets.
@@ -107,7 +125,7 @@ function blueprint(){
  }
  return list;
 }
-function maxCam(){return Math.max(HOME,STAGES[save.stage][1]-VIEW*.30)}
+function maxCam(){return Math.max(HOME,STAGES[save.stage][1]-(save.stage===5?VIEW*.49:VIEW*.30))}
 function makeBarriers(){
  const i=save.stage;if(i<1||i>=5)return [];
  const x=STAGES[i][1];
@@ -126,7 +144,7 @@ function makeBarriers(){
 }
 function balloonX(b){return b.x+Math.sin(clock*(b.speed||.6)+b.phase)*(b.range||0)}
 function makeBalloons(){
- const i=save.stage;if(i<3)return [];
+ const i=save.stage;if(i<3||i===5)return [];
  if(i===7||i===9){
   const n=i===7?2:1,t=STAGES[i][1],h=scene().height;
   return Array.from({length:n},(_,j)=>({
@@ -170,7 +188,20 @@ function drawBalloons(){
 function segmentHitsCircle(a,b,x,y,r){let dx=b.x-a.x,dy=b.y-a.y,t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy+1e-8),0,1);return Math.hypot(a.x+t*dx-x,a.y+t*dy-y)<=r}
 function extraCollision(p,prev){if(p.gone)return;for(const b of barriers){if(segmentHitsCircle(prev,p,clamp(p.x,b.x-b.w/2,b.x+b.w/2),clamp(p.y,b.y,b.y+b.h),p.r+1)){particlesAt(p.x,p.y,18,'#a4b1b2',6);p.gone=true;visualShake=3;return}}for(const b of balloons){if(b.dead)continue;let y=b.kind==='tank'?b.y:b.y+Math.sin(clock*.8+b.phase)*.5;if(segmentHitsCircle(prev,p,balloonX(b),y,b.r+p.r)){b.dead=true;balloonDown++;p.gone=true;particlesAt(balloonX(b),y,35,'#f5b1aa',9);toast(b.kind==='tank'?'TANK!':'BALLOON!',balloonX(b),y+4,'#ffe6a2');save.gold+=b.kind==='tank'?160:120;ui();store();return}}}
 function resetMechanism(){sim=makeMech();projectiles=[];impactHold=0;mode='idle';actionTime=0;camera=manualCamera?camGoal:HOME;preview=predict();}
-function loadStage(){blocks=blueprint();barriers=makeBarriers();balloons=makeBalloons();balloonTotal=balloons.length;balloonDown=0;manualCamera=false;camGoal=HOME;targetBounds={minX:Math.min(...blocks.map(b=>b.x-b.w/2),...balloons.map(b=>b.x-b.range-b.r))-3,maxX:Math.max(...blocks.map(b=>b.x+b.w/2),...balloons.map(b=>b.x+b.range+b.r))+3,maxY:Math.max(30,...blocks.map(b=>b.y+b.h),...balloons.map(b=>b.y+5))};stageStartCount=blocks.length;stageGoal=Math.ceil(stageStartCount*STAGES[save.stage][2]);brokenCount=0;stagePaid=false;winAll=false;particles=[];texts=[];resetMechanism();ui()}
+function loadStage(){
+ blocks=blueprint();bridges=makeBridges();barriers=makeBarriers();balloons=makeBalloons();
+ balloonTotal=balloons.length;balloonDown=0;manualCamera=false;camGoal=HOME;
+ const bx=bridges.flatMap(b=>[b.x0,b.x1]);
+ const hBound=bridges.map(b=>b.y+b.h);
+ targetBounds={
+  minX:Math.min(...blocks.map(b=>b.x-b.w/2),...balloons.map(b=>b.x-b.range-b.r),...bx)-3,
+  maxX:Math.max(...blocks.map(b=>b.x+b.w/2),...balloons.map(b=>b.x+b.range+b.r),...bx)+3,
+  maxY:Math.max(30,...blocks.map(b=>b.y+b.h),...balloons.map(b=>b.y+5),...hBound)
+ };
+ stageStartCount=save.stage===5?bridges.length:blocks.length;
+ stageGoal=save.stage===5?bridges.length:Math.ceil(stageStartCount*STAGES[save.stage][2]);
+ brokenCount=0;stagePaid=false;winAll=false;particles=[];texts=[];resetMechanism();ui();
+}
 function makeMech(){let a=save.wind/100;return {th:(181+34*a)*DEG,om:0,phi:0.02,pv:0,sphi:0.04,sv:0,alpha:0,tipAX:0,tipAY:0,trail:[],rel:false}}
 function lengths(){return {long:9.2+lv('arm')*.55,short:2.7,hinge:2.8,sling:4.2+lv('sling')*.34,mass:100+lv('cw')*80,beam:22}}
 function coordinates(s,L){let u={x:Math.cos(s.th),y:Math.sin(s.th)},pivot={x:18,y:12};let tip={x:pivot.x+L.long*u.x,y:pivot.y+L.long*u.y},hinge={x:pivot.x-L.short*u.x,y:pivot.y-L.short*u.y},weight={x:hinge.x+Math.sin(s.phi)*L.hinge,y:hinge.y-Math.cos(s.phi)*L.hinge},pouch={x:tip.x+Math.sin(s.sphi)*L.sling,y:tip.y-Math.cos(s.sphi)*L.sling};return {pivot,tip,hinge,weight,pouch}}
@@ -192,7 +223,7 @@ function stepMech(s,dt,withBall=true){let L=lengths(),c=coordinates(s,L),u={x:Ma
  return coordinates(s,L)}
 function launchData(s){let L=lengths(),c=coordinates(s,L);const vx=-L.long*Math.sin(s.th)*s.om+L.sling*Math.cos(s.sphi)*s.sv,vy=L.long*Math.cos(s.th)*s.om+L.sling*Math.sin(s.sphi)*s.sv;let eff=1+lv('sling')*.024;return {x:c.pouch.x,y:c.pouch.y,vx:vx*eff,vy:vy*eff,r:.77+lv('ball')*.055}}
 function predict(){let s=makeMech(),release=save.pin*DEG;for(let i=0;i<2600;i++){stepMech(s,1/240);if(s.th<=release){let b=launchData(s);let trail=[];let p={...b};for(let j=0;j<1500;j++){p.vx+=windAt(j/120)/120;p.vy-=G/120;p.x+=p.vx/120;p.y+=p.vy/120;if(j%13===0)trail.push([p.x,p.y]);if(p.y<0)break;}return {b,trail,land:p.x};}}return null}
-function ui(){const st=STAGES[save.stage];$('stageText').textContent=String(save.stage+1).padStart(2,'0')+' / 10';$('stageName').textContent=`${String(save.stage+1).padStart(2,'0')} ${st[0]}`;$('goldText').textContent=money(save.gold)+' G';$('percentText').textContent=Math.round(100*brokenCount/stageStartCount)+'%';$('goalText').textContent=`CLEAR ${Math.round(st[2]*100)}%`+(balloonTotal?(' + '+(balloons.some(b=>b.kind==='tank')?'TANK':'🎈')+balloonDown+'/'+balloonTotal):'')+(scene().wind?' | '+(scene().wind>0?'追い風 →':'← 向かい風'):'');$('pinOut').textContent=save.pin+'°';$('windOut').textContent=save.wind+'%';$('pin').value=save.pin;$('wind').value=save.wind;$('fire').disabled=mode!=='idle';$('pin').disabled=mode!=='idle';$('wind').disabled=mode!=='idle';$('status').textContent=mode;
+function ui(){const st=STAGES[save.stage];$('stageText').textContent=String(save.stage+1).padStart(2,'0')+' / 10';$('stageName').textContent=`${String(save.stage+1).padStart(2,'0')} ${st[0]}`;$('goldText').textContent=money(save.gold)+' G';$('percentText').textContent=Math.round(100*brokenCount/Math.max(1,stageStartCount))+'%';$('goalText').textContent=(save.stage===5?`BRIDGE ${brokenCount}/${bridges.length}`:`CLEAR ${Math.round(st[2]*100)}%`)+(balloonTotal?(' + '+(balloons.some(b=>b.kind==='tank')?'TANK':'🎈')+balloonDown+'/'+balloonTotal):'')+(scene().wind?' | '+(scene().wind>0?'追い風 →':'← 向かい風'):'');$('pinOut').textContent=save.pin+'°';$('windOut').textContent=save.wind+'%';$('pin').value=save.pin;$('wind').value=save.wind;$('fire').disabled=mode!=='idle';$('pin').disabled=mode!=='idle';$('wind').disabled=mode!=='idle';$('status').textContent=mode;
  $('upgrades').innerHTML=TECH.map(t=>{const own=owned(t.id),a=lv(t.id);return `<div class="upgrade"><div class="upgrade-title"><b>${t.title}</b><span>Lv.${own}/${t.max}</span></div><div class="upgrade-desc">${t.desc}</div><div class="tune-row">${own?`<input aria-label="${t.title}の使用レベル" type="range" data-tune="${t.id}" min="0" max="${own}" step="1" value="${a}" ${mode!=='idle'?'disabled':''}><strong>使用 ${a}</strong>`:`<span class="not-owned"></span>`}</div><div class="upgrade-bottom"><div class="prog">${Array.from({length:t.max},(_,i)=>`<i class="${i<own?'on':''}"></i>`).join('')}</div><button class="buy" data-buy="${t.id}" ${mode!=='idle'||own>=t.max||save.gold<cost(t)?'disabled':''}>${own>=t.max?'MAX':money(cost(t))+' G'}</button></div></div>`}).join('');
  for(const b of $('ammoRow').querySelectorAll('[data-ammo]')){let type=b.dataset.ammo,bought=type==='stone'||owned(type)>0;b.disabled=!bought||mode!=='idle';b.classList.toggle('active',save.ammo===type);const lock=b.querySelector('small');if(lock)lock.textContent=bought?'':'🔒';}
 }
