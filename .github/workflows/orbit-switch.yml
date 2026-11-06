@@ -1,0 +1,40 @@
+name: "003 ORBIT SWITCH browser QA"
+
+on:
+  pull_request:
+    paths:
+      - "games/orbit-switch/**"
+      - "scripts/verify_orbit.py"
+      - ".github/workflows/orbit-switch.yml"
+  push:
+    branches:
+      - "feature/003-one-switch-orbit-concept"
+    paths:
+      - "games/orbit-switch/**"
+      - "scripts/verify_orbit.py"
+      - ".github/workflows/orbit-switch.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Test gameplay in real Chromium across four viewports
+        run: python scripts/verify_orbit.py
+      - name: Preserve game evidence (not a release approval)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-switch-browser-qa
+          path: evaluation/orbit-switch/
+          if-no-files-found: warn
