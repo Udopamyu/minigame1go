@@ -164,20 +164,54 @@ def stage_check(browser, url, stage_zero_based, result):
     check(result, f"stage {stage_zero_based+1}: state loads",
           wanted in page.locator("#stageText").inner_text())
     check(result, f"stage {stage_zero_based+1}: fire enabled", page.locator("#fire").is_enabled())
-    if stage_zero_based >= 3:
-        text = page.locator("#goalText").inner_text()
+    if stage_zero_based >= 3 and stage_zero_based != 5:
+        objective = page.locator("#goalText").inner_text()
         label = "TANK" if stage_zero_based in (7, 9) else "🎈"
         check(result, f"stage {stage_zero_based+1}: moving target in objective",
-              label in text, text)
+              label in objective, objective)
+    if stage_zero_based == 5:
+        objective = page.locator("#goalText").inner_text()
+        check(result, "stage 6: explicit three-bridge objective",
+              "BRIDGE 0/3" in objective, objective)
     snapshot = page.evaluate("() => window.__catapultQA()")
     if stage_zero_based >= 5:
-        expected_heights = [11, 14, 5, 10, 12]
+        expected_heights = [11, 14, 5, 24, 30]
         height = expected_heights[stage_zero_based - 5]
         check(result, f"stage {stage_zero_based+1}: real elevated target",
               snapshot["lowestTargetBlock"] >= height and height > 0,
               snapshot)
-        check(result, f"stage {stage_zero_based+1}: physical raised ground",
-              snapshot["targetGround"] == height, snapshot["targetGround"])
+        if stage_zero_based == 5:
+            spans = snapshot["bridges"]
+            check(result, "stage 6: three independent bridge objects",
+                  len(spans)==3 and len({b["id"] for b in spans})==3,
+                  spans)
+            check(result, "stage 6: each bridge tougher than metal blocks",
+                  len(spans)==3 and all(b["max"]>175 and b["hp"]==b["max"]
+                                        for b in spans),
+                  [b["max"] for b in spans])
+            check(result, "stage 6: shore-island-island-shore are solid",
+                  snapshot["islandHeights"]==[height]*4,
+                  snapshot["islandHeights"])
+            check(result, "stage 6: all three water gaps are actually open",
+                  snapshot["waterGaps"]==[0,0,0] and snapshot["targetGround"]==0,
+                  {"gaps": snapshot["waterGaps"],
+                   "targetGround": snapshot["targetGround"]})
+            check(result, "stage 6: all three bridges required for stage clear",
+                  snapshot["bridgeGoal"]==3 and snapshot["bridgesBroken"]==0,
+                  {"goal": snapshot["bridgeGoal"],
+                   "broken": snapshot["bridgesBroken"]})
+        else:
+            check(result, f"stage {stage_zero_based+1}: physical raised ground",
+                  snapshot["targetGround"] == height, snapshot["targetGround"])
+        if stage_zero_based in (8,9):
+            check(result, f"stage {stage_zero_based+1}: tall castle still visible",
+                  10 <= snapshot["topOfTallestTarget"] < snapshot["canvasHeight"]*.60,
+                  {"targetTopPx": snapshot["topOfTallestTarget"],
+                   "canvasHeight": snapshot["canvasHeight"],
+                   "verticalScale": snapshot["verticalScale"]})
+            check(result, f"stage {stage_zero_based+1}: vertical camera scale enabled",
+                  snapshot["verticalScale"] < 0.8,
+                  snapshot["verticalScale"])
         check(result, f"stage {stage_zero_based+1}: nonzero wind physics",
               abs(snapshot["wind"]) > 0.05, snapshot["wind"])
         if stage_zero_based in (7, 9):
