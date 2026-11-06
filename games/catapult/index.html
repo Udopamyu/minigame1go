@@ -192,7 +192,7 @@ function stepMech(s,dt,withBall=true){let L=lengths(),c=coordinates(s,L),u={x:Ma
  return coordinates(s,L)}
 function launchData(s){let L=lengths(),c=coordinates(s,L);const vx=-L.long*Math.sin(s.th)*s.om+L.sling*Math.cos(s.sphi)*s.sv,vy=L.long*Math.cos(s.th)*s.om+L.sling*Math.sin(s.sphi)*s.sv;let eff=1+lv('sling')*.024;return {x:c.pouch.x,y:c.pouch.y,vx:vx*eff,vy:vy*eff,r:.77+lv('ball')*.055}}
 function predict(){let s=makeMech(),release=save.pin*DEG;for(let i=0;i<2600;i++){stepMech(s,1/240);if(s.th<=release){let b=launchData(s);let trail=[];let p={...b};for(let j=0;j<1500;j++){p.vx+=windAt(j/120)/120;p.vy-=G/120;p.x+=p.vx/120;p.y+=p.vy/120;if(j%13===0)trail.push([p.x,p.y]);if(p.y<0)break;}return {b,trail,land:p.x};}}return null}
-function ui(){const st=STAGES[save.stage];$('stageText').textContent=String(save.stage+1).padStart(2,'0')+' / 10';$('stageName').textContent=`${String(save.stage+1).padStart(2,'0')} ${st[0]}`;$('goldText').textContent=money(save.gold)+' G';$('percentText').textContent=Math.round(100*brokenCount/stageStartCount)+'%';$('goalText').textContent=`CLEAR ${Math.round(st[2]*100)}%`+(balloonTotal?` + 🎈${balloonDown}/${balloonTotal}`:'');$('pinOut').textContent=save.pin+'°';$('windOut').textContent=save.wind+'%';$('pin').value=save.pin;$('wind').value=save.wind;$('fire').disabled=mode!=='idle';$('pin').disabled=mode!=='idle';$('wind').disabled=mode!=='idle';$('status').textContent=mode;
+function ui(){const st=STAGES[save.stage];$('stageText').textContent=String(save.stage+1).padStart(2,'0')+' / 10';$('stageName').textContent=`${String(save.stage+1).padStart(2,'0')} ${st[0]}`;$('goldText').textContent=money(save.gold)+' G';$('percentText').textContent=Math.round(100*brokenCount/stageStartCount)+'%';$('goalText').textContent=`CLEAR ${Math.round(st[2]*100)}%`+(balloonTotal?(' + '+(balloons.some(b=>b.kind==='tank')?'TANK':'🎈')+balloonDown+'/'+balloonTotal):'')+(scene().wind?' | '+(scene().wind>0?'追い風 →':'← 向かい風'):'');$('pinOut').textContent=save.pin+'°';$('windOut').textContent=save.wind+'%';$('pin').value=save.pin;$('wind').value=save.wind;$('fire').disabled=mode!=='idle';$('pin').disabled=mode!=='idle';$('wind').disabled=mode!=='idle';$('status').textContent=mode;
  $('upgrades').innerHTML=TECH.map(t=>{const own=owned(t.id),a=lv(t.id);return `<div class="upgrade"><div class="upgrade-title"><b>${t.title}</b><span>Lv.${own}/${t.max}</span></div><div class="upgrade-desc">${t.desc}</div><div class="tune-row">${own?`<input aria-label="${t.title}の使用レベル" type="range" data-tune="${t.id}" min="0" max="${own}" step="1" value="${a}" ${mode!=='idle'?'disabled':''}><strong>使用 ${a}</strong>`:`<span class="not-owned"></span>`}</div><div class="upgrade-bottom"><div class="prog">${Array.from({length:t.max},(_,i)=>`<i class="${i<own?'on':''}"></i>`).join('')}</div><button class="buy" data-buy="${t.id}" ${mode!=='idle'||own>=t.max||save.gold<cost(t)?'disabled':''}>${own>=t.max?'MAX':money(cost(t))+' G'}</button></div></div>`}).join('');
  for(const b of $('ammoRow').querySelectorAll('[data-ammo]')){let type=b.dataset.ammo,bought=type==='stone'||owned(type)>0;b.disabled=!bought||mode!=='idle';b.classList.toggle('active',save.ammo===type);const lock=b.querySelector('small');if(lock)lock.textContent=bought?'':'🔒';}
 }
@@ -363,6 +363,16 @@ $('sound').onclick=()=>{save.sound=!save.sound;$('sound').textContent=save.sound
 $('reset').onclick=()=>{if(!confirm('所持金・強化・ステージを初期化しますか？'))return;save=structuredClone(BASE);store();loadStage();$('shop').classList.remove('open')};
 window.addEventListener('keydown',e=>{if(e.code!=='Space'||e.repeat||e.altKey||e.ctrlKey||e.metaKey)return;if(e.target instanceof Element&&e.target.closest('button,input,textarea,select,a,[contenteditable]'))return;e.preventDefault();shoot()});
 
+// Read-only diagnostics for browser QA: no game state can be modified here.
+window.__catapultQA=()=>({
+ stage:save.stage,theme:scene().theme,elevation:scene().height,
+ targetGround:terrainHeight(STAGES[save.stage][1]),
+ lowestTargetBlock:Math.min(...blocks.map(b=>b.y)),
+ highestTargetBlock:Math.max(...blocks.map(b=>b.y+b.h)),
+ movingTargets:balloons.map(b=>({kind:b.kind,x:balloonX(b),y:b.y,range:b.range})),
+ wind:windAt(0),targetX:STAGES[save.stage][1],
+ previewLanding:preview?preview.land:null
+});
 loadStage();requestAnimationFrame(tick);
 })();
 </script></body></html>
