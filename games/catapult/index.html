@@ -107,7 +107,7 @@ function blueprint(){
  }
  return list;
 }
-function maxCam(){return Math.max(HOME,STAGES[save.stage][1]+62-VIEW*.48)}
+function maxCam(){return Math.max(HOME,STAGES[save.stage][1]-VIEW*.30)}
 function makeBarriers(){
  const i=save.stage;if(i<1||i>=5)return [];
  const x=STAGES[i][1];
@@ -398,7 +398,7 @@ window.addEventListener('keydown',e=>{if(e.code!=='Space'||e.repeat||e.altKey||e
 
 // Read-only diagnostics for browser QA: no game state can be modified here.
 window.__catapultQA=()=>({
- stage:save.stage,theme:scene().theme,elevation:scene().height,
+ stage:save.stage,theme:scene().theme,elevation:scene().height,camera:camera,viewWidth:VIEW,
  targetGround:terrainHeight(STAGES[save.stage][1]),
  lowestTargetBlock:Math.min(...blocks.map(b=>b.y)),
  highestTargetBlock:Math.max(...blocks.map(b=>b.y+b.h)),
