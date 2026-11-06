@@ -165,8 +165,35 @@ def stage_check(browser, url, stage_zero_based, result):
           wanted in page.locator("#stageText").inner_text())
     check(result, f"stage {stage_zero_based+1}: fire enabled", page.locator("#fire").is_enabled())
     if stage_zero_based >= 3:
-        check(result, f"stage {stage_zero_based+1}: balloon target in objective",
-              "🎈" in page.locator("#goalText").inner_text())
+        text = page.locator("#goalText").inner_text()
+        label = "TANK" if stage_zero_based in (7, 9) else "🎈"
+        check(result, f"stage {stage_zero_based+1}: moving target in objective",
+              label in text, text)
+    snapshot = page.evaluate("() => window.__catapultQA()")
+    if stage_zero_based >= 5:
+        expected_heights = [11, 14, 5, 10, 12]
+        height = expected_heights[stage_zero_based - 5]
+        check(result, f"stage {stage_zero_based+1}: real elevated target",
+              snapshot["lowestTargetBlock"] >= height and height > 0,
+              snapshot)
+        check(result, f"stage {stage_zero_based+1}: physical raised ground",
+              snapshot["targetGround"] == height, snapshot["targetGround"])
+        check(result, f"stage {stage_zero_based+1}: nonzero wind physics",
+              abs(snapshot["wind"]) > 0.05, snapshot["wind"])
+        if stage_zero_based in (7, 9):
+            targets = snapshot["movingTargets"]
+            check(result, f"stage {stage_zero_based+1}: genuine tank objects",
+                  bool(targets) and all(x["kind"] == "tank" for x in targets),
+                  targets)
+            if targets:
+                original_x = targets[0]["x"]
+                page.wait_for_timeout(1450)
+                new_x = page.evaluate("() => window.__catapultQA().movingTargets[0].x")
+                check(result, f"stage {stage_zero_based+1}: tanks physically move",
+                      abs(new_x-original_x) > 0.2,
+                      {"before": original_x, "after": new_x})
+        page.screenshot(path=str(OUT / f"stage{stage_zero_based+1}-landscape.png"),
+                        full_page=False)
     check(result, f"stage {stage_zero_based+1}: no exceptions", not errors, errors)
     if stage_zero_based == 3:
         page.screenshot(path=str(OUT / "stage4-balloon.png"))
