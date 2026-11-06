@@ -194,6 +194,12 @@ def stage_check(browser, url, stage_zero_based, result):
                       {"before": original_x, "after": new_x})
         page.screenshot(path=str(OUT / f"stage{stage_zero_based+1}-landscape.png"),
                         full_page=False)
+        page.locator("#cameraSlide").evaluate("""el => {
+            el.value = '100'; el.dispatchEvent(new Event('input', {bubbles: true}));
+        }""")
+        page.wait_for_timeout(300)
+        page.screenshot(path=str(OUT / f"stage{stage_zero_based+1}-target-view.png"),
+                        full_page=False)
     check(result, f"stage {stage_zero_based+1}: no exceptions", not errors, errors)
     if stage_zero_based == 3:
         page.screenshot(path=str(OUT / "stage4-balloon.png"))
