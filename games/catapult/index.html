@@ -338,10 +338,43 @@ function drawTarget(){const w=inset.width,h=inset.height,st=STAGES[save.stage],s
  ic.fillStyle='#65839a';ic.fillRect(0,0,w,h);ic.fillStyle='#8da49e';ic.fillRect(0,h*.52,w,h*.32);ic.fillStyle='#405b50';ic.fillRect(0,base,w,h-base);ic.fillStyle='#9caa75';ic.fillRect(0,base,w,3);
  if(scene().height){
   const t=STAGES[save.stage][1],left=save.stage===5?t-5:t-12,right=save.stage===5?t+29:t+43;
-  const xx=(left-minX)*scale;
-  ic.fillStyle=save.stage===5?'#967458':'#727a88';
-  ic.fillRect(xx,base-scene().height*scale,(right-left)*scale,scene().height*scale);
-  ic.fillStyle='#dfc69d';ic.fillRect(xx,base-scene().height*scale,(right-left)*scale,3);
+  const xx=(left-minX)*scale,deckY=base-scene().height*scale,width=(right-left)*scale;
+  const theme=scene().theme;
+  const slope=(xa,ya,xb,yb,color)=>{
+   ic.fillStyle=color;ic.beginPath();ic.moveTo(xa,base);
+   ic.lineTo(xb,yb);ic.lineTo(xb,base);ic.fill();
+  };
+  if(theme==='bridge'){
+   // Water beneath a high, floating destructible bridge.
+   ic.fillStyle='#314e68';ic.fillRect(0,base-9,w,18);
+   ic.fillStyle='#72a2b2';ic.fillRect(0,base-2,w,3);
+   ic.fillStyle='#876350';ic.fillRect(xx,deckY,width,5);
+   ic.fillStyle='#e4c39a';ic.fillRect(xx,deckY,width,2);
+   ic.strokeStyle='#ecd3ab';ic.beginPath();ic.moveTo(xx,deckY-7);
+   ic.lineTo(xx+width,deckY-7);ic.stroke();
+   for(let j=0;j<=5;j++){let px=xx+j*width/5;ic.beginPath();ic.moveTo(px,deckY-7);ic.lineTo(px,deckY+3);ic.stroke()}
+  }else if(theme==='mountain'){
+   slope(xx-36,base,xx,deckY,'#657f87');
+   slope(xx+width+25,base,xx+width,deckY,'#657f87');
+   ic.fillStyle='#9eaa9b';ic.fillRect(xx,deckY,width,3);
+   ic.fillStyle='#596c80';ic.fillRect(xx+width*.27,deckY-21,width*.38,21);
+   ic.fillStyle='#c85f66';ic.fillRect(xx+width*.47,deckY-28,4,8);
+  }else if(theme==='tank'){
+   ic.fillStyle='#677455';ic.fillRect(xx,deckY,width,base-deckY);
+   ic.fillStyle='#bbae85';ic.fillRect(xx,deckY,width,3);
+   for(let j=0;j<7;j++)ic.fillRect(xx+j*width/6,deckY+3,5,2);
+  }else if(theme==='canyon'){
+   slope(xx-30,base,xx,deckY,'#ac6e5b');
+   slope(xx+width+30,base,xx+width,deckY,'#9c6658');
+   ic.fillStyle='#cc9579';ic.fillRect(xx,deckY,width,3);
+   ic.fillStyle='#91614f';ic.fillRect(xx+width*.35,deckY+6,width*.18,base-deckY-6);
+  }else{
+   slope(xx-28,base,xx,deckY,'#687691');
+   slope(xx+width+28,base,xx+width,deckY,'#687691');
+   ic.fillStyle='#aaa3a0';ic.fillRect(xx,deckY,width,3);
+   ic.fillStyle='#657187';ic.fillRect(xx+width*.32,deckY-26,width*.33,26);
+   ic.fillStyle='#d8c5a4';ic.fillRect(xx+width*.43,deckY-34,10,9);
+  }
  }
  for(const b of blocks){if(b.dead)continue;let x=(b.x-minX)*scale,y=base-(b.y+b.h)*scale,bw=b.w*scale,bh=b.h*scale,m=M[b.mat];ic.save();ic.translate(Math.round(x),Math.round(y));ic.rotate(b.rot||0);ic.fillStyle=m.dark;ic.fillRect(-bw/2,0,bw,bh);ic.fillStyle=m.base;ic.fillRect(-bw/2+2,2,Math.max(1,bw-4),Math.max(1,bh-4));ic.fillStyle=m.hi;ic.fillRect(-bw/2+2,2,Math.max(1,bw-4),2);if(b.mat==='wood'){ic.strokeStyle=m.dark;ic.lineWidth=2;ic.beginPath();ic.moveTo(-bw/2+3,3);ic.lineTo(bw/2-3,bh-3);ic.moveTo(bw/2-3,3);ic.lineTo(-bw/2+3,bh-3);ic.stroke()}ic.restore();}
  for(const p of projectiles){if(p.gone||p.x<minX-3||p.x>maxX+3)continue;ic.fillStyle=p.kind==='explosive'?'#ffb968':'#fff1bd';ic.fillRect(Math.round((p.x-minX)*scale)-3,Math.round(base-p.y*scale)-3,6,6)}
