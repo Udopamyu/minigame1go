@@ -43,7 +43,28 @@ const $=id=>document.getElementById(id),canvas=$('game'),ctx=canvas.getContext('
 canvas.width=W;canvas.height=H;
 ctx.imageSmoothingEnabled=false;
 const STAGES=[
- ['木の物見台',58,.54,110,'wood'],['二連の柵',68,.55,150,'wood'],['石積みの塀',80,.56,210,'stone'],['見張りの塔',90,.56,275,'stone'],['橋の関所',101,.59,340,'wood'],['鉄の城門',108,.58,440,'metal'],['高塔の砦',118,.59,560,'stone'],['三重の城壁',125,.61,690,'stone'],['王城の外壁',136,.63,850,'metal'],['最後の大要塞',147,.66,1250,'metal']];
+ ['木の物見台',58,.54,110,'wood'],['二連の柵',68,.55,150,'wood'],['石積みの塀',80,.56,210,'stone'],['見張りの塔',90,.56,275,'stone'],['橋の関所',101,.59,340,'wood'],['峡谷のつり橋',108,.56,440,'wood'],['山上の古城',118,.57,560,'stone'],['戦車の進軍',125,.58,690,'metal'],['赤い峡谷の城塞',136,.59,850,'stone'],['天空の王城',147,.60,1250,'metal']];
+// Later levels have real, collidable elevated foundations. Elevation is in world units.
+const SCENES=[
+ {theme:'plain',height:0,wind:0,gust:0},
+ {theme:'plain',height:0,wind:0,gust:0},
+ {theme:'plain',height:0,wind:0,gust:0},
+ {theme:'plain',height:0,wind:0,gust:0},
+ {theme:'plain',height:0,wind:0,gust:0},
+ {theme:'bridge',height:11,wind:-.22,gust:.08},
+ {theme:'mountain',height:14,wind:.18,gust:.06},
+ {theme:'tank',height:5,wind:-.18,gust:.09},
+ {theme:'canyon',height:10,wind:.24,gust:.08},
+ {theme:'royal',height:12,wind:-.28,gust:.12}
+];
+function scene(){return SCENES[save.stage]||SCENES[0]}
+function terrainHeight(x){
+ const e=scene().height,t=STAGES[save.stage][1];
+ if(!e)return 0;
+ const left=save.stage===5? t-5:t-12, right=save.stage===5?t+29:t+43;
+ return x>=left&&x<=right?e:0;
+}
+function windAt(t){const m=scene();return m.wind + m.gust*Math.sin(t*2.3) +m.gust*.35*Math.sin(t*5.6)}
 const M={wood:{hp:50,gold:17,base:'#a86e43',hi:'#dba36b',dark:'#5f3d35'},stone:{hp:105,gold:34,base:'#829294',hi:'#b5c5ba',dark:'#536c78'},metal:{hp:175,gold:55,base:'#526e87',hi:'#8ca6a8',dark:'#293e59'}};
 const TECH=[
  {id:'cw',title:'▣ 重り増量',desc:'重り100kg → 最大740kg',max:8,price:65,rate:1.62},
@@ -61,13 +82,34 @@ function clampStage(i){return Math.max(0,Math.min(9,i|0))}
 let barriers=[],balloons=[],balloonTotal=0,balloonDown=0,manualCamera=false,camGoal=HOME,blocks=[],targetBounds=null,brokenCount=0,stageGoal=0,stagePaid=false,winAll=false,mode='idle',actionTime=0,clock=0,last=0,sim=null,projectiles=[],impactHold=0,camera=HOME,visualShake=0,flash=0,particles=[],texts=[],preview=null,stageStartCount=0,stageRestored=false;
 const lv=id=>save.active[id]||0,owned=id=>save.lv[id]||0, clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), money=n=>Math.floor(n).toLocaleString('ja-JP'),cost=t=>Math.round(t.price*Math.pow(t.rate,owned(t.id))/5)*5;
 function store(){try{localStorage.setItem(KEY,JSON.stringify(save))}catch{}}
-function addBlock(col,row,mat= 'wood'){return {x:STAGES[save.stage][1]+col*3.4,y:row*3.4,w:3.4,h:3.4,mat,hp:M[mat].hp,max:M[mat].hp,dead:false,fall:false,vy:0,vx:0,rot:0}}
-function blueprint(){let stage=save.stage,list=[],ids=new Set();const add=(x,y,type)=>{let k=x+':'+y;if(ids.has(k))return;ids.add(k);list.push(addBlock(x,y,type))},rect=(x0,x1,y0,y1,mt)=>{for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)add(x,y,mt)},tower=(c,h,mt)=>{rect(c,c+1,0,h-1,mt);rect(c-1,c+2,h,h,mt==='metal'?'stone':'wood')};
- switch(stage){case 0: tower(0,3,'wood');break;case 1:tower(0,3,'wood');tower(4,3,'wood');rect(2,3,0,1,'wood');break;case 2:rect(0,5,0,2,'stone');rect(1,4,3,3,'wood');break;case 3:tower(0,5,'stone');tower(5,4,'wood');rect(2,4,0,1,'stone');break;case 4:tower(0,4,'wood');tower(6,4,'stone');rect(2,5,3,3,'wood');rect(2,5,0,1,'wood');break;case 5:rect(0,6,0,2,'stone');rect(2,4,3,4,'metal');tower(1,4,'stone');break;case 6:tower(0,6,'stone');tower(5,7,'metal');rect(2,4,0,2,'stone');break;case 7:tower(0,5,'stone');tower(4,7,'wood');tower(8,6,'stone');rect(2,7,0,2,'stone');break;case 8:rect(0,10,0,3,'stone');rect(1,9,4,4,'metal');tower(0,7,'metal');tower(9,7,'metal');break;case 9:tower(0,9,'metal');tower(10,9,'metal');rect(2,9,0,5,'stone');rect(3,8,6,7,'metal');break}
- return list}
-function maxCam(){return Math.max(HOME,STAGES[save.stage][1]+62-VIEW*.48)}
+function addBlock(col,row,mat= 'wood'){return {x:STAGES[save.stage][1]+col*3.4,y:scene().height+row*3.4,w:3.4,h:3.4,mat,hp:M[mat].hp,max:M[mat].hp,dead:false,fall:false,vy:0,vx:0,rot:0}}
+function blueprint(){
+ let stage=save.stage,list=[],ids=new Set();
+ const add=(x,y,type)=>{let k=x+':'+y;if(ids.has(k))return;ids.add(k);list.push(addBlock(x,y,type))};
+ const rect=(x0,x1,y0,y1,mt)=>{for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)add(x,y,mt)};
+ const tower=(c,h,mt)=>{rect(c,c+1,0,h-1,mt);rect(c-1,c+2,h,h,mt==='metal'?'stone':'wood')};
+ switch(stage){
+ case 0:tower(0,3,'wood');break;
+ case 1:tower(0,3,'wood');tower(4,3,'wood');rect(2,3,0,1,'wood');break;
+ case 2:rect(0,5,0,2,'stone');rect(1,4,3,3,'wood');break;
+ case 3:tower(0,5,'stone');tower(5,4,'wood');rect(2,4,0,1,'stone');break;
+ case 4:tower(0,4,'wood');tower(6,4,'stone');rect(2,5,3,3,'wood');rect(2,5,0,1,'wood');break;
+ // A suspended destructible bridge across a genuine valley, higher than launch level.
+ case 5:tower(0,2,'wood');tower(6,2,'wood');rect(0,7,0,0,'wood');rect(2,5,2,2,'wood');break;
+ // A compact hilltop castle, with battlements instead of a plain vertical wall.
+ case 6:tower(0,4,'stone');tower(5,4,'stone');rect(2,4,0,2,'stone');rect(2,4,3,3,'wood');break;
+ // Battlefield: low bunkers and moving armoured targets.
+ case 7:rect(0,3,0,1,'metal');tower(6,2,'stone');rect(4,7,0,0,'wood');break;
+ // A fortress split into two groups on the canyon mesa.
+ case 8:tower(0,4,'stone');tower(8,4,'stone');rect(2,6,0,2,'wood');rect(2,6,3,3,'stone');break;
+ // Final royal keep with towers, roof and battlements, on an elevated plateau.
+ case 9:tower(0,4,'metal');tower(8,4,'metal');rect(2,7,0,3,'stone');rect(3,6,4,4,'metal');break;
+ }
+ return list;
+}
+function maxCam(){return Math.max(HOME,STAGES[save.stage][1]-VIEW*.30)}
 function makeBarriers(){
- const i=save.stage;if(i<1)return [];
+ const i=save.stage;if(i<1||i>=5)return [];
  const x=STAGES[i][1];
  // Unbreakable obstacles: each stage is a distinct trajectory puzzle.
  const layouts=[[],
@@ -83,14 +125,50 @@ function makeBarriers(){
  return layouts[i].map((b,n)=>({...b,x:x+b.x,kind:b.y===0?'pillar':'floating',stripe:n%2}));
 }
 function balloonX(b){return b.x+Math.sin(clock*(b.speed||.6)+b.phase)*(b.range||0)}
-function makeBalloons(){const i=save.stage;if(i<3)return [];
- const n=i>=8?3:i>=5?2:1;
- return Array.from({length:n},(_,j)=>({x:STAGES[i][1]+8+j*13,y:25+j*10+(i-3)*1.6,r:i<5?2.25:2.6,dead:false,phase:j*2.3+1.1,speed:.48+j*.15+i*.035,range:3.5+i*.75}));
+function makeBalloons(){
+ const i=save.stage;if(i<3)return [];
+ if(i===7||i===9){
+  const n=i===7?2:1,t=STAGES[i][1],h=scene().height;
+  return Array.from({length:n},(_,j)=>({
+   kind:'tank',x:t+8+j*11,y:h+2.5,r:2.9,dead:false,
+   phase:j*1.3+.5,speed:.44+j*.09,range:5.5+j*1.5
+  }));
+ }
+ const n=i>=8?2:1;
+ return Array.from({length:n},(_,j)=>({
+  kind:'balloon',x:STAGES[i][1]+8+j*13,
+  y:Math.max(scene().height+12,25+j*10+(i-3)*1.6),
+  r:i<5?2.25:2.6,dead:false,phase:j*2.3+1.1,
+  speed:.48+j*.15+i*.035,range:3.5+i*.75
+ }));
 }
 function drawBarriers(){for(const b of barriers){let x=sx(b.x),y=sy(b.y+b.h),w=b.w*PS,h=b.h*PS;if(x+w<0||x-w>W)continue;rect(x-w/2,y,w,h,'#243545');rect(x-w/2+4,y+3,w-8,h-5,'#66737a');for(let j=4;j<h;j+=13)line(x-w/2+3,y+j,x+w/2-3,y+j,'#364b59',2);}}
-function drawBalloons(){for(const b of balloons){if(b.dead)continue;let trackY=sy(b.y);line(sx(b.x-b.range),trackY,sx(b.x+b.range),trackY,'#d3c0a0',1);let x=sx(balloonX(b)),y=sy(b.y+Math.sin(clock*.8+b.phase)*.5),r=Math.max(7,b.r*PS);rect(x-r*.65,y-r*.85,r*1.3,r*1.55,'#b65c71');rect(x-r*.43,y-r*.7,r*.86,r*1.2,'#f4a7a0');rect(x-2,y+r*.7,4,7,'#ebd5a0');line(x,y+r*.75,x,y+r*1.8,'#ead5a8',2);rect(x-5,y+r*1.7,10,6,'#72543e');}}
+function drawBalloons(){
+ for(const b of balloons){
+  if(b.dead)continue;
+  let x=sx(balloonX(b)),y=sy(b.y+ (b.kind==='tank'?0:Math.sin(clock*.8+b.phase)*.5));
+  let r=Math.max(7,b.r*PS);
+  if(b.kind==='tank'){
+   // Genuine moving, shootable armoured target (uses the existing hit system).
+   rect(x-r*1.5,y-r*.15,r*3,r*.7,'#303947');
+   rect(x-r*1.22,y-r*.85,r*2.44,r*.74,'#657368');
+   rect(x-r*.5,y-r*1.35,r*1.2,r*.5,'#798773');
+   rect(x+r*.1,y-r*1.2,r*1.45,r*.18,'#374d4b');
+   for(let k=-1;k<=1;k++)rect(x+k*r*.75-3,y+r*.2,6,5,'#a1a78e');
+   rect(x-r*1.38,y+r*.38,r*2.76,2,'#c0b08b');
+  }else{
+   let trackY=sy(b.y);
+   line(sx(b.x-b.range),trackY,sx(b.x+b.range),trackY,'#d3c0a0',1);
+   rect(x-r*.65,y-r*.85,r*1.3,r*1.55,'#b65c71');
+   rect(x-r*.43,y-r*.7,r*.86,r*1.2,'#f4a7a0');
+   rect(x-2,y+r*.7,4,7,'#ebd5a0');
+   line(x,y+r*.75,x,y+r*1.8,'#ead5a8',2);
+   rect(x-5,y+r*1.7,10,6,'#72543e');
+  }
+ }
+}
 function segmentHitsCircle(a,b,x,y,r){let dx=b.x-a.x,dy=b.y-a.y,t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy+1e-8),0,1);return Math.hypot(a.x+t*dx-x,a.y+t*dy-y)<=r}
-function extraCollision(p,prev){if(p.gone)return;for(const b of barriers){if(segmentHitsCircle(prev,p,clamp(p.x,b.x-b.w/2,b.x+b.w/2),clamp(p.y,b.y,b.y+b.h),p.r+1)){particlesAt(p.x,p.y,18,'#a4b1b2',6);p.gone=true;visualShake=3;return}}for(const b of balloons){if(b.dead)continue;let y=b.y+Math.sin(clock*.8+b.phase)*.5;if(segmentHitsCircle(prev,p,balloonX(b),y,b.r+p.r)){b.dead=true;balloonDown++;p.gone=true;particlesAt(balloonX(b),y,35,'#f5b1aa',9);toast('BALLOON!',balloonX(b),y+4,'#ffe6a2');save.gold+=120;ui();store();return}}}
+function extraCollision(p,prev){if(p.gone)return;for(const b of barriers){if(segmentHitsCircle(prev,p,clamp(p.x,b.x-b.w/2,b.x+b.w/2),clamp(p.y,b.y,b.y+b.h),p.r+1)){particlesAt(p.x,p.y,18,'#a4b1b2',6);p.gone=true;visualShake=3;return}}for(const b of balloons){if(b.dead)continue;let y=b.kind==='tank'?b.y:b.y+Math.sin(clock*.8+b.phase)*.5;if(segmentHitsCircle(prev,p,balloonX(b),y,b.r+p.r)){b.dead=true;balloonDown++;p.gone=true;particlesAt(balloonX(b),y,35,'#f5b1aa',9);toast(b.kind==='tank'?'TANK!':'BALLOON!',balloonX(b),y+4,'#ffe6a2');save.gold+=b.kind==='tank'?160:120;ui();store();return}}}
 function resetMechanism(){sim=makeMech();projectiles=[];impactHold=0;mode='idle';actionTime=0;camera=manualCamera?camGoal:HOME;preview=predict();}
 function loadStage(){blocks=blueprint();barriers=makeBarriers();balloons=makeBalloons();balloonTotal=balloons.length;balloonDown=0;manualCamera=false;camGoal=HOME;targetBounds={minX:Math.min(...blocks.map(b=>b.x-b.w/2),...balloons.map(b=>b.x-b.range-b.r))-3,maxX:Math.max(...blocks.map(b=>b.x+b.w/2),...balloons.map(b=>b.x+b.range+b.r))+3,maxY:Math.max(30,...blocks.map(b=>b.y+b.h),...balloons.map(b=>b.y+5))};stageStartCount=blocks.length;stageGoal=Math.ceil(stageStartCount*STAGES[save.stage][2]);brokenCount=0;stagePaid=false;winAll=false;particles=[];texts=[];resetMechanism();ui()}
 function makeMech(){let a=save.wind/100;return {th:(181+34*a)*DEG,om:0,phi:0.02,pv:0,sphi:0.04,sv:0,alpha:0,tipAX:0,tipAY:0,trail:[],rel:false}}
@@ -113,8 +191,8 @@ function stepMech(s,dt,withBall=true){let L=lengths(),c=coordinates(s,L),u={x:Ma
  s.sv=clamp(s.sv+sa*dt,-32,32);s.sphi+=s.sv*dt;
  return coordinates(s,L)}
 function launchData(s){let L=lengths(),c=coordinates(s,L);const vx=-L.long*Math.sin(s.th)*s.om+L.sling*Math.cos(s.sphi)*s.sv,vy=L.long*Math.cos(s.th)*s.om+L.sling*Math.sin(s.sphi)*s.sv;let eff=1+lv('sling')*.024;return {x:c.pouch.x,y:c.pouch.y,vx:vx*eff,vy:vy*eff,r:.77+lv('ball')*.055}}
-function predict(){let s=makeMech(),release=save.pin*DEG;for(let i=0;i<2600;i++){stepMech(s,1/240);if(s.th<=release){let b=launchData(s);let trail=[];let p={...b};for(let j=0;j<1500;j++){p.vy-=G/120;p.x+=p.vx/120;p.y+=p.vy/120;if(j%13===0)trail.push([p.x,p.y]);if(p.y<0)break;}return {b,trail,land:p.x};}}return null}
-function ui(){const st=STAGES[save.stage];$('stageText').textContent=String(save.stage+1).padStart(2,'0')+' / 10';$('stageName').textContent=`${String(save.stage+1).padStart(2,'0')} ${st[0]}`;$('goldText').textContent=money(save.gold)+' G';$('percentText').textContent=Math.round(100*brokenCount/stageStartCount)+'%';$('goalText').textContent=`CLEAR ${Math.round(st[2]*100)}%`+(balloonTotal?` + 🎈${balloonDown}/${balloonTotal}`:'');$('pinOut').textContent=save.pin+'°';$('windOut').textContent=save.wind+'%';$('pin').value=save.pin;$('wind').value=save.wind;$('fire').disabled=mode!=='idle';$('pin').disabled=mode!=='idle';$('wind').disabled=mode!=='idle';$('status').textContent=mode;
+function predict(){let s=makeMech(),release=save.pin*DEG;for(let i=0;i<2600;i++){stepMech(s,1/240);if(s.th<=release){let b=launchData(s);let trail=[];let p={...b};for(let j=0;j<1500;j++){p.vx+=windAt(j/120)/120;p.vy-=G/120;p.x+=p.vx/120;p.y+=p.vy/120;if(j%13===0)trail.push([p.x,p.y]);if(p.y<0)break;}return {b,trail,land:p.x};}}return null}
+function ui(){const st=STAGES[save.stage];$('stageText').textContent=String(save.stage+1).padStart(2,'0')+' / 10';$('stageName').textContent=`${String(save.stage+1).padStart(2,'0')} ${st[0]}`;$('goldText').textContent=money(save.gold)+' G';$('percentText').textContent=Math.round(100*brokenCount/stageStartCount)+'%';$('goalText').textContent=`CLEAR ${Math.round(st[2]*100)}%`+(balloonTotal?(' + '+(balloons.some(b=>b.kind==='tank')?'TANK':'🎈')+balloonDown+'/'+balloonTotal):'')+(scene().wind?' | '+(scene().wind>0?'追い風 →':'← 向かい風'):'');$('pinOut').textContent=save.pin+'°';$('windOut').textContent=save.wind+'%';$('pin').value=save.pin;$('wind').value=save.wind;$('fire').disabled=mode!=='idle';$('pin').disabled=mode!=='idle';$('wind').disabled=mode!=='idle';$('status').textContent=mode;
  $('upgrades').innerHTML=TECH.map(t=>{const own=owned(t.id),a=lv(t.id);return `<div class="upgrade"><div class="upgrade-title"><b>${t.title}</b><span>Lv.${own}/${t.max}</span></div><div class="upgrade-desc">${t.desc}</div><div class="tune-row">${own?`<input aria-label="${t.title}の使用レベル" type="range" data-tune="${t.id}" min="0" max="${own}" step="1" value="${a}" ${mode!=='idle'?'disabled':''}><strong>使用 ${a}</strong>`:`<span class="not-owned"></span>`}</div><div class="upgrade-bottom"><div class="prog">${Array.from({length:t.max},(_,i)=>`<i class="${i<own?'on':''}"></i>`).join('')}</div><button class="buy" data-buy="${t.id}" ${mode!=='idle'||own>=t.max||save.gold<cost(t)?'disabled':''}>${own>=t.max?'MAX':money(cost(t))+' G'}</button></div></div>`}).join('');
  for(const b of $('ammoRow').querySelectorAll('[data-ammo]')){let type=b.dataset.ammo,bought=type==='stone'||owned(type)>0;b.disabled=!bought||mode!=='idle';b.classList.toggle('active',save.ammo===type);const lock=b.querySelector('small');if(lock)lock.textContent=bought?'':'🔒';}
 }
@@ -141,15 +219,15 @@ function projectileCollision(p,prev){if(p.gone)return;for(let i=0;i<blocks.lengt
  break;
  }}
 
-function checkSupport(b){if(b.y<=.1)return true;return blocks.some(other=>other!==b&&!other.dead&&!other.fall&&Math.abs(other.y+other.h-b.y)<.5&&Math.abs(other.x-b.x)<b.w*.9)}
-function updateBlocks(dt){for(let b of blocks){if(b.dead)continue;if(!b.fall&&brokenCount>0&&!checkSupport(b)){b.fall=true;b.vy=-.3;b.vx=(Math.random()-.5)*1.8}if(!b.fall)continue;b.vy-=G*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.rot+=b.vx*.008;let ground=0;for(let o of blocks){if(o===b||o.dead||o.fall)continue;if(Math.abs(o.x-b.x)<3.0&&o.y+o.h<=b.y+.3)ground=Math.max(ground,o.y+o.h)}if(b.y<=ground){const impact=-b.vy;b.y=ground;b.vy=0;b.vx=0;b.fall=false;if(impact>3.2)hit(b,impact*5,b.x,b.y)}}}
+function checkSupport(b){if(b.y<=.1)return true;return b.y<=terrainHeight(b.x)+.1||blocks.some(other=>other!==b&&!other.dead&&!other.fall&&Math.abs(other.y+other.h-b.y)<.5&&Math.abs(other.x-b.x)<b.w*.9)}
+function updateBlocks(dt){for(let b of blocks){if(b.dead)continue;if(!b.fall&&brokenCount>0&&!checkSupport(b)){b.fall=true;b.vy=-.3;b.vx=(Math.random()-.5)*1.8}if(!b.fall)continue;b.vy-=G*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.rot+=b.vx*.008;let ground=terrainHeight(b.x);for(let o of blocks){if(o===b||o.dead||o.fall)continue;if(Math.abs(o.x-b.x)<3.0&&o.y+o.h<=b.y+.3)ground=Math.max(ground,o.y+o.h)}if(b.y<=ground){const impact=-b.vy;b.y=ground;b.vy=0;b.vx=0;b.fall=false;if(impact>3.2)hit(b,impact*5,b.x,b.y)}}}
 function finishShot(){if(mode!=='flight')return;mode='settle';actionTime=0;projectiles=[];impactHold=Math.max(impactHold,1.4);ui();}
 function settleDone(){mode='idle';actionTime=0;if(brokenCount>=stageGoal&&balloonDown===balloonTotal&&!stagePaid){stagePaid=true;save.gold+=STAGES[save.stage][3];winAll=save.stage===9;$('resultTitle').textContent=winAll?'ALL CLEAR!':'STAGE CLEAR!';$('resultInfo').textContent=`${STAGES[save.stage][0]} を攻略！`;$('reward').textContent='+'+money(STAGES[save.stage][3])+' G';$('next').textContent=winAll?'もう一周 ▶':'次のステージへ ▶';$('overlay').classList.add('show');sfx('win');}else{resetMechanism();}store();ui()}
 function nextStage(openShop=false){$('overlay').classList.remove('show');save.stage=winAll?0:Math.min(9,save.stage+1);loadStage();store();if(openShop)$('shop').classList.add('open');}
 function update(dt){clock+=dt;visualShake=Math.max(0,visualShake-dt*7);flash=Math.max(0,flash-dt);impactHold=Math.max(0,impactHold-dt);for(let p of particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy-=G*.42*dt}particles=particles.filter(x=>x.life>0);for(let t of texts){t.life-=dt;t.y+=dt*2.2}texts=texts.filter(x=>x.life>0);updateBlocks(dt);
  if(mode==='winding'){actionTime+=dt;if(actionTime>.56){mode='swing';actionTime=0;sfx('drop');ui()}}
  if(mode==='swing'){actionTime+=dt;let chunks=Math.ceil(dt/(1/240));for(let k=0;k<chunks;k++){stepMech(sim,dt/chunks);if(sim.th<=save.pin*DEG||actionTime>6){const info=launchData(sim);projectiles=makeProjectiles(info);mode='flight';actionTime=0;sim.rel=true;sfx('release');visualShake=2;flash=.08;particlesAt(info.x,info.y,9,'#f5d08b',5);ui();break}}}
- if(mode==='flight'){actionTime+=dt;let chunks=Math.ceil(dt/(1/240));for(let k=0;k<chunks;k++){const h=dt/chunks;for(const p of projectiles){if(p.gone)continue;let prev={x:p.x,y:p.y};p.vy-=G*h;p.x+=p.vx*h;p.y+=p.vy*h;p.life+=h;projectileCollision(p,prev);extraCollision(p,prev);if(!p.gone&&(p.y<=p.r*.45||p.x>295||p.x<0||p.life>25)){if(p.kind==='explosive'&&p.y<=p.r*.45)explode(p,p.x,0);particlesAt(p.x,Math.max(0,p.y),13,'#ad9a78',5);p.gone=true;visualShake=Math.max(visualShake,2.5);impactHold=Math.max(impactHold,1.15);sfx('hit')}}}
+ if(mode==='flight'){actionTime+=dt;let chunks=Math.ceil(dt/(1/240));for(let k=0;k<chunks;k++){const h=dt/chunks;for(const p of projectiles){if(p.gone)continue;let prev={x:p.x,y:p.y};p.vx+=windAt(p.life)*h;p.vy-=G*h;p.x+=p.vx*h;p.y+=p.vy*h;p.life+=h;projectileCollision(p,prev);extraCollision(p,prev);if(!p.gone&&(p.y<=Math.max(p.r*.45,terrainHeight(p.x)+p.r*.45)||p.x>295||p.x<0||p.life>25)){if(p.kind==='explosive'&&p.y<=p.r*.45)explode(p,p.x,0);particlesAt(p.x,Math.max(0,p.y),13,'#ad9a78',5);p.gone=true;visualShake=Math.max(visualShake,2.5);impactHold=Math.max(impactHold,1.15);sfx('hit')}}}
  for(const p of projectiles){if(!p.gone&&Math.random()<.38){p.trail.push({x:p.x,y:p.y});if(p.trail.length>100)p.trail.shift();}}
  if(projectiles.every(p=>p.gone))finishShot();}
  if(mode==='settle'){actionTime+=dt;if(actionTime>1.12)settleDone()}
@@ -164,13 +242,68 @@ function sx(x){return Math.round((x-camera)*W/VIEW)}function sy(y){return Math.r
 function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),Math.ceil(w),Math.ceil(h))}
 function line(x1,y1,x2,y2,color,w=2){ctx.save();ctx.strokeStyle=color;ctx.lineWidth=w;ctx.lineCap='square';ctx.beginPath();ctx.moveTo(Math.round(x1)+.5,Math.round(y1)+.5);ctx.lineTo(Math.round(x2)+.5,Math.round(y2)+.5);ctx.stroke();ctx.restore()}
 function squareText(s,x,y,size=12,color='#ffefcd',align='left'){ctx.font=`bold ${size}px monospace`;ctx.textAlign=align;ctx.fillStyle='#1b2635';ctx.fillText(s,x+2,y+2);ctx.fillStyle=color;ctx.fillText(s,x,y);ctx.textAlign='left'}
-function sky(){let top=['#567b9a','#5e84a0','#688ba0','#73939e','#849ca1','#94a7a5','#aeb9a5','#c3c8a7','#d1caaa','#d2bda0'];for(let i=0;i<10;i++)rect(0,i*GROUND/10,W,GROUND/10+1,top[i]);for(let i=0;i<30;i++){let x=((i*137-Math.floor(camera*3.3)+W*4)%(W+50))-20,y=12+(i*29)%110;rect(x,y,2+(i%3),2,(i%4===0?'#d8dfcf':'#9cc4c1'))}
+function sky(){let themes={
+ plain:['#567b9a','#5e84a0','#688ba0','#73939e','#849ca1','#94a7a5','#aeb9a5','#c3c8a7','#d1caaa','#d2bda0'],
+ bridge:['#5c7594','#6987a1','#7694a8','#85a2ad','#95aeb3','#a5bcb6','#b8c7b8','#cad0b9','#d6c6ad','#e2c9b1'],
+ mountain:['#385c81','#486c91','#5a7da1','#6d8da9','#829fb0','#9ab3b9','#b5c4c2','#c9cebf','#d9d2bb','#e3d8c7'],
+ tank:['#89745a','#958063','#a48c6e','#b19b7b','#bba88a','#c7b394','#d0bc9f','#d9c6aa','#e1ccb2','#e8d6c0'],
+ canyon:['#85594e','#976253','#aa6e58','#bc7d62','#ca8d6a','#d69f75','#deb186','#e7c095','#efcda3','#f5d7b2'],
+ royal:['#405476','#506687','#607595','#7486a2','#8b98ad','#a1aab4','#b7bcb7','#cac3b4','#dbccb2','#ead4b0']
+ };let top=themes[scene().theme];for(let i=0;i<10;i++)rect(0,i*GROUND/10,W,GROUND/10+1,top[i]);for(let i=0;i<30;i++){let x=((i*137-Math.floor(camera*3.3)+W*4)%(W+50))-20,y=12+(i*29)%110;rect(x,y,2+(i%3),2,(i%4===0?'#d8dfcf':'#9cc4c1'))}
  // Pixel clouds with parallax.
  for(let i=0;i<9;i++){let x=(((i*177+42-camera*PS*.18)%(W+200))+(W+200))%(W+200)-75,y=57+(i%4)*26;let c=i%3?'#bfd0c2':'#d8d8bd';rect(x,y+8,54,9,c);rect(x+10,y+1,35,14,c);rect(x+23,y-5,20,9,c);rect(x+4,y+16,46,4,'#9ababb')}
  // mountain layers with blocky silhouettes
- for(let layer=0;layer<3;layer++){let col=['#748f9a','#577a89','#3d6476'][layer];let off=camera*PS*(.12+layer*.11);ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(0,GROUND);for(let x=0;x<=W+12;x+=10){let h=GROUND-30-layer*10-Math.abs(Math.sin((x+off)*.012+layer))* (36+layer*8)-Math.abs(Math.sin((x+off)*.045+layer*3))*13;ctx.lineTo(x,Math.round(h/6)*6)}ctx.lineTo(W,GROUND);ctx.fill()}
+ for(let layer=0;layer<3;layer++){let layers={plain:['#748f9a','#577a89','#3d6476'],bridge:['#788f9c','#5e798d','#475e77'],mountain:['#7c90a3','#627c95','#445e76'],tank:['#9a917b','#807e68','#606753'],canyon:['#bd8a6d','#a26e59','#795044'],royal:['#7889a7','#5b6c91','#465878']};
+ let col=layers[scene().theme][layer];let off=camera*PS*(.12+layer*.11);ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(0,GROUND);for(let x=0;x<=W+12;x+=10){let h=GROUND-30-layer*10-Math.abs(Math.sin((x+off)*.012+layer))* (36+layer*8)-Math.abs(Math.sin((x+off)*.045+layer*3))*13;ctx.lineTo(x,Math.round(h/6)*6)}ctx.lineTo(W,GROUND);ctx.fill()}
  rect(0,GROUND,W,H-GROUND,'#475e4d');rect(0,GROUND,W,6,'#95a069');rect(0,GROUND+6,W,18,'#5c684d');rect(0,GROUND+24,W,H-GROUND-24,'#354850');for(let i=0;i<92;i++){let x=((i*91-camera*PS*.7)%(W+20)+(W+20))%(W+20),y=GROUND+9+(i*23)%(H-GROUND-12);rect(x,y,2+(i%3)*2,2,['#76846e','#3a534e','#879078'][i%3])}
  }
+function drawTerrain(){
+ if(save.stage<5)return;
+ const i=save.stage,t=STAGES[i][1],h=scene().height,g=sy(0),y=sy(h);
+ const fill=(left,right,top,color)=>rect(sx(left),sy(top),(right-left)*PS,g-sy(top)+50,color);
+ const platform=(left,right,color)=>{rect(sx(left),y,(right-left)*PS,9,color);rect(sx(left),y+6,(right-left)*PS,3,'#d1bd96')};
+ if(i===5){
+  // Suspension bridge over an actual gap: bridge deck is the collision foundation.
+  rect(sx(t-32),g-22,80*PS,H-g+50,'#344e68');
+  rect(sx(t-32),g+18,80*PS,6,'#79a1ab');
+  fill(t-43,t-32,9,'#705954');fill(t+48,t+63,13,'#705954');
+  platform(t-5,t+29,'#7b604b');
+  for(let j=0;j<9;j++)rect(sx(t-4+j*3.8),y,3,8,'#d7b68b');
+  line(sx(t-5),y-13,sx(t+29),y-13,'#eed0a0',2);
+  for(let j=0;j<5;j++)line(sx(t-5+j*8),y-13,sx(t-5+j*8),y+2,'#cbaa7e',2);
+ }else if(i===6){
+  // Hillside plateau and a real castle approach.
+  pxPoly([[sx(t-49),g],[sx(t-34),sy(5)],[sx(t-20),sy(10)],[sx(t-12),y],[sx(t+43),y],[sx(t+68),g],[sx(t+68),H],[sx(t-49),H]],'#526e75');
+  pxPoly([[sx(t-42),g],[sx(t-28),sy(8)],[sx(t-12),y],[sx(t+1),y],[sx(t+1),g]],'#809297');
+  platform(t-12,t+43,'#b8b8a3');
+  rect(sx(t+15),y-22,8*PS,21,'#61788b');
+  rect(sx(t+19),y-34,4*PS,12,'#45576c');
+  line(sx(t+20),y-34,sx(t+20),y-47,'#e5dbc2',2);rect(sx(t+20),y-47,20,8,'#cc6969');
+ }else if(i===7){
+  // Armoured convoy on an elevated dirt road.
+  fill(t-12,t+43,h,'#817a60');
+  platform(t-12,t+43,'#a69a74');
+  for(let j=0;j<7;j++){let xx=sx(t-42+j*17);rect(xx,g-5,20,5,'#736e54');rect(xx+8,g-11,7,6,'#97896d')}
+ }else if(i===8){
+  // Mesa and surrounding red-rock canyon.
+  pxPoly([[sx(t-55),g],[sx(t-38),sy(5)],[sx(t-21),sy(12)],[sx(t-12),y],[sx(t+43),y],[sx(t+67),g],[sx(t+67),H],[sx(t-55),H]],'#985c4e');
+  platform(t-12,t+43,'#d59d79');
+  rect(sx(t-34),g-75,20,75,'#b87a5d');rect(sx(t-30),g-90,12,15,'#ce926e');
+  rect(sx(t+58),g-82,22,82,'#a87059');
+ }else{
+  // Sky citadel: high stone terrace and fortress silhouette.
+  pxPoly([[sx(t-49),g],[sx(t-28),sy(5)],[sx(t-12),y],[sx(t+43),y],[sx(t+70),g],[sx(t+70),H],[sx(t-49),H]],'#56657f');
+  platform(t-12,t+43,'#b9aa93');
+  rect(sx(t-12),y-13,55*PS,13,'#5b637b');
+  for(let j=0;j<10;j++)rect(sx(t-12+j*5.5),y-18,16,8,'#a8a8a3');
+  rect(sx(t+12),y-41,15*PS,24,'#52617e');
+  rect(sx(t+17),y-51,8*PS,11,'#a99b90');
+  line(sx(t+21),y-51,sx(t+21),y-63,'#f3e8c9',2);rect(sx(t+21),y-63,22,9,'#c85f6d');
+ }
+ // Wind arrows indicate the mild real aerodynamic force used in the trajectory.
+ const dir=scene().wind>0?1:-1;
+ for(let j=0;j<3;j++){let xx=W-70+j*13,yy=35+j*12;line(xx,yy,xx+dir*19,yy,'#f8e1b2',2);line(xx+dir*19,yy,xx+dir*13,yy-4,'#f8e1b2',2)}
+}
 function pxPoly(points,color){ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(Math.round(points[0][0]),Math.round(points[0][1]));points.slice(1).forEach(q=>ctx.lineTo(Math.round(q[0]),Math.round(q[1])));ctx.closePath();ctx.fill()}
 function drawWheel(x,y,r){rect(x-r-2,y-r-2,2*r+4,2*r+4,'#22384b');rect(x-r,y-r,2*r,2*r,'#667782');rect(x-r+3,y-r+3,2*r-6,2*r-6,'#273d4c');line(x-r+3,y,x+r-3,y,'#bda777',3);line(x,y-r+3,x,y+r-3,'#bda777',3);rect(x-3,y-3,6,6,'#e6cb86')}
 function drawMech(){const L=lengths(),c=coordinates(sim,L),pivot=c.pivot,ps={x:sx(pivot.x),y:sy(pivot.y)};
@@ -197,17 +330,57 @@ function pixelBall(x,y,r){r=Math.max(4,Math.round(r));rect(x-r,y-r,2*r,2*r,'#263
 function drawBlock(b){if(b.dead)return;const x=sx(b.x),y=sy(b.y+b.h),s=PS,w=Math.round(b.w*s),h=Math.round(b.h*s),mt=M[b.mat];if(x+w<-20||x-w>W+20)return;ctx.save();ctx.translate(Math.round(x),Math.round(y));if(b.rot)ctx.rotate(b.rot);rect(-w/2+2,0,w-3,h-2,mt.dark);rect(-w/2+3,2,w-7,h-6,mt.base);rect(-w/2+4,3,w-9,4,mt.hi);
  if(b.mat==='wood'){line(-w/2+4,h-4,w/2-4,5,mt.hi,2);line(-w/2+4,5,w/2-4,h-4,mt.dark,3)}else if(b.mat==='stone'){rect(-w/2+3,h/2,w-6,2,mt.dark);rect(-w/2+w/3,3,2,h/2,mt.dark);rect(-w/2+w*.67,h/2+2,2,h/2-4,mt.dark)}else{for(let dx of [-w/2+5,w/2-7])for(let dy of [6,h-8])rect(dx,dy,3,3,'#d3d0a1')}
  if(b.hp<b.max){rect(-2,4,3,h-8,'#283648');if(b.hp/b.max<.5)rect(0,h/2,7,3,'#283648')}ctx.restore()}
-function drawTrajectory(){if(mode!=='idle'||!preview)return;ctx.save();for(let i=0;i<preview.trail.length;i+=2){let [x,y]=preview.trail[i],a=sx(x),b=sy(y);if(a>=0&&a<W&&b>=0&&b<GROUND)rect(a-1,b-1,3,3,'#fff4c9')}ctx.restore();let x=sx(preview.land);if(x>0&&x<W){line(x,GROUND-9,x,GROUND,'#f0d89e',2);squareText('?',x,GROUND-13,13,'#fff1ca')}}
+function drawTrajectory(){if(mode!=='idle'||!preview)return;ctx.save();for(let i=0;i<preview.trail.length;i+=2){let [x,y]=preview.trail[i],a=sx(x),b=sy(y);if(a>=0&&a<W&&b>=0&&b<GROUND)rect(a-1,b-1,3,3,'#fff4c9')}ctx.restore();let x=sx(preview.land),y=sy(terrainHeight(preview.land));if(x>0&&x<W){line(x,y-9,x,y,'#f0d89e',2);squareText('?',x,y-13,13,'#fff1ca')}}
 const inset=$('targetCanvas'),ic=inset.getContext('2d');ic.imageSmoothingEnabled=false;
 function drawTarget(){const w=inset.width,h=inset.height,st=STAGES[save.stage],start=st[1],all=blocks;
  const {minX,maxX,maxY}=targetBounds;
  const scale=Math.min((w-18)/(maxX-minX),(h-25)/Math.max(15,maxY));const base=h-15;
  ic.fillStyle='#65839a';ic.fillRect(0,0,w,h);ic.fillStyle='#8da49e';ic.fillRect(0,h*.52,w,h*.32);ic.fillStyle='#405b50';ic.fillRect(0,base,w,h-base);ic.fillStyle='#9caa75';ic.fillRect(0,base,w,3);
+ if(scene().height){
+  const t=STAGES[save.stage][1],left=save.stage===5?t-5:t-12,right=save.stage===5?t+29:t+43;
+  const xx=(left-minX)*scale,deckY=base-scene().height*scale,width=(right-left)*scale;
+  const theme=scene().theme;
+  const slope=(xa,ya,xb,yb,color)=>{
+   ic.fillStyle=color;ic.beginPath();ic.moveTo(xa,base);
+   ic.lineTo(xb,yb);ic.lineTo(xb,base);ic.fill();
+  };
+  if(theme==='bridge'){
+   // Water beneath a high, floating destructible bridge.
+   ic.fillStyle='#314e68';ic.fillRect(0,base-9,w,18);
+   ic.fillStyle='#72a2b2';ic.fillRect(0,base-2,w,3);
+   ic.fillStyle='#876350';ic.fillRect(xx,deckY,width,5);
+   ic.fillStyle='#e4c39a';ic.fillRect(xx,deckY,width,2);
+   ic.strokeStyle='#ecd3ab';ic.beginPath();ic.moveTo(xx,deckY-7);
+   ic.lineTo(xx+width,deckY-7);ic.stroke();
+   for(let j=0;j<=5;j++){let px=xx+j*width/5;ic.beginPath();ic.moveTo(px,deckY-7);ic.lineTo(px,deckY+3);ic.stroke()}
+  }else if(theme==='mountain'){
+   slope(xx-36,base,xx,deckY,'#657f87');
+   slope(xx+width+25,base,xx+width,deckY,'#657f87');
+   ic.fillStyle='#9eaa9b';ic.fillRect(xx,deckY,width,3);
+   ic.fillStyle='#596c80';ic.fillRect(xx+width*.27,deckY-21,width*.38,21);
+   ic.fillStyle='#c85f66';ic.fillRect(xx+width*.47,deckY-28,4,8);
+  }else if(theme==='tank'){
+   ic.fillStyle='#677455';ic.fillRect(xx,deckY,width,base-deckY);
+   ic.fillStyle='#bbae85';ic.fillRect(xx,deckY,width,3);
+   for(let j=0;j<7;j++)ic.fillRect(xx+j*width/6,deckY+3,5,2);
+  }else if(theme==='canyon'){
+   slope(xx-30,base,xx,deckY,'#ac6e5b');
+   slope(xx+width+30,base,xx+width,deckY,'#9c6658');
+   ic.fillStyle='#cc9579';ic.fillRect(xx,deckY,width,3);
+   ic.fillStyle='#91614f';ic.fillRect(xx+width*.35,deckY+6,width*.18,base-deckY-6);
+  }else{
+   slope(xx-28,base,xx,deckY,'#687691');
+   slope(xx+width+28,base,xx+width,deckY,'#687691');
+   ic.fillStyle='#aaa3a0';ic.fillRect(xx,deckY,width,3);
+   ic.fillStyle='#657187';ic.fillRect(xx+width*.32,deckY-26,width*.33,26);
+   ic.fillStyle='#d8c5a4';ic.fillRect(xx+width*.43,deckY-34,10,9);
+  }
+ }
  for(const b of blocks){if(b.dead)continue;let x=(b.x-minX)*scale,y=base-(b.y+b.h)*scale,bw=b.w*scale,bh=b.h*scale,m=M[b.mat];ic.save();ic.translate(Math.round(x),Math.round(y));ic.rotate(b.rot||0);ic.fillStyle=m.dark;ic.fillRect(-bw/2,0,bw,bh);ic.fillStyle=m.base;ic.fillRect(-bw/2+2,2,Math.max(1,bw-4),Math.max(1,bh-4));ic.fillStyle=m.hi;ic.fillRect(-bw/2+2,2,Math.max(1,bw-4),2);if(b.mat==='wood'){ic.strokeStyle=m.dark;ic.lineWidth=2;ic.beginPath();ic.moveTo(-bw/2+3,3);ic.lineTo(bw/2-3,bh-3);ic.moveTo(bw/2-3,3);ic.lineTo(-bw/2+3,bh-3);ic.stroke()}ic.restore();}
  for(const p of projectiles){if(p.gone||p.x<minX-3||p.x>maxX+3)continue;ic.fillStyle=p.kind==='explosive'?'#ffb968':'#fff1bd';ic.fillRect(Math.round((p.x-minX)*scale)-3,Math.round(base-p.y*scale)-3,6,6)}
- for(const q of barriers){let x=(q.x-minX)*scale,y=base-(q.y+q.h)*scale;ic.fillStyle='#263b4b';ic.fillRect(x-q.w*scale/2,y,q.w*scale,q.h*scale)}for(const q of balloons){if(q.dead)continue;ic.fillStyle='#f2a5a2';ic.fillRect((balloonX(q)-minX)*scale-3,base-(q.y+Math.sin(clock*.8+q.phase)*.5)*scale-5,6,9)}ic.strokeStyle='#d2c49e';ic.lineWidth=3;ic.strokeRect(1.5,1.5,w-3,h-3);
+ for(const q of barriers){let x=(q.x-minX)*scale,y=base-(q.y+q.h)*scale;ic.fillStyle='#263b4b';ic.fillRect(x-q.w*scale/2,y,q.w*scale,q.h*scale)}for(const q of balloons){if(q.dead)continue;ic.fillStyle=q.kind==='tank'?'#657565':'#f2a5a2';ic.fillRect((balloonX(q)-minX)*scale-(q.kind==='tank'?7:3),base-(q.y+(q.kind==='tank'?0:Math.sin(clock*.8+q.phase)*.5))*scale-5,q.kind==='tank'?14:6,9)}ic.strokeStyle='#d2c49e';ic.lineWidth=3;ic.strokeRect(1.5,1.5,w-3,h-3);
 }
-function draw(){ctx.save();ctx.translate(Math.round((Math.random()-.5)*visualShake*4),Math.round((Math.random()-.5)*visualShake*3));sky();for(let b of blocks)drawBlock(b);drawBarriers();drawBalloons();drawMech();drawTrajectory();for(const p of projectiles){if(p.gone)continue;for(let i=0;i<p.trail.length;i++){let q=p.trail[i];rect(sx(q.x)-2,sy(q.y)-2,3,3,i%2?'#edd29c':'#fff8d4')}pixelBall(sx(p.x),sy(p.y),Math.max(3,6+lv('ball')*.5)*(p.kind==='scatter'?.68:1));}
+function draw(){ctx.save();ctx.translate(Math.round((Math.random()-.5)*visualShake*4),Math.round((Math.random()-.5)*visualShake*3));sky();drawTerrain();for(let b of blocks)drawBlock(b);drawBarriers();drawBalloons();drawMech();drawTrajectory();for(const p of projectiles){if(p.gone)continue;for(let i=0;i<p.trail.length;i++){let q=p.trail[i];rect(sx(q.x)-2,sy(q.y)-2,3,3,i%2?'#edd29c':'#fff8d4')}pixelBall(sx(p.x),sy(p.y),Math.max(3,6+lv('ball')*.5)*(p.kind==='scatter'?.68:1));}
  for(let p of particles)rect(sx(p.x),sy(p.y),p.sz,p.sz,p.color);for(let t of texts)squareText(t.t,sx(t.x),sy(t.y),11,t.color,'center');if(flash>0){ctx.globalAlpha=flash*1.8;rect(0,0,W,H,'#fff9ce')}ctx.restore();drawTarget();}
 
 function tick(t){const dt=Math.min(.042,(t-last)/1000||0);last=t;let n=Math.max(1,Math.ceil(dt/(1/60)));for(let k=0;k<n;k++)update(dt/n);draw();requestAnimationFrame(tick)}
@@ -223,6 +396,16 @@ $('sound').onclick=()=>{save.sound=!save.sound;$('sound').textContent=save.sound
 $('reset').onclick=()=>{if(!confirm('所持金・強化・ステージを初期化しますか？'))return;save=structuredClone(BASE);store();loadStage();$('shop').classList.remove('open')};
 window.addEventListener('keydown',e=>{if(e.code!=='Space'||e.repeat||e.altKey||e.ctrlKey||e.metaKey)return;if(e.target instanceof Element&&e.target.closest('button,input,textarea,select,a,[contenteditable]'))return;e.preventDefault();shoot()});
 
+// Read-only diagnostics for browser QA: no game state can be modified here.
+window.__catapultQA=()=>({
+ stage:save.stage,theme:scene().theme,elevation:scene().height,camera:camera,viewWidth:VIEW,
+ targetGround:terrainHeight(STAGES[save.stage][1]),
+ lowestTargetBlock:Math.min(...blocks.map(b=>b.y)),
+ highestTargetBlock:Math.max(...blocks.map(b=>b.y+b.h)),
+ movingTargets:balloons.map(b=>({kind:b.kind,x:balloonX(b),y:b.y,range:b.range})),
+ wind:windAt(0),targetX:STAGES[save.stage][1],
+ previewLanding:preview?preview.land:null
+});
 loadStage();requestAnimationFrame(tick);
 })();
 </script></body></html>
