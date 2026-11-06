@@ -209,7 +209,7 @@ function resetMechanism(){sim=makeMech();projectiles=[];impactHold=0;mode='idle'
 function loadStage(){
  blocks=blueprint();bridges=makeBridges();barriers=makeBarriers();balloons=makeBalloons();
  balloonTotal=balloons.length;balloonDown=0;manualCamera=false;camGoal=HOME;
- const bx=bridges.flatMap(b=>[b.x0,b.x1]);
+ const bx=bridges.flatMap(b=>[b.x0,b.x1]);if(save.stage===5)bx.push(STAGES[5][1]-50,STAGES[5][1]+48);
  const hBound=bridges.map(b=>b.y+b.h);
  targetBounds={
   minX:Math.min(...blocks.map(b=>b.x-b.w/2),...balloons.map(b=>b.x-b.range-b.r),...bx)-3,
@@ -436,14 +436,22 @@ function drawTarget(){const w=inset.width,h=inset.height,st=STAGES[save.stage],s
    ic.lineTo(xb,yb);ic.lineTo(xb,base);ic.fill();
   };
   if(theme==='bridge'){
-   // Water beneath a high, floating destructible bridge.
-   ic.fillStyle='#314e68';ic.fillRect(0,base-9,w,18);
+   // Overview accurately shows land -> 3 breakable spans -> land, incl. gaps.
+   ic.fillStyle='#314e68';ic.fillRect(0,base-14,w,23);
    ic.fillStyle='#72a2b2';ic.fillRect(0,base-2,w,3);
-   ic.fillStyle='#876350';ic.fillRect(xx,deckY,width,5);
-   ic.fillStyle='#e4c39a';ic.fillRect(xx,deckY,width,2);
-   ic.strokeStyle='#ecd3ab';ic.beginPath();ic.moveTo(xx,deckY-7);
-   ic.lineTo(xx+width,deckY-7);ic.stroke();
-   for(let j=0;j<=5;j++){let px=xx+j*width/5;ic.beginPath();ic.moveTo(px,deckY-7);ic.lineTo(px,deckY+3);ic.stroke()}
+   const soil=[[t-50,t-31],[t-18,t-11],[t+2,t+9],[t+22,t+48]];
+   for(const [a,b] of soil){
+    ic.fillStyle='#836d56';ic.fillRect((a-minX)*scale,deckY,(b-a)*scale,base-deckY);
+    ic.fillStyle='#d3b18a';ic.fillRect((a-minX)*scale,deckY,(b-a)*scale,3);
+   }
+   for(const b of bridges){
+    if(b.dead)continue;
+    let bx=(b.x0-minX)*scale,bw=(b.x1-b.x0)*scale;
+    ic.fillStyle='#382d25';ic.fillRect(bx,deckY-2,bw,6);
+    ic.fillStyle='#e9c58c';ic.fillRect(bx,deckY-2,bw,3);
+    ic.fillStyle=b.hp/b.max>.5?'#b5df98':'#f1a664';
+    ic.fillRect(bx,deckY-7,bw*b.hp/b.max,2);
+   }
   }else if(theme==='mountain'){
    slope(xx-36,base,xx,deckY,'#657f87');
    slope(xx+width+25,base,xx+width,deckY,'#657f87');
@@ -489,11 +497,16 @@ window.addEventListener('keydown',e=>{if(e.code!=='Space'||e.repeat||e.altKey||e
 
 // Read-only diagnostics for browser QA: no game state can be modified here.
 window.__catapultQA=()=>({
- stage:save.stage,theme:scene().theme,elevation:scene().height,camera:camera,viewWidth:VIEW,
+ stage:save.stage,theme:scene().theme,elevation:scene().height,camera:camera,viewWidth:VIEW,canvasHeight:H,verticalScale:verticalScale(),
  targetGround:terrainHeight(STAGES[save.stage][1]),
- lowestTargetBlock:Math.min(...blocks.map(b=>b.y)),
- highestTargetBlock:Math.max(...blocks.map(b=>b.y+b.h)),
+ lowestTargetBlock:Math.min(...blocks.map(b=>b.y),...bridges.map(b=>b.y)),
+ highestTargetBlock:Math.max(...blocks.map(b=>b.y+b.h),...bridges.map(b=>b.y+b.h)),
  movingTargets:balloons.map(b=>({kind:b.kind,x:balloonX(b),y:b.y,range:b.range})),
+ bridges:bridges.map(b=>({id:b.id,x0:b.x0,x1:b.x1,y:b.y,h:b.h,hp:b.hp,max:b.max,dead:b.dead})),
+ bridgeGoal:save.stage===5?stageGoal:0,bridgesBroken:save.stage===5?brokenCount:0,
+ islandHeights:save.stage===5?[-40,-14,5,34].map(d=>terrainHeight(STAGES[5][1]+d)):[],
+ waterGaps:save.stage===5?[-24,-5,16].map(d=>terrainHeight(STAGES[5][1]+d)):[],
+ topOfTallestTarget:blocks.length?Math.min(...blocks.map(b=>sy(b.y+b.h))):null,
  wind:windAt(0),targetX:STAGES[save.stage][1],
  previewLanding:preview?preview.land:null
 });
