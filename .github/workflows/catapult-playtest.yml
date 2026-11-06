@@ -31,7 +31,7 @@ jobs:
           text=file.read_text(encoding="utf-8")
           assert '<!doctype html>' in text.lower()
           assert len(text)>10000
-          scripts=re.findall(r"<script\\b[^>]*>(.*?)</script\\s*>",text,flags=re.I|re.S)
+          scripts=re.findall(r"<script\b[^>]*>(.*?)</script\s*>",text,flags=re.I|re.S)
           assert scripts
           Path("/tmp/catapult-inline.js").write_text("\n".join(scripts))
           PY
