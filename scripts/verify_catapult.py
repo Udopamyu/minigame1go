@@ -198,6 +198,10 @@ def stage_check(browser, url, stage_zero_based, result):
             el.value = '100'; el.dispatchEvent(new Event('input', {bubbles: true}));
         }""")
         page.wait_for_timeout(300)
+        framed = page.evaluate("() => window.__catapultQA()")
+        target_fraction = (framed["targetX"] - framed["camera"]) / framed["viewWidth"]
+        check(result, f"stage {stage_zero_based+1}: target fully inside panned view",
+              0.15 <= target_fraction <= 0.65, target_fraction)
         page.screenshot(path=str(OUT / f"stage{stage_zero_based+1}-target-view.png"),
                         full_page=False)
     check(result, f"stage {stage_zero_based+1}: no exceptions", not errors, errors)
