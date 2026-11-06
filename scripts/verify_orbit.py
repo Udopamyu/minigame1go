@@ -77,9 +77,13 @@ def main():
                     page.keyboard.press("Space")
                     check("space_changes_to_inner", page.evaluate("window.__orbitTest.snapshot().lane") == 0)
                     # Rapid tapping must not apply a second switch.
-                    page.locator("#game").tap(position={"x":180, "y":240})
-                    page.locator("#game").tap(position={"x":180, "y":240})
-                    check("rapid_double_tap_guard", page.evaluate("window.__orbitTest.snapshot().lane") == 0)
+                    page.evaluate("window.__orbitTest.advance(.2)")
+                    page.evaluate("""() => {
+                      const c=document.querySelector('#game');
+                      c.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+                      c.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+                    }""")
+                    check("rapid_double_tap_guard", page.evaluate("window.__orbitTest.snapshot().lane") == 1)
                 ctx.close()
 
             ctx = browser.new_context(viewport={"width":390,"height":844}, is_mobile=True, has_touch=True)
