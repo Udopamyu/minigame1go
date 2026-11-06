@@ -51,6 +51,8 @@ def view(browser, url, name, width, height, result):
     page.on("pageerror", lambda error: errors.append(str(error)))
     page.goto(url, wait_until="domcontentloaded", timeout=20000)
     page.locator("#game").wait_for(timeout=10000)
+    check(result, f"{name}: short public game title", page.title() == "投石機")
+    check(result, f"{name}: visible brand title", page.locator("header .brand b").inner_text() == "投石機")
     page.wait_for_timeout(800)
     check(result, f"{name}: game canvas", page.locator("#game").count() == 1)
     check(result, f"{name}: stage 1", "01 / 10" in page.locator("#stageText").inner_text())
