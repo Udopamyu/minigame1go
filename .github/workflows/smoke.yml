@@ -2,7 +2,21 @@ name: Three-team smoke check
 
 on:
   push:
+    paths:
+      - 'games/tap-spark/**'
+      - 'scripts/pipeline.py'
+      - 'scripts/verify_game.py'
+      - 'scripts/record_gameplay.py'
+      - 'requirements-dev.txt'
+      - '.github/workflows/smoke.yml'
   pull_request:
+    paths:
+      - 'games/tap-spark/**'
+      - 'scripts/pipeline.py'
+      - 'scripts/verify_game.py'
+      - 'scripts/record_gameplay.py'
+      - 'requirements-dev.txt'
+      - '.github/workflows/smoke.yml'
   workflow_dispatch:
 
 permissions:
