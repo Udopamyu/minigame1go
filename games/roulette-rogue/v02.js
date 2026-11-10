@@ -311,7 +311,7 @@ function settle(){
   debitEnemy(e.stake);appliedPerks("miss",n,false);
   log("ハズレ！ 掛け金 "+currency(e.stake)+" を回収。","plus");tone("good");burst("good",28);
  }
- debitEnemy(3); // House service charge.
+ debitEnemy(3+(run.charter==="tax"?3:0)); // House service charge plus charter toll.
  if(run.poison>0){debitEnemy(7);run.poison--;}
  if(e.trait==="ghost"&&n===0){run.bank-=15;log("怪盗が銀行から15盗んだ！","minus");}
  slotEffects(n,hit);appliedPerks("after",n,hit);
@@ -350,7 +350,7 @@ function newGuest(){
  run.act=Math.floor((run.wave-1)/10);
  run.enemy=customerAt(run.wave);run.turns=0;run.poison=0;run.bonusNudge=0;run.landed=null;
  run.payoutGuard=0;run.phase="bet";run.mode="battle";
- appliedPerks("new");bet();hideModal();drawCity();drawFace();
+ if(run.nextWeak>0){debitEnemy(run.nextWeak);run.nextWeak=0;}appliedPerks("new");bet();hideModal();drawCity();drawFace();
  log((run.enemy.boss?"◆ BOSS / ":"◆ GUEST / ")+run.wave+" : "+run.enemy.name+" 来店。");
  if(run.enemy.boss){tone("boss");burst("bad",80);}
  refreshArt();render();save();
@@ -531,7 +531,7 @@ document.addEventListener("keydown",e=>{if(e.repeat)return;if(e.code==="Space"&&
 window.addEventListener("resize",resizeFX);resizeFX();title();
 if(testMode){
  window.__rouletteTest={
-  snapshot:()=>run?{mode:run.mode,phase:run.phase,wave:run.wave,bank:run.bank,kills:run.kills,enemyWallet:run.enemy?.wallet,turns:run.turns,spinTotal:run.totalSpins,perks:run.perks.length}:null,
+  snapshot:()=>run?{mode:run.mode,phase:run.phase,wave:run.wave,bank:run.bank,kills:run.kills,enemyWallet:run.enemy?.wallet,turns:run.turns,spinTotal:run.totalSpins,perks:run.perks.length,nudges:run.nudges,landed:run.landed}:null,
   perkIds:()=>PERKS.map(p=>p.id),
   toJudge:()=>{if(run&&run.phase==="spinning"){spinningId++;cancelAnimationFrame(spinRaf);run.landed=finalIndex;rotation+=locateAngle(finalIndex);judge();}},
   setNumber:n=>{if(run&&run.phase==="judge"){run.landed=n;drawWheel();}},
