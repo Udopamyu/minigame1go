@@ -519,14 +519,43 @@ function drawHUD(){
   ctx.fillText(ready?'DASH READY':'DASH '+player.dashCooldown.toFixed(1)+'s',61,H-61);
  }
 }
+function isPortraitArena(){return canvas.clientHeight>canvas.clientWidth*1.14}
 function render(){
+ const rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);
+ const cw=Math.max(1,Math.round(rect.width*dpr)),ch=Math.max(1,Math.round(rect.height*dpr));
+ if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch}
+ ctx.setTransform(1,0,0,1,0,0);
+ const backdrop=ctx.createLinearGradient(0,0,cw,ch);
+ backdrop.addColorStop(0,'#0d2338');backdrop.addColorStop(1,'#101e31');
+ ctx.fillStyle=backdrop;ctx.fillRect(0,0,cw,ch);
+ const portrait=isPortraitArena();
+ // Cover the viewport while preserving a uniform scale (no stretched robots).
+ // On portrait phones the arena is rotated so the player starts at the bottom
+ // and the foe appears toward the top; physical joystick directions match.
+ const scale=portrait?Math.max(cw/H,ch/W):Math.max(cw/W,ch/H);
  ctx.save();
+ if(portrait){
+  ctx.translate((cw-H*scale)/2,(ch+W*scale)/2);
+  ctx.rotate(-Math.PI/2);
+ }else ctx.translate((cw-W*scale)/2,(ch-H*scale)/2);
+ ctx.scale(scale,scale);
  if(screenShake>0)ctx.translate(rand(-screenShake,screenShake),rand(-screenShake,screenShake));
  drawArena();drawCover();drawEffects();drawRobot(player);drawRobot(enemy);drawBullets();
  ctx.restore();
 }
 function loop(t){let dt=Math.min(.033,(t-(loop.last||t))/1000||0);loop.last=t;update(dt);render();requestAnimationFrame(loop)}
-function mousePos(e){const rect=canvas.getBoundingClientRect(),scale=Math.min(rect.width/W,rect.height/H),offX=(rect.width-W*scale)/2,offY=(rect.height-H*scale)/2;aim.x=clamp((e.clientX-rect.left-offX)/scale,0,W);aim.y=clamp((e.clientY-rect.top-offY)/scale,0,H)}
+function mousePos(e){
+ const r=canvas.getBoundingClientRect(),portrait=isPortraitArena();
+ const scale=portrait?Math.max(r.width/H,r.height/W):Math.max(r.width/W,r.height/H);
+ const x=e.clientX-r.left,y=e.clientY-r.top;
+ if(portrait){
+  aim.x=clamp(((r.height+W*scale)/2-y)/scale,0,W);
+  aim.y=clamp((x-(r.width-H*scale)/2)/scale,0,H);
+ }else{
+  aim.x=clamp((x-(r.width-W*scale)/2)/scale,0,W);
+  aim.y=clamp((y-(r.height-H*scale)/2)/scale,0,H);
+ }
+}
 canvas.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')mousePos(e)});
 canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){mousePos(e);fireMouse=true;canvas.setPointerCapture(e.pointerId)}});
 canvas.addEventListener('pointerup',e=>{if(e.pointerType==='mouse')fireMouse=false});
@@ -548,8 +577,11 @@ const joyPad=$('joystick');
 function setJoy(e){
  const rect=joyPad.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
  let dx=e.clientX-cx,dy=e.clientY-cy,m=Math.hypot(dx,dy),max=rect.width*.36;
- let len=Math.min(1,m/max);joy.x=m>0?dx/m*len:0;joy.y=m>0?dy/m*len:0;
- $('stick').style.transform='translate(calc(-50% + '+(joy.x*max)+'px),calc(-50% + '+(joy.y*max)+'px))';
+ const len=Math.min(1,m/max),sx=m>0?dx/m*len:0,sy=m>0?dy/m*len:0;
+ if(isPortraitArena()){joy.x=-sy;joy.y=sx}
+ else{joy.x=sx;joy.y=sy}
+ // Stick follows the physical finger even when the battlefield is rotated.
+ $('stick').style.transform='translate(calc(-50% + '+(sx*max)+'px),calc(-50% + '+(sy*max)+'px))';
 }
 joyPad.addEventListener('pointerdown',e=>{e.preventDefault();activeJoyPointer=e.pointerId;joyPad.setPointerCapture(e.pointerId);setJoy(e)});
 joyPad.addEventListener('pointermove',e=>{if(activeJoyPointer===e.pointerId){e.preventDefault();setJoy(e)}});
@@ -586,7 +618,7 @@ $('startBtn').addEventListener('click',beginRun);
 // Test-only integration hook, available to browser automation but not ordinary players.
 if(navigator.webdriver)window.__roboQATest={defeatEnemy:()=>damage(enemy,enemy.hp+100)};
 window.__roboQA=()=>({
- state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,
+ state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
  player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
   dashCooldown:player.dashCooldown,load:player.load}:null,
  enemy:enemy?{x:enemy.x,y:enemy.y,hp:enemy.hp,maxHp:enemy.maxHp,
