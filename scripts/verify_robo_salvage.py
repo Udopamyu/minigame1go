@@ -58,6 +58,8 @@ def test(browser,url,label,size,mobile=False):
     check(label+" menu closes",page.locator("#sidePanel").is_hidden())
     check(label+" combat resumes",not page.evaluate("()=>window.__roboQA().menuOpen"))
     check(label+" enemy nerf active",page.evaluate("()=>window.__roboQA().enemyDamageMultiplier")<1)
+    check(label+" battlefield orientation matches viewport",
+          page.evaluate("()=>window.__roboQA().portraitArena")==mobile)
     page.wait_for_timeout(120)
     info=page.evaluate("()=>window.__roboQA()")
     check(label+" fighting started",info["state"]=="fight",info["state"])
@@ -73,11 +75,12 @@ def test(browser,url,label,size,mobile=False):
         cx=rect["x"]+rect["width"]/2;cy=rect["y"]+rect["height"]/2
         page.mouse.move(cx,cy)
         page.mouse.down()
-        page.mouse.move(cx+31,cy+2,steps=3)
+        page.mouse.move(cx,cy-31,steps=3)
         page.wait_for_timeout(700)
         page.mouse.up()
         moved=page.evaluate("()=>window.__roboQA().player.x")
-        check("mobile joystick moves player",moved>info["player"]["x"]+5,(moved,info["player"]["x"]))
+        check("mobile portrait joystick UP moves player toward enemy",
+              moved>info["player"]["x"]+5,(moved,info["player"]["x"]))
         btn=page.locator("#fireTouch").bounding_box()
         page.mouse.move(btn["x"]+btn["width"]/2,btn["y"]+btn["height"]/2)
         page.mouse.down()
