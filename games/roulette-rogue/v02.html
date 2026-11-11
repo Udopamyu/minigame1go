@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#091323"><title>ROULETTE ROGUE DX / PIXEL CASINO</title>
+<link rel="stylesheet" href="./v02.css"></head>
+<body data-phase="title">
+<canvas id="city" aria-hidden="true" width="320" height="180"></canvas><canvas id="particles" aria-hidden="true"></canvas>
+<div class="shell">
+<header><div><div class="tiny">MINIGAME 1GO / #003 · LONG RUN ALPHA</div><h1><span>ROULETTE</span> ROGUE <b>DX</b></h1><div class="muted">客を破産させろ。ルーレットを改造しろ。</div></div><div class="settings"><button id="sound" aria-pressed="true">♫ ON</button><button id="save">▣ SAVE</button></div></header>
+<div class="mapline"><div><strong id="act">ACT 1 / 5</strong><small id="district">ネオン横丁</small></div><div class="road"><div id="road-fill"></div></div><div class="right"><strong id="guestnum">01 / 50</strong><small id="legacy">LEGACY 0 / 6</small></div></div>
+<div class="stats"><div class="stat"><label>HOUSE BANK</label><strong id="bank">¥ 250</strong></div><div class="stat"><label>ENEMY WALLET</label><strong id="wallet">¥ 0</strong></div><div class="stat"><label>SPINS LEFT</label><strong id="remaining">—</strong></div><div class="stat"><label>K.O.</label><strong id="ko">0</strong></div></div>
+<div class="grid">
+<section class="table panel">
+<div class="panel-title">◆ THE HOUSE ALWAYS HAS A PLAN ◆</div>
+<div class="wheel-box"><canvas id="wheel" width="180" height="180" aria-label="ルーレットの盤面"></canvas><div class="pointer"></div><div class="wheel-core">R✦R</div></div>
+<div class="landed-line"><span id="resultline">運命の数字を選べ。</span><strong id="landed">—</strong></div>
+<div class="nudge" id="nudges" hidden><button id="left">◀ -1</button><button id="settle">この数字で決済</button><button id="right">+1 ▶</button></div>
+<button class="big" id="main" disabled>▶ SPIN THE WHEEL</button>
+<div class="hint" id="hint">敵の賭けを見て、回そう。</div>
+<div class="numbers" id="numbers" aria-label="番号ごとのアップグレード"></div>
+</section>
+<div class="side">
+<section class="enemy panel"><div class="enemy-top"><canvas id="face" width="16" height="16"></canvas><div class="enemy-name"><strong id="ename">営業準備中</strong><small id="trait">新しい客がやってくる</small><div id="bossmark">COMMON GUEST</div></div></div>
+<div class="walletbar"><div id="walletfill"></div></div><div class="betrow"><div><small>CURRENT BET</small><strong id="bet">—</strong></div><div><small>STAKE</small><strong id="stake">—</strong></div></div>
+<div class="traitline" id="traitline">客ごとに戦略や特殊能力が違います。</div></section>
+<section class="info panel"><div class="panel-title">▣ DEALER LOG</div><div class="logs" id="logs" role="log"></div>
+<div class="owner"><div class="panel-title">◆ INSTALLED UPGRADES <small id="perknum">0/56</small></div><div id="inventory" class="inventory"></div></div></section>
+</div></div>
+<footer><span>PIXEL CASINO / ORIGINAL SFX / NO ADS</span><span id="runinfo">5 ACTS · 50 GUESTS</span></footer>
+</div>
+<div class="scrim" id="overlay">
+<div class="modal"><div class="tiny center" id="eyebrow">WELCOME TO PIXEL CASINO</div><h2 id="mtitle">ROULETTE ROGUE DX</h2><p id="mdesc">あなたはカジノの胴元。<br>50組の客を相手に、盤面の改造を繰り返して最上階を目指せ。</p><div id="choices"></div><button class="big" id="modal-main">▶ 新規ラン開始</button><div id="modal-footer"></div></div></div>
+<script src="./v02.js"></script>
+</body></html>

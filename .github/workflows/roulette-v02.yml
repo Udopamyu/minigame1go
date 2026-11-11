@@ -1,0 +1,41 @@
+name: "#003 Roulette Rogue DX pixel browser QA"
+on:
+  pull_request:
+    paths:
+      - "games/roulette-rogue/v02.*"
+      - "scripts/verify_roulette_v02.py"
+      - ".github/workflows/roulette-v02.yml"
+  push:
+    branches:
+      - "feature/003-roulette-rogue-prototype"
+    paths:
+      - "games/roulette-rogue/v02.*"
+      - "scripts/verify_roulette_v02.py"
+      - ".github/workflows/roulette-v02.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Check pixel game in Chromium on 4 viewport sizes
+        run: python scripts/verify_roulette_v02.py
+      - name: Preserve screenshots and source for human review (not publication)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: roulette-rogue-dx-v02-evidence
+          path: |
+            evaluation/roulette-rogue-v02/
+            games/roulette-rogue/v02.html
+            games/roulette-rogue/v02.css
+            games/roulette-rogue/v02.js
+          if-no-files-found: warn

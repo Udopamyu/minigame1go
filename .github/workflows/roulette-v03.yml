@@ -1,0 +1,39 @@
+name: "#003 Roulette Rogue v0.3 dealer UX QA"
+on:
+  pull_request:
+    paths:
+      - "games/roulette-rogue/v03.*"
+      - "scripts/verify_roulette_v03.py"
+      - ".github/workflows/roulette-v03.yml"
+  push:
+    branches: ["feature/003-roulette-rogue-prototype"]
+    paths:
+      - "games/roulette-rogue/v03.*"
+      - "scripts/verify_roulette_v03.py"
+      - ".github/workflows/roulette-v03.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  game-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Exercise active dealer / per-spin audited receipt in Chromium
+        run: python scripts/verify_roulette_v03.py
+      - name: Save evidence for human approval (not a release)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: roulette-v03-dealer-ux
+          path: |
+            evaluation/roulette-rogue-v03/
+            games/roulette-rogue/v03.html
+            games/roulette-rogue/v03.css
+            games/roulette-rogue/v03.js
+          if-no-files-found: warn

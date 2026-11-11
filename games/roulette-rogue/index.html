@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#091b18"><title>ROULETTE ROGUE — ミニゲーム1GO #003</title>
+<style>
+:root{--bg:#071713;--panel:#0e2721;--panel2:#13332a;--border:#386453;--gold:#f5d584;--ivory:#f6f0dd;--muted:#b0c6b7;--red:#d9575b;--black:#273745;--green:#0a8463;--cyan:#74dec3}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html{background:var(--bg);scrollbar-color:#32614f var(--bg)}
+body{margin:0;min-height:100vh;color:var(--ivory);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:radial-gradient(ellipse at 50% -10%,#245842 0,#102d23 35%,#071713 75%)}
+button{font:inherit;cursor:pointer;color:inherit}button:disabled{opacity:.42;cursor:not-allowed}
+.wrap{max-width:1150px;margin:auto;padding:17px 16px 36px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:15px;border-bottom:1px solid #51705b;padding-bottom:13px}
+.kicker{color:#bbd9ba;font-size:10px;letter-spacing:3px;font-weight:850}.top h1{font-family:Georgia,"Times New Roman",serif;color:var(--gold);font-size:clamp(24px,4.5vw,37px);letter-spacing:2px;margin:1px 0 3px}.top h1 span{color:#f8f1da}
+.top .sub{font-size:11px;color:#afc6b4;letter-spacing:.8px}.top-right{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.tag{border:1px solid #60816b;background:#1c3a2c;padding:8px 11px;border-radius:7px;font-size:12px;font-weight:750;white-space:nowrap}.tag strong{color:var(--gold)}
+.plaque{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}.stat{border:1px solid #456b57;background:#112d24;border-radius:9px;padding:10px 13px;min-width:0}.stat .ey{font-size:10px;font-weight:800;letter-spacing:1.4px;color:#a9c4af}.stat .num{font-size:clamp(17px,3.5vw,26px);font-weight:850;line-height:1.4;font-variant-numeric:tabular-nums;white-space:nowrap}.stat .num.g{color:var(--gold)}.stat .num.red{color:#ffa7a9}
+.grid{display:grid;grid-template-columns:minmax(0,1.03fr) minmax(0,.97fr);grid-template-areas:"wheel guest" "wheel info";gap:12px;align-items:start}
+.panel{background:linear-gradient(155deg,#113126,#0b241d);border:1px solid #48735b;border-radius:14px;box-shadow:inset 0 1px #fff1,0 15px 28px #030e0a44;min-width:0}
+.wheel-panel{grid-area:wheel;padding:16px;position:relative;overflow:hidden}.wheel-panel:before{content:"";position:absolute;inset:11px;border:1px solid #cdb07420;border-radius:9px;pointer-events:none}
+.panel-label{color:var(--gold);font:italic 17px Georgia,"Times New Roman",serif;text-align:center;letter-spacing:1.1px;margin:1px 0 13px}
+.wheel-stage{position:relative;width:min(100%,425px);aspect-ratio:1;margin:0 auto 8px}
+#wheel{width:100%;height:100%;display:block;filter:drop-shadow(0 8px 16px #020e0b99)}
+#rotor{transition:transform 1450ms cubic-bezier(.12,.73,.10,1);transform-origin:50% 50%}
+#wheel.wheel-nudge #rotor{transition-duration:290ms}
+.pointer{position:absolute;left:50%;top:-5px;transform:translateX(-50%);width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-top:26px solid var(--gold);filter:drop-shadow(0 2px 3px #000);z-index:2}
+#center-name{font-size:10px;letter-spacing:2px;fill:#e4d59d;font-family:Georgia,serif;font-weight:bold}
+#center-sub{font-size:7px;letter-spacing:1px;fill:#b4cbb6}
+.wheel-cap{display:flex;align-items:center;justify-content:center;gap:8px;min-height:26px;font-size:13px;color:#cddfca;font-weight:750;margin-bottom:13px}
+.result-pocket{border:1px solid #b49a64;border-radius:50%;background:#1d3330;color:var(--gold);font-size:15px;font-weight:950;width:34px;height:34px;display:grid;place-items:center}
+.cmd{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px}
+.btn{border-radius:9px;border:1px solid #65856c;background:#1c4534;color:#f8f7eb;padding:12px 8px;font-size:12px;font-weight:850;transition:background .13s;min-height:48px}
+.btn:active{transform:translateY(1px)}.btn.primary{background:linear-gradient(#f4d991,#d9aa55);color:#152719;border-color:#f9e4ad;box-shadow:0 4px 0 #805d2e}.btn.primary:active{box-shadow:0 2px 0 #805d2e;transform:translateY(2px)}.btn.emerald{background:#227154}
+#spin-button{width:100%;min-height:56px;font-size:15px;letter-spacing:1px}
+.tip{font-size:11px;color:#b7d2bd;text-align:center;line-height:1.7;min-height:31px;margin-top:12px}
+.side-guest{grid-area:guest;padding:15px}.guest-header{display:flex;align-items:center;gap:13px;margin-bottom:13px}.avatar{width:52px;height:52px;display:grid;place-items:center;background:#284e3d;border:2px solid #b39b64;border-radius:13px;font-size:28px;flex:none}.guest-header strong{font-size:19px;display:block}.guest-header p{margin:4px 0 0;font-size:11px;color:#b5c7b7}
+.under{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;color:#d0dfcf}.progress{width:100%;height:11px;background:#041b15;border-radius:30px;overflow:hidden;margin:6px 0 14px;border:1px solid #41644c}.progress div{background:linear-gradient(90deg,#ed7671,#ffc48a);height:100%;width:100%;transition:width .35s}
+.bet-area{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border-radius:10px;background:#061e17;border:1px solid #4b7057}.bet-area .mini{color:#abc4b0;font-size:10px;letter-spacing:1.3px;margin-bottom:4px}.bet-title{font-size:21px;font-weight:900;letter-spacing:1px;color:var(--gold)}.bet-amount{text-align:right;font-size:24px;font-weight:950;white-space:nowrap}.bet-amount small{display:block;color:#b2cdb8;font-size:10px;font-weight:700}
+.info{grid-area:info;padding:14px}.info h2{font-size:13px;letter-spacing:1px;color:var(--gold);margin:0 0 8px}.feed{height:107px;overflow:auto;background:#051b15;border:1px solid #304c3e;border-radius:8px;padding:9px;color:#d3e4d1;font-size:12px;line-height:1.65}.feed p{margin:0 0 5px}.feed .pos{color:#8ef0b0}.feed .neg{color:#ffb3a7}
+.inventory{margin-top:15px}.inventory-title{display:flex;justify-content:space-between;align-items:center}.inventory-title span{font-size:11px;color:#b3ccb8}.perks{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;min-height:31px}.owned{font-size:10px;color:#f8e8bb;border:1px solid #847453;padding:5px 8px;border-radius:6px;background:#3b362380}.owned.slot{border-color:#458b76;background:#174639}
+.legend{margin-top:11px;color:#bed2bc;font-size:10px;line-height:1.8}.legend b{color:#f9dfa3}
+.pocket-dots{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;margin-top:12px}.pocket{width:29px;height:29px;border:1px solid #a88e68;border-radius:7px;display:grid;place-items:center;font-size:11px;font-weight:900;position:relative;background:#365049}.pocket.red{background:#992e3e}.pocket.black{background:#253c45}.pocket.green{background:#087452}.pocket em{position:absolute;right:-5px;top:-5px;border-radius:10px;min-width:15px;background:var(--gold);color:#19271c;font-size:9px;font-style:normal;padding:1px 3px}
+.overlay{position:fixed;inset:0;z-index:10;background:#000b;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(5px);overflow-y:auto}
+.overlay[hidden]{display:none}.modal{border:1px solid #ab9563;box-shadow:0 30px 80px #000a,inset 0 0 0 4px #ffffff08;background:linear-gradient(150deg,#15382b,#081d17);width:min(100%,680px);border-radius:16px;padding:clamp(17px,4vw,30px);max-height:calc(100dvh - 32px);overflow:auto}
+.eyebrow{color:var(--gold);font-size:11px;font-weight:850;letter-spacing:2.6px;text-align:center}.modal h2{font-family:Georgia,"Times New Roman",serif;color:var(--gold);font-size:clamp(27px,6vw,40px);text-align:center;letter-spacing:1.4px;margin:7px 0 9px}.modal p{font-size:13px;line-height:1.85;color:#d7e3d2;text-align:center;margin:0 0 15px}.modal .lead{color:#f8e3aa;font-weight:850}.modal .btn{display:block;width:100%;margin:14px 0 0}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:18px 0}.card{background:linear-gradient(150deg,#1e4937,#0d2922);border:1px solid #73927a;border-radius:12px;padding:16px 12px;min-height:186px;text-align:left;display:flex;flex-direction:column;align-items:flex-start}.card:hover{border-color:#e5c47a;background:#295741}.card .card-icon{font-size:26px;margin-bottom:9px}.card b{font-size:14px;color:#ffe0a0}.card small{font-size:10px;color:#97d3c3;margin:6px 0 10px;letter-spacing:.5px}.card p{text-align:left;font-size:12px;color:#d6e4d6;line-height:1.55;margin:0}.cards .card em{margin-top:auto;color:#f8dfaa;font-size:10px;font-weight:900;font-style:normal;padding-top:12px}
+.pick-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;margin:19px 0 10px}.pick{min-height:48px;border:1px solid #867b5a;border-radius:8px;background:#284335;font-weight:900;font-size:17px}.pick:hover{background:#406e51}.pick.red{border-color:#b96064;color:#ffb9bd}.pick.black{border-color:#7898b5;color:#d1e7f3}.pick.green{border-color:#4ea682;color:#88f7cb}.pick small{display:block;font-size:9px;color:#d5d6ad;font-weight:600}
+.note{font-size:10px;color:#abc4b0;text-align:center;line-height:1.6}.split{display:flex;gap:10px;justify-content:center;margin-top:12px}.split .btn{max-width:220px}
+@media(max-width:760px){.wrap{padding:12px 10px 28px}.top{margin-bottom:9px;padding-bottom:9px}.top-right .tag{padding:5px 7px;font-size:10px}.top h1{font-size:24px}.top .sub{font-size:10px}.plaque{gap:5px;margin-bottom:9px}.stat{padding:7px 8px}.stat .ey{font-size:8px}.stat .num{font-size:17px}.grid{grid-template-columns:1fr;grid-template-areas:"guest" "wheel" "info";gap:9px}.side-guest{padding:10px 12px}.guest-header{margin-bottom:8px}.avatar{width:41px;height:41px;font-size:21px}.guest-header strong{font-size:16px}.guest-header p{font-size:10px}.progress{margin:5px 0 9px}.bet-area{padding:9px}.bet-title{font-size:17px}.bet-amount{font-size:20px}.wheel-panel{padding:10px}.wheel-stage{width:min(100%,355px);margin-bottom:0}.panel-label{font-size:15px;margin-bottom:7px}.cmd{margin-bottom:7px}.btn{min-height:42px}.tip{margin-top:7px}.cards{gap:6px}.card{padding:11px 9px;min-height:197px}.card b{font-size:12px}.card p{font-size:11px}.card .card-icon{font-size:21px}.card small{font-size:9px}}
+@media(max-width:360px){.top h1{font-size:20px}.tag{font-size:9px}.cards{grid-template-columns:1fr}.card{min-height:unset;padding:9px 12px}.pick-grid{grid-template-columns:repeat(5,1fr)}}
+@media(prefers-reduced-motion:reduce){#rotor{transition-duration:0ms!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><div><div class="kicker">MINIGAME 1GO / PROTOTYPE 003</div><h1>ROULETTE <span>ROGUE</span></h1><div class="sub">客を破産させろ。数字を改造しろ。胴元はあなた。</div></div><div class="top-right"><div class="tag">GUEST <strong id="wave">0 / 6</strong></div><div class="tag">K.O. <strong id="kills">0</strong></div></div></header>
+<section class="plaque" aria-label="所持金と戦況"><div class="stat"><div class="ey">HOUSE BANK</div><div class="num g" id="bank">¥ 140</div></div><div class="stat"><div class="ey">CUSTOMER</div><div class="num red" id="wallet">¥ 0</div></div><div class="stat"><div class="ey">SPINS LEFT</div><div class="num" id="spins">—</div></div><div class="stat"><div class="ey">NUDGES</div><div class="num" id="nudges">—</div></div></section>
+<div class="grid">
+<section class="wheel-panel panel"><div class="panel-label">✦ THE HOUSE ALWAYS HAS A PLAN ✦</div><div class="wheel-stage"><svg id="wheel" viewBox="0 0 420 420" role="img" aria-label="13マスのルーレット。0は緑、1〜12は赤または黒。"><defs><radialGradient id="felt"><stop stop-color="#25664c"/><stop offset="1" stop-color="#071f16"/></radialGradient><filter id="innerglow"><feGaussianBlur stdDeviation="3"/></filter></defs><circle cx="210" cy="210" r="203" fill="url(#felt)" stroke="#ae9761" stroke-width="7"/><circle cx="210" cy="210" r="194" fill="none" stroke="#4c8468" stroke-width="2"/><g id="rotor"></g><circle cx="210" cy="210" r="65" fill="#0e362b" stroke="#d3b477" stroke-width="5"/><circle cx="210" cy="210" r="57" fill="none" stroke="#58785b" stroke-width="2"/><text id="center-name" text-anchor="middle" x="210" y="204">ROULETTE</text><text id="center-sub" text-anchor="middle" x="210" y="223">ROGUE / HOUSE</text></svg><div class="pointer" aria-hidden="true"></div></div>
+<div class="wheel-cap"><span id="wheel-status">回して運命を決めよう</span><span id="landed" class="result-pocket" hidden>?</span></div>
+<div class="cmd" id="judge-actions" hidden><button id="nudge-left" class="btn" type="button">◀ -1</button><button id="resolve" class="btn emerald" type="button">ここに確定</button><button id="nudge-right" class="btn" type="button">+1 ▶</button></div>
+<button id="spin-button" class="btn primary" type="button" disabled>▶ SPIN THE WHEEL</button><div class="tip" id="action-hint">敵が賭ける色を見て、ルーレットを回そう。</div>
+<div class="pocket-dots" id="pocket-dots" aria-label="数字ごとの強化状況"></div></section>
+<section class="side-guest panel"><div class="guest-header"><div class="avatar" id="avatar">♠</div><div><strong id="guest-name">開店準備中</strong><p id="guest-persona">ここに挑戦者が現れます</p></div></div><div class="under"><span>客の財布</span><b id="wallet-inline">—</b></div><div class="progress"><div id="wallet-progress"></div></div><div class="bet-area"><div><div class="mini">CURRENT BET</div><div class="bet-title" id="bet-title">—</div></div><div class="bet-amount"><small>掛け金</small><span id="stake">¥ —</span></div></div></section>
+<aside class="info panel"><h2>♦ ディーラー日誌</h2><div class="feed" id="feed" role="log" aria-live="polite"><p>ルーレットを改造して、客の財布を削ろう。</p></div><div class="inventory"><div class="inventory-title"><h2>◆ 所持アップグレード</h2><span id="perk-count">0 / 30 種</span></div><div class="perks" id="owned-perks"><span style="font-size:11px;color:#9eb9a6">まだなし</span></div></div><div class="legend"><b>遊び方：</b>客が賭けを当てると、胴元の銀行から支払う。外れると客の掛け金を獲得。停止後は客1人につき1回、数字を±1マスずらせます。客を倒して3択の強化を獲得。<br><b>0（緑）</b> は全ての通常の賭けが外れる特別マスです。現金化・課金なしのフィクションです。</div></aside>
+</div></div>
+<div id="overlay" class="overlay"><div class="modal"><div class="eyebrow" id="modal-eyebrow">WELCOME TO THE HOUSE</div><h2 id="modal-title">ROULETTE ROGUE</h2><p id="modal-description">あなたはカジノの胴元。<br>客の財布を空にすると、ルーレットを改造できる。<br><span class="lead">6人の客から金を回収し、破産せずに生き残ろう。</span></p><div id="modal-dynamic"></div><button id="modal-main" class="btn primary" type="button">ゲームを始める</button></div></div>
+<script>
+(()=>{"use strict";
+const $=id=>document.getElementById(id);
+const RED=new Set([1,4,5,8,9,12]);const POCKETS=13;const STEP=360/POCKETS;
+const GUESTS=[
+ {name:"常連のツキ男",ico:"♠",line:"赤か黒か、勝負は直感",style:["red","black"],wallet:44,bet:16,turns:6},
+ {name:"理詰めの教授",ico:"♜",line:"奇数偶数の理論派",style:["odd","even"],wallet:60,bet:19,turns:6},
+ {name:"勝負師マダム",ico:"♦",line:"高い数字が好き",style:["high","low","red"],wallet:76,bet:21,turns:6},
+ {name:"無表情の富豪",ico:"♣",line:"何色にも動じない",style:["black","odd","low"],wallet:93,bet:24,turns:7},
+ {name:"一発逆転の剣士",ico:"★",line:"どんな数字でも賭ける",style:["even","red","high"],wallet:111,bet:27,turns:7},
+ {name:"最後のVIP",ico:"♛",line:"全財産を賭けにくる",style:["red","black","even","odd","high","low"],wallet:129,bet:30,turns:8},
+];
+const BETS={red:["赤 RED",n=>RED.has(n)],black:["黒 BLACK",n=>n>0&&!RED.has(n)],odd:["奇数 ODD",n=>n>0&&n%2===1],even:["偶数 EVEN",n=>n>0&&n%2===0],high:["高 HIGH",n=>n>=7],low:["低 LOW",n=>n>=1&&n<=6]};
+const PERKS=[
+// 15 pocket upgrades: choose the pocket after choosing the card.
+{id:"levy",name:"金庫破り",icon:"💰",type:"slot",desc:"この数字に入ると客から14奪う。"},
+{id:"knife",name:"切り札",icon:"✂",type:"slot",desc:"この数字で客の財布を24削る。"},
+{id:"bonus",name:"金のマス",icon:"✦",type:"slot",desc:"この数字で銀行に18を追加。"},
+{id:"leech",name:"吸血の針",icon:"♦",type:"slot",desc:"この数字で客から9奪う。"},
+{id:"compound",name:"雪だるま",icon:"❄",type:"slot",desc:"この数字に止まるたび徴収額が5、10、15…と増加。"},
+{id:"poison",name:"延滞金",icon:"☠",type:"slot",desc:"この数字で客に毒を付与。次の2スピン各7徴収。"},
+{id:"shieldslot",name:"ガードレール",icon:"◇",type:"slot",desc:"この数字で客が的中しても支払額を半減。"},
+{id:"flip",name:"イカサマ穴",icon:"⚑",type:"slot",desc:"この数字では客の当たりを外れ扱いにする。"},
+{id:"doubled",name:"二重課税",icon:"❖",type:"slot",desc:"この数字で客が外したら掛け金をさらに8徴収。"},
+{id:"exchange",name:"誘惑の宝箱",icon:"♛",type:"slot",desc:"この数字で銀行+35、客にも+10。"},
+{id:"guard",name:"金庫の蓋",icon:"▣",type:"slot",desc:"この数字で銀行+10。客が的中なら支払いをさらに6軽減。"},
+{id:"debt",name:"地下カジノ",icon:"⌁",type:"slot",desc:"この数字で客-19、銀行-3。"},
+{id:"bell",name:"呼び鈴",icon:"♫",type:"slot",desc:"この数字に止まればズラし回数+1（最大4）。"},
+{id:"combo",name:"増殖ギア",icon:"⚙",type:"slot",desc:"この数字で同じマスの強化1個につき客-5。"},
+{id:"zerojack",name:"ゼロの呪い",icon:"0",type:"slot",desc:"この数字で客-8。0に置けば追加で客-20。"},
+// 15 whole-board upgrades.
+{id:"entry",name:"入場料",icon:"🎟",type:"global",desc:"新しい客が現れるたび財布から12徴収。"},
+{id:"fee",name:"サービス料",icon:"▤",type:"global",desc:"毎スピン基本徴収が3から7になる。"},
+{id:"vault",name:"隠し金庫",icon:"▥",type:"global",desc:"今すぐ銀行に+50。"},
+{id:"fortify",name:"ハウス規約",icon:"⚖",type:"global",desc:"客が当てたときの支払いを25%減らす。"},
+{id:"redcut",name:"赤の不吉",icon:"♥",type:"global",desc:"赤い数字に入るたび客-7。"},
+{id:"blackcut",name:"黒の不吉",icon:"♠",type:"global",desc:"黒い数字に入るたび客-7。"},
+{id:"oddcut",name:"奇数の罠",icon:"Ⅰ",type:"global",desc:"奇数の数字に入るたび客-7。"},
+{id:"evencut",name:"偶数の罠",icon:"Ⅱ",type:"global",desc:"0以外の偶数で客-7。"},
+{id:"green",name:"緑の献上",icon:"♧",type:"global",desc:"0に入ると客-25。"},
+{id:"magnet",name:"ゼロ磁石",icon:"◎",type:"global",desc:"0に入る確率を約2.5倍にする。"},
+{id:"extra",name:"熟練ディーラー",icon:"☞",type:"global",desc:"客ごとのズラし回数が+1。"},
+{id:"wideshift",name:"長い指",icon:"↔",type:"global",desc:"ズラしが±1マスから±2マスになる。"},
+{id:"welcome",name:"先制徴収",icon:"⚡",type:"global",desc:"各客の1投目に客から12追加徴収。"},
+{id:"bounty",name:"破産ボーナス",icon:"★",type:"global",desc:"客を破産させるたび銀行+25。"},
+{id:"insurance",name:"撤退保険",icon:"☂",type:"global",desc:"客が逃げたとき、ペナルティを25軽減。"},
+];
+let mode="title",phase="bet",wave=0,bank=140,guest=null,kills=0,owned=[],slotEffects=Array.from({length:13},()=>[]),offer=[],pending=null,landed=null,wheelAngle=0,shiftUses=1,spinId=0,logs=[],rngSeed=1,poisonTurns=0,turnUsed=0,losses=0;
+const testMode=new URLSearchParams(location.search).get("e2e")==="1";
+const seedParm=Number(new URLSearchParams(location.search).get("seed"));
+function reseed(){rngSeed=(testMode&&seedParm?seedParm:Math.floor(Math.random()*4294967295))>>>0||1;}
+function rnd(){rngSeed^=rngSeed<<13;rngSeed^=rngSeed>>>17;rngSeed^=rngSeed<<5;return (rngSeed>>>0)/4294967296;}
+function randomInt(n){return Math.floor(rnd()*n);}function has(id){return owned.some(o=>o.id===id);}function yen(n){return "¥ "+Math.floor(n).toLocaleString("ja-JP");}
+const rotor=$("rotor");
+function point(r,deg){const a=(deg-90)*Math.PI/180;return [210+r*Math.cos(a),210+r*Math.sin(a)];}
+function sectorPath(i,r1,r2){const a=i*STEP,b=(i+1)*STEP,p0=point(r2,a),p1=point(r2,b),p2=point(r1,b),p3=point(r1,a);return `M${p0[0]} ${p0[1]} A${r2} ${r2} 0 0 1 ${p1[0]} ${p1[1]} L${p2[0]} ${p2[1]} A${r1} ${r1} 0 0 0 ${p3[0]} ${p3[1]} Z`;}
+function createWheel(){const ns="http://www.w3.org/2000/svg";
+ function svg(tag,attrs,parent=rotor){const n=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,v);parent.appendChild(n);return n;}
+ svg("circle",{cx:210,cy:210,r:188,fill:"#071e18",stroke:"#d9bd75","stroke-width":2});
+ for(let i=0;i<13;i++){
+  const fill=i===0?"#07815c":RED.has(i)?"#af394b":"#202e36";
+  svg("path",{d:sectorPath(i,72,182),fill,stroke:"#d2af6d","stroke-width":"2"});
+  const [x,y]=point(142,(i+.5)*STEP);const text=svg("text",{x,y,fill:"#fff8e9","font-family":"Georgia,serif","font-weight":i===0?"900":"800","font-size":i>=10?"17":"21","text-anchor":"middle","dominant-baseline":"central","paint-order":"stroke","stroke":"#0007","stroke-width":"2"});text.textContent=i;
+ }
+ svg("circle",{cx:210,cy:210,r:183,fill:"none",stroke:"#e5ca8d","stroke-width":"3"});svg("circle",{cx:210,cy:210,r:70,fill:"none",stroke:"#d2b574","stroke-width":"3"});
+}
+createWheel();
+function wheelTo(index,animate=true){const desired=-((index+.5)*STEP);const now=((wheelAngle%360)+360)%360;let delta=((desired-now)%360+360)%360;wheelAngle+=animate?1080+delta:delta;rotor.style.transform=`rotate(${wheelAngle}deg)`;}
+function shiftWheel(dir){wheelAngle-=dir*STEP;rotor.style.transform=`rotate(${wheelAngle}deg)`;}
+function pocketColor(n){return n===0?"green":RED.has(n)?"red":"black";}
+function renderPockets(){const root=$("pocket-dots");root.innerHTML="";for(let n=0;n<13;n++){const d=document.createElement("div");d.className="pocket "+pocketColor(n);d.textContent=String(n);d.title=n+"番："+(slotEffects[n].map(p=>p.name).join("、")||"未強化");if(slotEffects[n].length){const e=document.createElement("em");e.textContent=slotEffects[n].length;d.append(e);}root.append(d);}}
+function log(text,cls=""){logs.unshift({text,cls});logs=logs.slice(0,15);$("feed").innerHTML=logs.map(v=>`<p class="${v.cls}">${escapeHTML(v.text)}</p>`).join("");}
+function escapeHTML(s){return String(s).replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]));}
+function paint(){
+ $("wave").textContent=wave+" / "+GUESTS.length;$("kills").textContent=kills;$("bank").textContent=yen(bank);$("bank").style.color=bank<50?"#ffb1ad":"";
+ $("wallet").textContent=guest?yen(guest.wallet):"¥ 0";$("spins").textContent=guest?Math.max(0,guest.turns-turnUsed):"—";$("nudges").textContent=guest?String(shiftUses):"—";
+ $("avatar").textContent=guest?guest.ico:"♠";$("guest-name").textContent=guest?guest.name:"開店準備中";$("guest-persona").textContent=guest?guest.line:"ここに挑戦者が現れます";
+ $("wallet-inline").textContent=guest?yen(guest.wallet)+" / "+yen(guest.maxWallet):"—";
+ $("wallet-progress").style.width=guest?Math.max(0,Math.min(100,guest.wallet/guest.maxWallet*100))+"%":"100%";
+ $("bet-title").textContent=guest&&guest.betKey?BETS[guest.betKey][0]:"—";$("stake").textContent=guest?yen(guest.stake):"¥ —";
+ $("perk-count").textContent=owned.length+" / 30 種";const shelf=$("owned-perks");shelf.replaceChildren();if(!owned.length){shelf.innerHTML='<span style="font-size:11px;color:#9eb9a6">まだなし</span>';}else for(const p of owned){let s=document.createElement("span");s.className="owned "+(p.type==="slot"?"slot":"");s.textContent=p.icon+" "+p.name+(p.type==="slot"?" ["+p.target+"]":"");s.title=p.desc;shelf.append(s);}
+ renderPockets();
+ $("spin-button").disabled=mode!=="battle"||phase==="spinning"||phase==="judge";
+ $("judge-actions").hidden=!(mode==="battle"&&phase==="judge");
+ $("spin-button").hidden=(mode==="battle"&&phase==="judge");
+ $("nudge-left").disabled=shiftUses===0;$("nudge-right").disabled=shiftUses===0;
+ $("nudge-left").textContent="◀ -"+(has("wideshift")?2:1);$("nudge-right").textContent="+"+(has("wideshift")?2:1)+" ▶";
+ if(mode==="battle"){
+  $("spin-button").textContent=phase==="result"?guest&&guest.done?"次の客・強化へ →":"次のスピン →":phase==="spinning"?"ルーレット回転中…":"▶ SPIN THE WHEEL";
+  $("wheel-status").textContent=phase==="judge"?"止まった番号をずらす？":phase==="spinning"?"運命の一投…":phase==="result"?"結果確定": "客の賭けを確認して回そう";
+  $("action-hint").textContent=phase==="judge"?"ずらしは任意。確定後に客の当たり外れと強化を処理します。":phase==="spinning"?"針の先に止まる数字に注目":phase==="result"?"結果を確認して次へ。強化は客との対戦後に選べます。":"客が外せば掛け金を獲得。的中すると胴元が支払います。";
+ }
+ $("landed").hidden=landed===null;$("landed").textContent=landed===null?"?":landed;
+ $("landed").style.background=landed===null?"":landed===0?"#076449":RED.has(landed)?"#93333f":"#273745";
+}
+function showModal(ey,title,description,mainText,cb){$("modal-eyebrow").textContent=ey;$("modal-title").textContent=title;$("modal-description").innerHTML=description;$("modal-dynamic").replaceChildren();$("modal-main").hidden=!mainText;if(mainText){$("modal-main").textContent=mainText;$("modal-main").onclick=cb;}$("overlay").hidden=false;}
+function closeModal(){$("overlay").hidden=true;}
+function setBet(){guest.betKey=guest.style[randomInt(guest.style.length)];guest.stake=Math.min(guest.wallet,guest.bet);}
+function startRun(){spinId++;reseed();mode="upgrade";phase="bet";wave=0;bank=140;guest=null;kills=0;owned=[];slotEffects=Array.from({length:13},()=>[]);shiftUses=1;turnUsed=0;poisonTurns=0;landed=null;logs=[];wheelAngle=0;rotor.style.transform="rotate(0deg)";log("開店！ まずはルーレットを1箇所改造しよう。");paint();offerUpgrade(true);}
+function chooseOptions(){let pool=PERKS.filter(x=>!has(x.id));const result=[];while(result.length<Math.min(3,pool.length)){result.push(pool.splice(randomInt(pool.length),1)[0]);}return result;}
+function offerUpgrade(first=false){mode="upgrade";phase="bet";offer=chooseOptions();paint();showModal("PICK ONE · RANDOM UPGRADES",first?"最初の改造を選ぼう":"盤面をアップグレード",first?"<span class='lead'>ランダムに出た3つから1つ選択。</span><br>数字を強化するカードは、好きな数字に設置できます。":"<span class='lead'>3つから1つ選んで、次の客に備えよう。</span>",null,null);
+ const container=$("modal-dynamic");let cards=document.createElement("div");cards.className="cards";
+ for(const p of offer){const b=document.createElement("button");b.type="button";b.className="card";b.innerHTML=`<span class="card-icon">${escapeHTML(p.icon)}</span><b>${escapeHTML(p.name)}</b><small>${p.type==="slot"?"NUMBER SLOT":"PASSIVE / 即時"}</small><p>${escapeHTML(p.desc)}</p><em>選択する →</em>`;b.addEventListener("click",()=>{if(p.type==="slot")chooseSlot(p);else addPerk(p);});cards.append(b);}container.append(cards);}
+function chooseSlot(p){mode="placement";showModal("PLACE YOUR UPGRADE",p.name,"<span class='lead'>どの番号に設置する？</span><br>すでに強化したマスに重ねることもできます。",null,null);
+ const container=$("modal-dynamic"),grid=document.createElement("div");grid.className="pick-grid";
+ for(let n=0;n<13;n++){const b=document.createElement("button");b.type="button";b.className="pick "+pocketColor(n);b.innerHTML=n+(slotEffects[n].length?`<small>強化${slotEffects[n].length}</small>`:"<small>空き</small>");b.onclick=()=>addPerk({...p,target:n,hits:0});grid.append(b);}container.append(grid);
+ const back=document.createElement("button");back.className="btn";back.type="button";back.textContent="← カード選択に戻る";back.addEventListener("click",()=>offerAgain());container.append(back);}
+function offerAgain(){mode="upgrade";showModal("PICK ONE · RANDOM UPGRADES","盤面をアップグレード","好きなカードを1つ選ぼう。",null,null);const container=$("modal-dynamic");let cards=document.createElement("div");cards.className="cards";for(const p of offer){const b=document.createElement("button");b.type="button";b.className="card";b.innerHTML=`<span class="card-icon">${escapeHTML(p.icon)}</span><b>${escapeHTML(p.name)}</b><small>${p.type==="slot"?"NUMBER SLOT":"PASSIVE"}</small><p>${escapeHTML(p.desc)}</p><em>選択する →</em>`;b.onclick=()=>p.type==="slot"?chooseSlot(p):addPerk(p);cards.append(b);}container.append(cards);}
+function addPerk(p){if(owned.some(v=>v.id===p.id))return;owned.push(p);if(p.type==="slot")slotEffects[p.target].push(p);if(p.id==="vault")bank+=50;log("獲得："+p.name+(p.type==="slot"?"（"+p.target+"番）":""),"pos");startCustomer();}
+function startCustomer(){wave++;if(wave>GUESTS.length){victory();return;}const base=GUESTS[wave-1];guest={...base,wallet:base.wallet,maxWallet:base.wallet,betKey:null,stake:0,done:false,won:false};turnUsed=0;poisonTurns=0;shiftUses=1+(has("extra")?1:0);landed=null;
+ if(has("entry")){guest.wallet-=12;bank+=12;log("入場料：客から12を徴収！","pos");}
+ setBet();mode="battle";phase="bet";closeModal();log("客 #"+wave+" 「"+guest.name+"」が来店。","");paint();}
+function drawPocket(){const weights=Array.from({length:13},(_,i)=>i===0&&has("magnet")?2.5:1);let total=weights.reduce((a,b)=>a+b,0),r=rnd()*total;for(let i=0;i<13;i++){r-=weights[i];if(r<0)return i;}return 12;}
+function spin(){if(mode!=="battle"||phase!=="bet")return;phase="spinning";landed=null;const chosen=drawPocket();pending=chosen;$("wheel").classList.remove("wheel-nudge");spinId++;const current=spinId;wheelTo(chosen);log("客は「"+BETS[guest.betKey][0]+"」に"+yen(guest.stake)+"を賭けた。");paint();setTimeout(()=>{if(current!==spinId||mode!=="battle"||phase!=="spinning")return;landed=chosen;phase="judge";paint();},1510);}
+function nudge(dir){if(mode!=="battle"||phase!=="judge"||shiftUses<1)return;const delta=dir*(has("wideshift")?2:1);landed=(landed+delta+POCKETS)%POCKETS;shiftUses--;$("wheel").classList.add("wheel-nudge");shiftWheel(delta);log("ディーラーの指："+(delta>0?"+":"")+delta+"マス → "+landed+"番","pos");paint();}
+function adjustGuest(amount){if(amount===0)return;const real=amount<0?Math.max(amount,-guest.wallet):amount;guest.wallet=Math.max(0,guest.wallet+real);bank-=real;}
+function appliedResult(){if(mode!=="battle"||phase!=="judge"||landed===null)return;phase="result";turnUsed++;const n=landed;const effects=slotEffects[n];let hit=BETS[guest.betKey][1](n);if(effects.some(p=>p.id==="flip"))hit=false;
+ // All ordinary bets are even money, with the house receiving a fixed 3-coin service charge.
+ let wager=guest.stake;if(hit){if(has("fortify"))wager=Math.ceil(wager*.75);if(effects.some(p=>p.id==="shieldslot"))wager=Math.ceil(wager*.5);if(effects.some(p=>p.id==="guard"))wager=Math.max(0,wager-6);adjustGuest(wager);log("的中！ 客に"+yen(wager)+"支払った。","neg");}
+ else{adjustGuest(-wager);log("ハズレ！ 掛け金"+yen(wager)+"を徴収。","pos");}
+ if(!hit&&effects.some(p=>p.id==="doubled")){adjustGuest(-8);log("二重課税：客から追加8を徴収","pos");}
+ const fee=has("fee")?7:3;adjustGuest(-fee);
+ if(has("welcome")&&turnUsed===1){adjustGuest(-12);log("先制徴収：客から12","pos");}
+ if(n===0&&has("green")){adjustGuest(-25);log("緑の献上：客から25","pos");}
+ if(n>0){for(const [id,condition] of [["redcut",RED.has(n)],["blackcut",!RED.has(n)],["oddcut",n%2===1],["evencut",n%2===0]])if(has(id)&&condition)adjustGuest(-7);}
+ if(poisonTurns>0){adjustGuest(-7);poisonTurns--;log("延滞金：客から7","pos");}
+ for(const p of effects){switch(p.id){
+ case "levy":adjustGuest(-14);break;case "knife":adjustGuest(-24);bank-=24;break;
+ case "bonus":bank+=18;break;case "leech":adjustGuest(-9);break;
+ case "compound":p.hits=(p.hits||0)+1;adjustGuest(-5*p.hits);break;
+ case "poison":poisonTurns=2;break;case "shieldslot":break;case "flip":break;case "doubled":break;
+ case "exchange":bank+=35;guest.wallet+=10;break;
+ case "guard":bank+=10;break;case "debt":guest.wallet=Math.max(0,guest.wallet-19);bank-=3;break;
+ case "bell":shiftUses=Math.min(4,shiftUses+1);break;
+ case "combo":adjustGuest(-5*effects.length);break;
+ case "zerojack":adjustGuest(-(8+(n===0?20:0)));break;
+ }}
+ if(effects.length){log(n+"番の強化"+effects.length+"個が発動！","pos");}
+ if(guest.wallet<=0){guest.done=true;guest.won=true;kills++;const bounty=14+wave*4+(has("bounty")?25:0);bank+=bounty;log("K.O.！ 客が破産。報奨金"+yen(bounty),"pos");}
+ else if(turnUsed>=guest.turns){guest.done=true;guest.won=false;const penalty=Math.max(0,20+wave*4-(has("insurance")?25:0));bank-=penalty;losses++;log("客が退店。未回収ペナルティ"+yen(penalty),"neg");}
+ if(bank<=0){mode="gameover";const result="客"+wave+"人目で資金が尽きた。";paint();showModal("HOUSE CLOSED","BANKRUPT","<span class='lead'>"+result+"</span><br>K.O. "+kills+" 人 / 銀行 "+yen(bank)+"。", "最初からやり直す",startRun);return;}
+ paint();}
+function afterResult(){if(mode!=="battle"||phase!=="result")return;if(guest.done){if(wave===GUESTS.length)victory();else offerUpgrade();return;}phase="bet";landed=null;setBet();paint();}
+function victory(){mode="victory";phase="result";spinId++;paint();showModal("RUN COMPLETE","閉店！ 本日の売上","<span class='lead'>6人の客を迎えました。</span><br>K.O. "+kills+" 人 / 逃した客 "+losses+" 人<br>最終銀行資金 <strong>"+yen(bank)+"</strong><br>所持アップグレード "+owned.length+" 個","もう一度営業する",startRun);}
+$("modal-main").addEventListener("click",()=>{});
+$("spin-button").addEventListener("click",()=>phase==="result"?afterResult():spin());
+$("resolve").addEventListener("click",appliedResult);
+$("nudge-left").addEventListener("click",()=>nudge(-1));$("nudge-right").addEventListener("click",()=>nudge(1));
+document.addEventListener("keydown",e=>{if(e.code!=="Space"||e.repeat||e.target instanceof HTMLButtonElement)return;if(mode!=="battle"||phase!=="bet")return;e.preventDefault();spin();});
+$("modal-main").onclick=startRun;
+paint();
+if(testMode)window.__rouletteTest={snapshot:()=>({mode,phase,wave,bank,kills,guest:guest?{wallet:guest.wallet,turns:guest.turns,stake:guest.stake,betKey:guest.betKey,done:guest.done}:null,owned:owned.map(x=>x.id),landed,shiftUses,turnUsed}),goToJudge:()=>{if(phase==="spinning"){landed=pending;phase="judge";spinId++;wheelTo(landed,false);paint();}},chooseNum:(n)=>{if(phase==="judge"){landed=n;wheelTo(n,false);paint();}},perkNames:()=>PERKS.map(x=>x.id)};
+})();
+</script></body></html>
