@@ -1,0 +1,56 @@
+name: Robo Salvage prototype QA
+
+on:
+  push:
+    paths:
+      - 'games/robo-salvage/**'
+      - 'scripts/verify_robo_salvage.py'
+      - '.github/workflows/robo-salvage.yml'
+  pull_request:
+    paths:
+      - 'games/robo-salvage/**'
+      - 'scripts/verify_robo_salvage.py'
+      - '.github/workflows/robo-salvage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prototype-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout prototype
+        uses: actions/checkout@v4
+      - name: Validate JavaScript syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('games/robo-salvage/index.html').read_text()
+          js=re.findall(r'<script[^>]*>(.*?)</script\s*>',s,re.S|re.I)
+          assert len(js)==1
+          Path('/tmp/robo-salvage.js').write_text(js[0])
+          PY
+          node --check /tmp/robo-salvage.js
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright Chromium
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Browser QA
+        run: python scripts/verify_robo_salvage.py
+      - name: Upload playable prototype and test screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robo-salvage-prototype
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            games/robo-salvage/index.html
+            evaluation/robo-salvage/
