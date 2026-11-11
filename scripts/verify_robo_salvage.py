@@ -84,6 +84,33 @@ def test(browser,url,label,size,mobile=False):
           page.evaluate("()=>document.documentElement.scrollWidth<=innerWidth+2"),
           page.evaluate("()=>[document.documentElement.scrollWidth,innerWidth]"))
     page.screenshot(path=str(OUT/(label+"-prototype.png")),full_page=True)
+    if not mobile:
+        # Use the exact damage/victory path for an integration test, without
+        # waiting for a potentially long random AI fight.
+        current = page.evaluate("()=>window.__roboQA()")
+        weapon_from_foe = current["enemy"]["load"]["weapon"]
+        original_armor = current["player"]["load"]["armor"]
+        hook_exists = page.evaluate("()=>!!window.__roboQATest?.defeatEnemy")
+        check("QA victory test hook enabled only in automation", hook_exists)
+        if hook_exists:
+            page.evaluate("()=>window.__roboQATest.defeatEnemy()")
+            page.wait_for_timeout(150)
+            loot=page.evaluate("()=>window.__roboQA()")
+            check("victory shows loot selection",loot["state"]=="loot",loot["state"])
+            check("exactly four defeated enemy part choices",loot["lootCards"]==4,loot["lootCards"])
+            page.screenshot(path=str(OUT/"loot-selection.png"),full_page=True)
+            page.locator('[data-loot="weapon"]').click()
+            page.wait_for_timeout(200)
+            after_loot=page.evaluate("()=>window.__roboQA()")
+            check("one loot selection advances round",after_loot["wave"]==2 and after_loot["state"]=="fight",
+                  {"wave":after_loot["wave"],"state":after_loot["state"]})
+            check("chosen weapon copied from defeated enemy",
+                  after_loot["player"]["load"]["weapon"]==weapon_from_foe,
+                  {"expected":weapon_from_foe,"actual":after_loot["player"]["load"]["weapon"]})
+            check("other three parts not changed",
+                  after_loot["player"]["load"]["armor"]==original_armor)
+            check("loot selection is dismissed after one choice",
+                  page.locator("#overlay").is_hidden())
     ctx.close()
 
 def main():
