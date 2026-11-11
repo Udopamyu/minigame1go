@@ -162,7 +162,7 @@ const initial=()=>({
 });
 let state='menu',wave=1,best=Number(localStorage.getItem('roboSalvageBest')||0);
 let player=null,enemy=null,bullets=[],effects=[],rings=[],blocks=[],aim={x:800,y:295},keys={},fireMouse=false,fireTouch=false,joy={x:0,y:0},wantsDash=false;
-let activeJoyPointer=null,soundOn=true,audio=null,clock=0,screenShake=0,enemySeed=0,lootTaken=false;
+let activeJoyPointer=null,soundOn=true,audio=null,clock=0,screenShake=0,enemySeed=0,lootTaken=false,shotsFired=0;
 $('best').textContent=String(best).padStart(2,'0');
 function beep(hz,dur=0.07,vol=.025,type='triangle'){
  if(!soundOn)return;
@@ -334,7 +334,7 @@ function shoot(o,target,angleOverride){
    damage:bulletDamage,source:o,kind:w.id,color:w.color,pierce:w.pierce,
    trail:[],homing:w.homing});
  }
- o.cd=s.fireCooldown;
+ o.cd=s.fireCooldown;shotsFired++;
  ring(o.x+Math.cos(baseAngle)*26,o.y+Math.sin(baseAngle)*26,w.color,11);
  beep(w.id==='rail'?670:w.id==='shot'?240:w.id==='missile'?330:450,.045,.012,w.id==='missile'?'sawtooth':'triangle');
 }
@@ -518,6 +518,15 @@ for(const id of ['fireTouch','fireDesk']){
 for(const id of ['dashTouch','dashDesk']){$(id).addEventListener('pointerdown',e=>{e.preventDefault();wantsDash=true})}
 $('soundBtn').addEventListener('click',()=>{soundOn=!soundOn;$('soundBtn').textContent=soundOn?'音 ON':'音 OFF'});
 $('startBtn').addEventListener('click',beginRun);
+// Read-only telemetry for browser QA; it cannot mutate combat state.
+window.__roboQA=()=>({
+ state,wave,shotsFired,lootTaken,best,
+ player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
+  dashCooldown:player.dashCooldown,load:player.load}:null,
+ enemy:enemy?{x:enemy.x,y:enemy.y,hp:enemy.hp,maxHp:enemy.maxHp,
+  load:enemy.load}:null,
+ bullets:bullets.length,lootCards:document.querySelectorAll('[data-loot]').length
+});
 const previewLoad=initial();
 player=createRobot(previewLoad,240,295);
 enemy=createRobot(makeEnemyLoadout(1),760,295,true);
