@@ -78,6 +78,12 @@ body{background:#0c1b2d}
 .arenaOverlay{padding:9px}.dialog{max-height:calc(100dvh - 18px)}
 }
 @media(max-width:375px){.side{display:flex;grid-template-columns:none}}
+
+@media(pointer:coarse) and (min-width:561px){
+.mobilePad{display:flex;position:fixed;bottom:calc(13px + env(safe-area-inset-bottom));left:22px;right:22px;z-index:7;align-items:flex-end;pointer-events:none;margin:0}
+.mobilePad>*{pointer-events:auto}.joy{width:105px;height:105px;background:#10233bb9}
+.touchGroup{gap:14px}.touchGroup .touchbtn{width:82px;height:82px;padding:0;border-radius:50%;background:#1a314ddd}
+}
 </style>
 </head>
 <body>
@@ -196,7 +202,7 @@ const initial=()=>({
 });
 let state='menu',wave=1,best=Number(localStorage.getItem('roboSalvageBest')||0);
 let player=null,enemy=null,bullets=[],effects=[],rings=[],blocks=[],aim={x:800,y:295},keys={},fireMouse=false,fireTouch=false,joy={x:0,y:0},wantsDash=false;
-let activeJoyPointer=null,soundOn=true,audio=null,clock=0,screenShake=0,enemySeed=0,lootTaken=false,shotsFired=0;
+let activeJoyPointer=null,soundOn=true,audio=null,clock=0,screenShake=0,enemySeed=0,lootTaken=false,shotsFired=0,menuOpen=false;
 $('best').textContent=String(best).padStart(2,'0');
 function beep(hz,dur=0.07,vol=.025,type='triangle'){
  if(!soundOn)return;
@@ -340,6 +346,7 @@ function particle(x,y,color,n=9,scale=1){
 function ring(x,y,color,r=20){rings.push({x,y,color,r,life:.30,max:.30})}
 function damage(target,amount){
  if(target.dead||state!=='fight')return;
+ if(target===player)amount*=.86; // Enemy deals 14% less damage; loot strength unchanged.
  if(target===player&&target.dashLeft>0)return;
  const loss=amount*(1-target.stats.guard);
  target.hp=Math.max(0,target.hp-loss);target.hitFlash=.15;screenShake=Math.min(8,screenShake+2.1);
@@ -371,11 +378,12 @@ function shoot(o,target,angleOverride){
    damage:bulletDamage,source:o,kind:w.id,color:w.color,pierce:w.pierce,
    trail:[],homing:w.homing});
  }
- o.cd=s.fireCooldown;shotsFired++;
+ o.cd=s.fireCooldown*(o.enemy?1.12:1);shotsFired++;
  ring(o.x+Math.cos(baseAngle)*26,o.y+Math.sin(baseAngle)*26,w.color,11);
  beep(w.id==='rail'?670:w.id==='shot'?240:w.id==='missile'?330:450,.045,.012,w.id==='missile'?'sawtooth':'triangle');
 }
 function update(dt){
+ if(menuOpen)return; // Opening the equipment drawer pauses combat.
  clock+=dt;
  for(let i=effects.length-1;i>=0;i--){let e=effects[i];e.life-=dt;e.x+=e.vx*dt;e.y+=e.vy*dt;e.vx*=.97;e.vy*=.97;if(e.life<=0)effects.splice(i,1)}
  for(let i=rings.length-1;i>=0;i--){rings[i].life-=dt;if(rings[i].life<=0)rings.splice(i,1)}
@@ -403,7 +411,7 @@ function update(dt){
   let approach=clamp((d-desired)/125,-.85,1);
   const strafe=Math.sin(clock*.9+enemy.aiPhase)*enemy.aiStrafe*.65;
   let vx=(dx/d)*approach+(-dy/d)*strafe,vy=(dy/d)*approach+(dx/d)*strafe;
-  let m=Math.max(1,Math.hypot(vx,vy));moveRobot(enemy,vx/m*enemy.stats.speed*.64*dt,vy/m*enemy.stats.speed*.64*dt);
+  let m=Math.max(1,Math.hypot(vx,vy));moveRobot(enemy,vx/m*enemy.stats.speed*.59*dt,vy/m*enemy.stats.speed*.59*dt);
   enemy.cd=Math.max(0,enemy.cd-dt);
   if(d<730&&(lineOfSight(enemy,player)||enemy.stats.weapon.id==='rail'||enemy.stats.weapon.id==='missile'))shoot(enemy,player,a+Math.sin(clock*1.4+enemySeed)*(.10+Math.min(.12,wave*.006)));
  }
@@ -483,7 +491,7 @@ function drawRobot(o){
  if(state==='fight'){
   let w=65;ctx.fillStyle='#071321';ctx.fillRect(o.x-w/2,o.y-42,w,7);
   ctx.fillStyle=o.enemy?'#ff8798':'#65e8e4';ctx.fillRect(o.x-w/2,o.y-42,w*clamp(o.hp/o.maxHp,0,1),7);
-  ctx.font='bold 11px ui-monospace,monospace';ctx.textAlign='center';ctx.fillStyle=o.enemy?'#ffb6b2':'#c5fcff';ctx.fillText(o.enemy?o.name:'YOU',o.x,o.y-48);
+  // No player or enemy name captions in the combat view.
  }
 }
 function drawBullets(){
@@ -514,16 +522,18 @@ function drawHUD(){
 function render(){
  ctx.save();
  if(screenShake>0)ctx.translate(rand(-screenShake,screenShake),rand(-screenShake,screenShake));
- drawArena();drawCover();drawEffects();drawRobot(player);drawRobot(enemy);drawBullets();drawHUD();
+ drawArena();drawCover();drawEffects();drawRobot(player);drawRobot(enemy);drawBullets();
  ctx.restore();
 }
 function loop(t){let dt=Math.min(.033,(t-(loop.last||t))/1000||0);loop.last=t;update(dt);render();requestAnimationFrame(loop)}
-function mousePos(e){let rect=canvas.getBoundingClientRect();aim.x=(e.clientX-rect.left)*W/rect.width;aim.y=(e.clientY-rect.top)*H/rect.height}
+function mousePos(e){const rect=canvas.getBoundingClientRect(),scale=Math.min(rect.width/W,rect.height/H),offX=(rect.width-W*scale)/2,offY=(rect.height-H*scale)/2;aim.x=clamp((e.clientX-rect.left-offX)/scale,0,W);aim.y=clamp((e.clientY-rect.top-offY)/scale,0,H)}
 canvas.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')mousePos(e)});
 canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){mousePos(e);fireMouse=true;canvas.setPointerCapture(e.pointerId)}});
 canvas.addEventListener('pointerup',e=>{if(e.pointerType==='mouse')fireMouse=false});
 canvas.addEventListener('pointercancel',()=>fireMouse=false);
 window.addEventListener('keydown',e=>{
+ if(e.code==='Escape'&&menuOpen){e.preventDefault();closeMenu();return}
+ if(menuOpen)return;
  const controls=['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'];
  if(controls.includes(e.code)&&!e.target.closest('button,input,textarea,select'))e.preventDefault();
  keys[e.code]=true;
@@ -553,13 +563,30 @@ for(const id of ['fireTouch','fireDesk']){
  b.addEventListener('lostpointercapture',()=>{fireTouch=false});
 }
 for(const id of ['dashTouch','dashDesk']){$(id).addEventListener('pointerdown',e=>{e.preventDefault();wantsDash=true})}
+
+function closeMenu(){
+ menuOpen=false;keys={};wantsDash=false;
+ $('sidePanel').classList.remove('open');$('sidePanel').setAttribute('aria-hidden','true');
+ $('menuShade').classList.remove('show');$('menuBtn').setAttribute('aria-expanded','false');
+ $('menuBtn').setAttribute('aria-label','装備メニューを開く');
+}
+function openMenu(){
+ menuOpen=true;fireMouse=false;fireTouch=false;keys={};wantsDash=false;joy.x=joy.y=0;resetStick();
+ updatePanels(true);
+ $('sidePanel').classList.add('open');$('sidePanel').setAttribute('aria-hidden','false');
+ $('menuShade').classList.add('show');$('menuBtn').setAttribute('aria-expanded','true');
+ $('menuBtn').setAttribute('aria-label','装備メニューを閉じる');
+}
+$('menuBtn').addEventListener('click',()=>menuOpen?closeMenu():openMenu());
+$('menuClose').addEventListener('click',closeMenu);
+$('menuShade').addEventListener('click',closeMenu);
 $('soundBtn').addEventListener('click',()=>{soundOn=!soundOn;$('soundBtn').textContent=soundOn?'音 ON':'音 OFF'});
 $('startBtn').addEventListener('click',beginRun);
 // Read-only telemetry for browser QA; it cannot mutate combat state.
 // Test-only integration hook, available to browser automation but not ordinary players.
 if(navigator.webdriver)window.__roboQATest={defeatEnemy:()=>damage(enemy,enemy.hp+100)};
 window.__roboQA=()=>({
- state,wave,shotsFired,lootTaken,best,
+ state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,
  player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
   dashCooldown:player.dashCooldown,load:player.load}:null,
  enemy:enemy?{x:enemy.x,y:enemy.y,hp:enemy.hp,maxHp:enemy.maxHp,
