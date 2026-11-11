@@ -99,8 +99,8 @@ function moneyRow(name,icon,delta,detail=""){
  const source=receiptSource||{name,icon};
  receipt.rows.push({name:source.name||name,icon:source.icon||icon,delta:Math.round(delta),detail});
 }
-function textRow(name,icon,detail){
- if(receipt)receipt.rows.push({name,icon,delta:0,detail});
+function textRow(name,icon,detail,saved=0){
+ if(receipt)receipt.rows.push({name,icon,delta:0,detail,saved});
 }
 function traceSource(p){receiptSource=p?{name:p.name,icon:p.icon}:null;}
 function moneyBank(amount,name="その他の入金",icon="¥"){
@@ -165,7 +165,7 @@ function renderReceipt(){
  $("effect-icon").textContent=idx?current.icon:"◆";
  $("effect-title").textContent=idx?current.name:"決済の内訳を確認";
  $("effect-desc").textContent=idx?current.detail:"当たり外れ、強化、手数料をひとつずつ確認します";
- const num=$("effect-amount");num.textContent=idx?(current.delta>=0?"+":"−")+currency(Math.abs(current.delta)):"—";
+ const num=$("effect-amount");num.textContent=idx?(current.saved?"防止 "+currency(current.saved):current.delta===0?"効果発動":(current.delta>=0?"+":"−")+currency(Math.abs(current.delta))):"—";
  num.classList.toggle("negative",idx&&current.delta<0);
  const net=$("receipt-net");
  net.textContent=(sum>=0?"+":"−")+currency(Math.abs(sum));
@@ -179,7 +179,7 @@ function renderReceipt(){
  strip.replaceChildren();
  for(const row of rows.slice(0,idx)){
   const chip=document.createElement("span");chip.className="effect-chip "+(row.delta<0?"negative":"");
-  chip.textContent=row.icon+" "+row.name+" "+(row.delta>=0?"+":"−")+Math.abs(row.delta);
+  chip.textContent=row.icon+" "+row.name+" "+(row.saved?"防止 "+row.saved:row.delta===0?"発動":(row.delta>=0?"+":"−")+Math.abs(row.delta));
   strip.append(chip);
  }
  if(idx>0)tone(current.delta<0?"bad":current.delta>0?"good":"tap");
@@ -425,20 +425,27 @@ function settle(){
  // The targeted pocket is chosen by the wheel then can be shifted with limited resources.
  const hit=BETS[e.bet][1](n);
  let payout=e.stake;
- payout=Math.ceil(payout*(1-passives().filter(p=>p.op==="defend").reduce((a,p)=>1-(1-a)*(1-p.amt),0)));
+ const wouldPay=hit&&!installedAt(n).some(p=>p.op==="flip");
+ for(const p of passives().filter(p=>p.op==="defend")){
+  const next=Math.ceil(payout*(1-p.amt));
+  if(wouldPay&&payout>next)textRow(p.name,p.icon,"的中時の支払い軽減（参考額・銀行収入には含まない）",payout-next);
+  payout=next;
+ }
  if(e.trait==="counter"||e.trait==="trickster")payout+=8;
  if(e.boss)payout+=Math.max(5,Math.round(e.stake*.12));
  const flipped=installedAt(n).some(p=>p.op==="flip");
  const guarded=installedAt(n).some(p=>p.op==="guard");
- if(guarded)payout=Math.ceil(payout*.55);
+ if(guarded){const beforeGuard=payout;payout=Math.ceil(payout*.55);
+  if(wouldPay&&beforeGuard>payout)textRow("鉄壁マス","◇","マス強化による配当軽減（参考額）",beforeGuard-payout);
+ }
  const standardPayout=payout;
  if(run.tactic==="steady")payout=Math.ceil(payout*.6);
  if(run.tactic==="greed")payout=Math.ceil(payout*1.5);
  if(hit&&!flipped){
   let paid=Math.max(0,payout),block=Math.min(run.shield,paid);run.shield-=block;paid-=block;
   e.wallet+=paid;run.bank-=paid;moneyRow("客への配当","▼",-paid,"的中配当 / "+tacticLabel()+"作戦");
-  if(block)textRow("銀行シールド","◇","シールドで"+currency(block)+"の損害を防止");
-  if(run.tactic==="steady")textRow("堅守で支払い抑制","▣",currency(standardPayout-payout)+"の損害を防止（参考額・収支には含まない）");
+  if(block)textRow("銀行シールド","◇","銀行の損害を防止（参考額）",block);
+  if(run.tactic==="steady")textRow("堅守で支払い抑制","▣","作戦で防いだ金額（参考額・収支には含まない）",Math.max(0,standardPayout-payout));
   appliedPerks("hit",n,true);
   log("的中！ 客に "+currency(paid)+" 支払った。","minus");tone("bad");burst("bad",45);
   document.body.classList.add("flash");setTimeout(()=>document.body.classList.remove("flash"),260);
@@ -587,7 +594,7 @@ function showModal(eye,title,desc,mainText,action){
 function hideModal(){$("overlay").hidden=true;}
 function start(){
  clearSaved();charter=$("choices").querySelector(".active")?.dataset.key||charter;
- receipt=null;$("receipt-screen").hidden=true;run={rng:(Math.floor(Math.random()*4294967294)+1)>>>0,bank:270+Math.min(5,meta.clears)*15+(charter==="vault"?100:0),
+ receipt=null;$("receipt-screen").hidden=true;run={rng:(testMode&&Number(new URLSearchParams(location.search).get("seed"))||Math.floor(Math.random()*4294967294)+1)>>>0,bank:270+Math.min(5,meta.clears)*15+(charter==="vault"?100:0),
   wave:1,act:0,enemy:null,perks:[],logs:[],phase:"between",mode:"upgrade",
   kills:0,escapes:0,turns:0,poison:0,nudges:0,bonusNudge:0,shield:0,totalSpins:0,charter,landed:null,nextWeak:0};
  tone("epic");burst("spark",100);drawCity();showUpgrade();
@@ -690,7 +697,7 @@ if(testMode){
   setNumber:n=>{if(run&&run.phase==="judge"){run.landed=n;drawWheel();}},
   advance:()=>{if(run?.phase==="bet")spin();if(run?.phase==="spinning"){spinningId++;cancelAnimationFrame(spinRaf);run.landed=finalIndex;judge();}},
   hasSave:()=>!!load(),
-  givePerk:(id,at=null)=>{const p=getPerk(id);if(p){acquire(p,at);render();}},
+  givePerk:(id,at=null)=>{const p=getPerk(id);if(p){if(owns(id))run.perks.find(x=>x.id===id).at=at;else acquire(p,at);render();}},
   receipt:()=>receipt?{rows:receipt.rows,start:receipt.startBank,end:receipt.endBank,index:receiptIndex}:null
  };
 }
