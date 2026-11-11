@@ -47,16 +47,49 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 @media(max-width:820px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr;gap:10px}.arenaFrame{aspect-ratio:1000/590}.topright .tag:last-child{display:none}.sideFoot{grid-column:1/-1}}
 @media(max-width:560px){.shell{padding:13px 10px 25px}.top{align-items:flex-start}.brandtitle{font-size:22px}.subbrand{font-size:10px}.topright .tag{font-size:10px;padding:6px 8px}.arenaFrame{aspect-ratio:1.6;border-radius:12px}.dialog{padding:16px}.dialog h2{font-size:24px}.dialog p{font-size:12px}.lootGrid{gap:7px}.lootCard{padding:9px;min-height:112px}.lootCard .partname{font-size:13px}.lootCard .detail{font-size:10px}.lootCard .repl{font-size:10px}.mobilePad{display:flex}.controls{margin-top:4px}.buttons{display:none}.controlCopy{font-size:11px}.side{grid-template-columns:1fr 1fr}.panel{padding:10px}.partRow{padding:6px}.partRow .name{font-size:11px;max-width:115px}.partRow .lvl{font-size:10px}.panel h3{font-size:10px}.statline{margin:10px 0}.statpill{font-size:10px;padding:7px}.lootDialog h2{font-size:21px}}
 @media(max-width:375px){.side{grid-template-columns:1fr}.partRow .name{max-width:230px}.lootGrid{grid-template-columns:1fr 1fr}.topright .tag{display:none}}
+
+/* Immersive viewport; all combat information lives in an optional drawer. */
+html,body{width:100%;height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none}
+body{background:#0c1b2d}
+.shell{position:fixed;inset:0;width:100%;height:100%;height:100dvh;max-width:none;margin:0;padding:0;overflow:hidden}
+.top,.controls,.progress{display:none!important}
+.layout,.arenaColumn{display:block;width:100%;height:100%}
+.arenaFrame{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;border:0;border-radius:0;box-shadow:none;background:radial-gradient(circle at 50% 35%,#173951,#0c1b2d 65%);touch-action:none}
+.arenaFrame canvas{display:block;width:100%;height:100%;object-fit:contain}
+.arenaOverlay{position:fixed;inset:0;z-index:10;padding:clamp(10px,3vw,22px)}
+.dialog{max-height:calc(100dvh - 25px);overflow-y:auto}
+.menuToggle{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));z-index:24;display:grid;place-items:center;width:47px;height:47px;border:1px solid #76cfe5a1;border-radius:12px;background:#09243fdb;color:#d7f9ff;font-size:24px;cursor:pointer;box-shadow:0 4px 16px #0008;touch-action:manipulation}
+.menuShade{position:fixed;inset:0;z-index:25;background:#020b15af;display:none}
+.menuShade.show{display:block}
+.side{position:fixed;inset:0 auto 0 0;width:min(375px,92vw);height:100%;height:100dvh;z-index:26;transform:translateX(-105%);transition:transform .2s ease;visibility:hidden;overflow-y:auto;overscroll-behavior:contain;padding:72px 13px 24px;display:flex;flex-direction:column;gap:11px;border-right:1px solid #486781;background:linear-gradient(165deg,#14243d,#091421 80%);box-shadow:12px 0 45px #000a}
+.side.open{transform:translateX(0);visibility:visible}
+.drawerTop{position:absolute;top:14px;left:15px;right:12px;display:flex;align-items:center;justify-content:space-between;gap:7px}
+.drawerTop b{font-size:15px}.drawerTools{display:flex;align-items:center;gap:7px}
+.drawerClose{display:grid;place-items:center;width:38px;height:38px;border:1px solid #466481;border-radius:10px;background:#1a314e;color:white;font-size:25px;cursor:pointer}
+.side .panel{padding:14px;flex-shrink:0}
+.mobilePad{display:none}
+@media(max-width:820px){.side{display:flex;grid-template-columns:none}.sideFoot{grid-column:auto}}
+@media(max-width:560px){
+.shell{padding:0}.arenaFrame{aspect-ratio:auto;border-radius:0}
+.mobilePad{display:flex;position:fixed;bottom:calc(13px + env(safe-area-inset-bottom));left:clamp(11px,4vw,22px);right:clamp(11px,4vw,22px);z-index:7;align-items:flex-end;pointer-events:none;margin:0}
+.mobilePad > *{pointer-events:auto}.joy{width:clamp(94px,27vw,120px);height:clamp(94px,27vw,120px);background:radial-gradient(circle,#1b3855b9,#10233bb9);border-color:#86bdd6b8}
+.touchGroup{gap:10px}.touchGroup .touchbtn{width:clamp(66px,18vw,86px);height:clamp(66px,18vw,86px);font-size:12px;background:#1c3854db}
+.side{display:flex;grid-template-columns:none;padding:72px 13px 24px}.side .panel{padding:13px}.partRow .name{max-width:220px}
+.arenaOverlay{padding:9px}.dialog{max-height:calc(100dvh - 18px)}
+}
+@media(max-width:375px){.side{display:flex;grid-template-columns:none}}
 </style>
 </head>
 <body>
 <div class="shell">
+<button id="menuBtn" class="menuToggle" type="button" aria-label="装備メニューを開く" aria-controls="sidePanel" aria-expanded="false">☰</button>
+<div id="menuShade" class="menuShade" aria-hidden="true"></div>
 <header class="top">
  <div class="identity"><div class="mark">#03</div><div>
  <div class="eyebrow">MINIGAME 1GO / PROTOTYPE</div>
  <div class="brandtitle">ロボ・サルベージ</div>
  <div class="subbrand">倒して、奪って、強くなる。1対1のローグライト戦闘。</div></div></div>
- <div class="topright"><span class="tag">ROUND <strong id="topWave">01</strong></span><span class="tag">BEST <strong id="best">00</strong></span><button id="soundBtn" class="smallbtn" aria-label="サウンド切替">音 ON</button></div>
+ <div class="topright"><span class="tag">ROUND <strong id="topWave">01</strong></span><span class="tag">BEST <strong id="best">00</strong></span></div>
 </header>
 <div class="layout">
  <section class="arenaColumn">
@@ -80,7 +113,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   <div class="controls"><div class="controlCopy"><strong>PC</strong> WASD / 矢印：移動　 ·　 マウス長押し / Space：射撃　 ·　 Shift：ダッシュ<br><strong>スマホ</strong> 左スティックで移動。FIREは敵へ自動照準。装備は毎勝利1つだけ交換。</div><div class="buttons"><button class="touchbtn" id="dashDesk">DASH</button><button class="touchbtn" id="fireDesk">FIRE</button></div></div>
   <div class="progress"><span>試作版：1対1 → 勝利 → <b>1パーツ強奪</b> → 次の敵</span><span>完全オリジナルのキャラクター・パーツ構成</span></div>
  </section>
- <aside class="side">
+ <aside class="side" id="sidePanel" aria-label="装備メニュー" aria-hidden="true">
+  <div class="drawerTop"><b>装備・ステータス</b><div class="drawerTools"><button id="soundBtn" class="smallbtn" aria-label="サウンド切替">音 ON</button><button id="menuClose" class="drawerClose" type="button" aria-label="メニューを閉じる">×</button></div></div>
   <section class="panel">
    <div class="panelTitle"><h3>YOUR ROBOT / 自機</h3><em id="playerModel">SALVAGER-01</em></div>
    <div class="health"><div id="playerHpBar"></div></div><div class="healthNumbers"><span id="playerHpText">120 / 120 HP</span><span id="playerPower">POWER 1.0</span></div>
