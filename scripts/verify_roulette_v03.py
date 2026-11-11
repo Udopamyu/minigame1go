@@ -23,7 +23,7 @@ def test():
     origin=f"http://127.0.0.1:{server.server_port}"
     try:
         with sync_playwright() as pw:
-            browser=pw.chromium.launch(headless=True,args=["--no-sandbox","--disable-dev-shm-usage"])
+            browser=pw.chromium.launch(channel="chrome",headless=True,args=["--no-sandbox","--disable-dev-shm-usage"])
             for width,height in [(320,700),(390,844),(768,1024),(1280,800)]:
                 context=browser.new_context(viewport={"width":width,"height":height},is_mobile=width<800,has_touch=width<800)
                 page=context.new_page()
