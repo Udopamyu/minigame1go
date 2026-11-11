@@ -1,0 +1,26 @@
+name: Robo Salvage downloadable HTML
+
+on:
+  push:
+    paths:
+      - 'games/robo-salvage/**'
+      - '.github/workflows/robo-salvage-download.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify single-file HTML exists
+        run: test -s games/robo-salvage/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: robo-salvage-html
+          if-no-files-found: error
+          retention-days: 14
+          path: games/robo-salvage/index.html
