@@ -690,6 +690,7 @@ if(testMode){
   setNumber:n=>{if(run&&run.phase==="judge"){run.landed=n;drawWheel();}},
   advance:()=>{if(run?.phase==="bet")spin();if(run?.phase==="spinning"){spinningId++;cancelAnimationFrame(spinRaf);run.landed=finalIndex;judge();}},
   hasSave:()=>!!load(),
+  givePerk:(id,at=null)=>{const p=getPerk(id);if(p){acquire(p,at);render();}},
   receipt:()=>receipt?{rows:receipt.rows,start:receipt.startBank,end:receipt.endBank,index:receiptIndex}:null
  };
 }
