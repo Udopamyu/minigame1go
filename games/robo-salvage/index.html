@@ -137,7 +137,7 @@ const enemyNames=['NEON JACKAL','IRON MOTH','RUST VIPER','VOID CAT','DUST HOUND'
 function makeEnemyLoadout(wave){
  let obj={};
  for(const slot of Object.keys(SLOT)){
-  let def=pick(DEF[slot]);let lv=Math.max(1,Math.round(1+(wave-1)*.56+rand(-.5,.65)));
+  let def=pick(DEF[slot]);let lv=wave===1?1:Math.max(1,Math.round(1+(wave-1)*.56+rand(-.5,.65)));
   obj[slot]=part(slot,def.id,lv,rarity(wave));
  }
  return obj;
@@ -199,6 +199,9 @@ function startWave(first=false){
  blocks=makeCover();
  let load=makeEnemyLoadout(wave);
  enemy=createRobot(load,840,295,true);
+ // First fight is an accessible warm-up; randomized loot still keeps its full power.
+ const warmup=wave===1?.79:wave===2?.88:wave===3?.95:1;
+ enemy.maxHp=Math.round(enemy.maxHp*warmup);enemy.hp=enemy.maxHp;
  enemy.name=pick(enemyNames);
  enemySeed=Math.random()*10;
  player.x=165;player.y=295;player.vx=0;player.vy=0;player.cd=0;player.hitFlash=0;
@@ -519,6 +522,8 @@ for(const id of ['dashTouch','dashDesk']){$(id).addEventListener('pointerdown',e
 $('soundBtn').addEventListener('click',()=>{soundOn=!soundOn;$('soundBtn').textContent=soundOn?'音 ON':'音 OFF'});
 $('startBtn').addEventListener('click',beginRun);
 // Read-only telemetry for browser QA; it cannot mutate combat state.
+// Test-only integration hook, available to browser automation but not ordinary players.
+if(navigator.webdriver)window.__roboQATest={defeatEnemy:()=>damage(enemy,enemy.hp+100)};
 window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,
  player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
