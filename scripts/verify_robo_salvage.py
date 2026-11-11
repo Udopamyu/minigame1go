@@ -2,6 +2,7 @@
 """Independent Playwright QA of the #003 Robo Salvage browser game."""
 from __future__ import annotations
 import json
+import os
 import sys
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -92,7 +93,7 @@ def main():
     url=f"http://127.0.0.1:{server.server_port}/games/robo-salvage/"
     try:
         with sync_playwright() as p:
-            browser=p.chromium.launch(headless=True,args=["--no-sandbox","--disable-dev-shm-usage"])
+            browser=p.chromium.launch(headless=True,executable_path=os.environ.get("CHROMIUM_EXECUTABLE") or None,args=["--no-sandbox","--disable-dev-shm-usage"])
             try:
                 test(browser,url,"desktop",{"width":1366,"height":900})
                 test(browser,url,"mobile",{"width":390,"height":844},True)
