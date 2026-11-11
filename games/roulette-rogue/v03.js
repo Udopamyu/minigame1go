@@ -175,7 +175,7 @@ function renderReceipt(){
  $("receipt-skip").disabled=idx>=rows.length;
  $("receipt-skip").textContent=idx>=rows.length?"確認済み":"一括表示";
  let strip=$("receipt-breakdown");
- if(!strip){strip=document.createElement("div");strip.id="receipt-breakdown";strip.className="receipt-breakdown";$("receipt-total").before(strip);}
+ if(!strip){strip=document.createElement("div");strip.id="receipt-breakdown";strip.className="receipt-breakdown";document.querySelector(".receipt-total").before(strip);}
  strip.replaceChildren();
  for(const row of rows.slice(0,idx)){
   const chip=document.createElement("span");chip.className="effect-chip "+(row.delta<0?"negative":"");
