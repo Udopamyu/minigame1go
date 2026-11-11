@@ -182,8 +182,26 @@ function renderReceipt(){
   chip.textContent=row.icon+" "+row.name+" "+(row.saved?"防止 "+row.saved:row.delta===0?"発動":(row.delta>=0?"+":"−")+Math.abs(row.delta));
   strip.append(chip);
  }
- if(idx>0)tone(current.delta<0?"bad":current.delta>0?"good":"tap");
+ if(idx>0){tone(current.delta<0?"bad":current.delta>0?"good":"tap");receiptCoins(current);}
 }
+
+function receiptCoins(row){
+ if(!row||!row.delta||window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+ const host=document.querySelector(".receipt-window");
+ const layer=document.createElement("div");layer.className="receipt-coins";
+ const isLoss=row.delta<0;
+ for(let i=0;i<13;i++){
+  const chip=document.createElement("i");chip.className="flying-chip"+(isLoss?" loss":"");
+  const x=((i*53+11)%83)+8,y=((i*29+13)%30)+42;
+  chip.style.left=x+"%";chip.style.top=y+"%";
+  chip.style.setProperty("--fly-x",((i%2?1:-1)*(18+(i*13)%72))+"px");
+  chip.style.setProperty("--fly-y",(isLoss?30+(i*19)%60:-20-(i*17)%100)+"px");
+  chip.style.animationDelay=(i%5)*30+"ms";layer.append(chip);
+ }
+ host.append(layer);
+ setTimeout(()=>layer.remove(),980);
+}
+
 function nextReceipt(){
  if(!receipt)return;
  if(receiptIndex<receipt.rows.length){receiptIndex++;renderReceipt();burst("good",receipt.rows[receiptIndex-1].delta>0?12:5);return;}
