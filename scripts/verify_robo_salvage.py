@@ -35,8 +35,30 @@ def test(browser,url,label,size,mobile=False):
     check(label+" four starting parts",page.locator("#playerParts .partRow").count()==4)
     check(label+" randomized foe has four parts",page.locator("#enemyParts .partRow").count()==4)
     check(label+" start control",page.locator("#startBtn").is_visible())
+    frame=page.locator("#arenaFrame").bounding_box()
+    check(label+" arena fills viewport",
+          frame is not None and abs(frame["x"])<2 and abs(frame["y"])<2 and
+          abs(frame["width"]-size["width"])<2 and abs(frame["height"]-size["height"])<2,
+          frame)
+    check(label+" no header on play screen",page.locator("header.top").is_hidden())
+    check(label+" side status starts hidden",page.locator("#sidePanel").is_hidden())
+    check(label+" hamburger menu visible",page.locator("#menuBtn").is_visible())
     page.locator("#startBtn").click()
-    page.wait_for_timeout(500)
+    page.wait_for_timeout(350)
+    page.locator("#menuBtn").click()
+    page.wait_for_timeout(280)
+    check(label+" equipment drawer opens",page.locator("#sidePanel").is_visible())
+    check(label+" menu pauses combat",page.evaluate("()=>window.__roboQA().menuOpen"))
+    check(label+" four equipment slots in drawer",page.locator("#playerParts .partRow").count()==4)
+    before_menu=page.evaluate("()=>window.__roboQA().player.hp")
+    page.wait_for_timeout(380)
+    after_menu=page.evaluate("()=>window.__roboQA().player.hp")
+    check(label+" combat frozen while menu is open",abs(after_menu-before_menu)<.01)
+    page.locator("#menuClose").click()
+    check(label+" menu closes",page.locator("#sidePanel").is_hidden())
+    check(label+" combat resumes",not page.evaluate("()=>window.__roboQA().menuOpen"))
+    check(label+" enemy nerf active",page.evaluate("()=>window.__roboQA().enemyDamageMultiplier")<1)
+    page.wait_for_timeout(120)
     info=page.evaluate("()=>window.__roboQA()")
     check(label+" fighting started",info["state"]=="fight",info["state"])
     check(label+" round 1",info["wave"]==1,info["wave"])
@@ -80,6 +102,9 @@ def test(browser,url,label,size,mobile=False):
         check("desktop dash triggers cooldown",current["player"]["dashCooldown"]>0)
     page.wait_for_timeout(300)
     check(label+" JavaScript runtime errors",not errors,errors)
+    check(label+" no page vertical overflow",
+          page.evaluate("()=>document.documentElement.scrollHeight<=innerHeight+2"),
+          page.evaluate("()=>[document.documentElement.scrollHeight,innerHeight]"))
     check(label+" no page horizontal overflow",
           page.evaluate("()=>document.documentElement.scrollWidth<=innerWidth+2"),
           page.evaluate("()=>[document.documentElement.scrollWidth,innerWidth]"))
