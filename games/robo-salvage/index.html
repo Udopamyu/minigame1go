@@ -389,49 +389,105 @@ function beginRun(){
  closeMenu();updatePanels(true);
  showRoute();
 }
-function chooseRouteOptions(){
- const special=pick(['shop','shop','rest','rest','elite','elite','event','event','cache']);
- return shuffled(['fight','fight2',special]);
+function buildRouteGraph(){
+ const pool=['shop','rest','elite','event','cache','shop','event','elite','rest','shop'];
+ return Array.from({length:10},(_,row)=>{
+  const left=pick(pool),right=pick(pool.filter(t=>t!==left));
+  return Array.from({length:5},(_,lane)=>{
+   if(lane===1)return left;
+   if(lane===3)return right;
+   return lane===2?'fight':row%2===lane%2?'fight':'fight2';
+  });
+ });
 }
-function routeTrack(){
- let h='<div class="routeTrack" aria-label="10マス進行した後ボス">';
- for(let n=0;n<10;n++)h+='<span class="routeDot '+(n<depth?'done':n===depth?'next':'')+'"></span>';
- return h+'<span class="routeBoss">★ BOSS</span></div>';
+function lanesFrom(lane){
+ if(lane<=1)return [0,1,2];
+ if(lane>=3)return [2,3,4];
+ return [lane-1,lane,lane+1];
+}
+function mapX(lane){return 92+114*lane}
+function mapY(row){return 830-row*75}
+function mapLine(x1,y1,x2,y2,kind=''){
+ return '<path class="map-edge '+kind+'" d="M '+x1+' '+y1+' Q '+((x1+x2)/2)+' '+((y1+y2)/2)+' '+x2+' '+y2+'"/>';
+}
+function renderRouteMap(){
+ let lines='',nodes='';
+ // All accessible future branches are visible before the player selects a path.
+ for(const lane of lanesFrom(2)) {
+  const visited=chosenNodes[0]?.lane===lane;
+  const active=depth===0&&routeCandidates.some(n=>n.lane===lane);
+  lines+=mapLine(320,906,mapX(lane),mapY(0)+27,visited?'done':active?'active':'');
+ }
+ for(let row=0;row<9;row++)for(let from=0;from<5;from++){
+  for(const to of lanesFrom(from)){
+   const selected=chosenNodes[row]?.lane===from&&chosenNodes[row+1]?.lane===to;
+   const active=row+1===depth&&chosenNodes[row]?.lane===from&&routeCandidates.some(n=>n.lane===to);
+   lines+=mapLine(mapX(from),mapY(row)-25,mapX(to),mapY(row+1)+25,selected?'done':active?'active':'');
+  }
+ }
+ for(let lane=0;lane<5;lane++){
+  const last=chosenNodes[9]?.lane===lane;
+  lines+=mapLine(mapX(lane),mapY(9)-27,320,81,last?(depth===10?'active':'done'):'');
+ }
+ for(let row=0;row<10;row++)for(let lane=0;lane<5;lane++){
+  const selected=chosenNodes.some(n=>n.depth===row&&n.lane===lane);
+  const available=depth===row?routeCandidates.find(n=>n.lane===lane):null;
+  const type=available?.type||routeGraph[row][lane],n=NODE[type];
+  const special=type!=='fight'&&type!=='fight2';
+  const cls='map-node'+(selected?' completed':'')+(available?' current':'')+(special?' special':'');
+  const attrs=available?' data-route="'+type+'" data-lane="'+lane+'" role="button" tabindex="0" aria-label="'+n.name+'を選択"':'';
+  nodes+='<g class="'+cls+'" transform="translate('+mapX(lane)+' '+mapY(row)+')"'+attrs+'>'
+    +'<circle r="28"/><text y="-3">'+n.symbol+'</text><text class="small" y="35">'+n.name+'</text></g>';
+ }
+ const activeBoss=depth>=10;
+ nodes+='<g class="map-node boss'+(activeBoss?' current':'')+'" transform="translate(320 60)"'
+  +(activeBoss?' data-route="boss" data-lane="2" tabindex="0" role="button" aria-label="最終ボスに挑戦"':'')
+  +'><circle r="35"/><text y="-2">★</text><text class="small" y="45">FINAL BOSS</text></g>';
+ nodes+='<circle class="startNode" cx="320" cy="906" r="25"/><text class="map-caption" x="320" y="911" text-anchor="middle">START</text>';
+ return '<svg class="mapBoard" viewBox="0 0 640 945" role="img" aria-label="10階層の分岐と最上部のボスマスを示す全体マップ">'
+  +'<g>'+lines+'</g><g>'+nodes+'</g></svg>';
 }
 function showRoute(){
  state='route';updatePanels(true);
  if(depth>=10){
-  routeOptions=['boss'];
-  showOverlay('<p class="flag">FINAL SECTOR / ROUTES CONVERGE</p><h2>最終ボスへ</h2>'
-   +routeTrack()+'<p>10マスを通過。すべての道が最終地点へつながります。</p>'
-   +'<div class="resourceLine"><span>GOLD '+gold+'</span><span>HP '+Math.ceil(player.hp)+' / '+player.maxHp+'</span></div>'
-   +'<button class="primary" data-route="boss">ボスに挑む ▶</button>');
+  routeCandidates=[{lane:2,type:'boss'}];routeOptions=['boss'];
  }else{
-  routeOptions=chooseRouteOptions();
-  let html='<p class="flag">ROUTE SELECT / NODE '+(depth+1)+' OF 10</p><h2>次のマスを選ぶ</h2>';
-  html+=routeTrack()+'<div class="resourceLine"><span>GOLD '+gold+'</span><span>HP '+Math.ceil(player.hp)+' / '+player.maxHp+'</span></div>';
-  html+='<div class="routeChoices">';
-  for(const type of routeOptions){
-   const n=NODE[type];
-   html+='<button class="routeChoice '+type+'" data-route="'+type+'"><span class="symbol">'+n.symbol
-    +'</span><strong>'+n.name+'</strong><small>'+n.desc+'</small></button>';
-  }
-  html+='</div><p class="mini">進路は毎回変わります。10マス後はボスマスに合流。</p>';
-  showOverlay(html);
+  routeCandidates=lanesFrom(currentLane).map(lane=>({lane,type:routeGraph[depth][lane]}));
+  const combats=routeCandidates.filter(c=>c.type==='fight'||c.type==='fight2');
+  combats.forEach((c,i)=>c.type=i===0?'fight':'fight2');
+  routeOptions=routeCandidates.map(c=>c.type);
  }
- document.querySelectorAll('[data-route]').forEach(b=>b.addEventListener('click',()=>enterNode(b.dataset.route)));
+ const final=depth>=10;
+ let html='<p class="flag">'+(final?'ALL PATHS CONVERGE':'BRANCHING ROUTE / NODE '+(depth+1)+' OF 10')+'</p>'
+  +'<h2>'+(final?'最終ボスへ':'進む道を選ぶ')+'</h2>'
+  +'<div class="resourceLine"><span>GOLD '+gold+'</span><span>HP '+Math.ceil(player.hp)+' / '+player.maxHp+'</span></div>'
+  +'<div class="mapWrap" id="mapScroll">'+renderRouteMap()+'</div>'
+  +'<div class="mapLegend"><span><span class="statusDot"></span><b>光るマス</b>が次の選択肢</span><span>進行 '+depth+' / 10 → ★</span></div>'
+  +'<div class="mapHint">'+(final?'10マスを踏破。マップ最上部のボスを選択。':'道は先へ枝分かれし、最後はボスへ集まります。光る3マスから1つタップしてください。')+'</div>';
+ showOverlay(html);
+ $('dialog').classList.add('routeDialog');
+ document.querySelectorAll('#mapScroll [data-route]').forEach(el=>{
+  const enter=()=>enterNode(el.dataset.route,Number(el.dataset.lane));
+  el.addEventListener('click',enter);
+  el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter()}});
+ });
+ const el=$('mapScroll'),y=final?60:mapY(depth);
+ const scrollTarget=y*(el.scrollHeight/945)-el.clientHeight*.58;
+ el.scrollTop=Math.max(0,scrollTarget);
 }
-function enterNode(type){
- if(state!=='route'||!routeOptions.includes(type))return;
+function enterNode(type,lane){
+ if(state!=='route')return;
+ const choice=routeCandidates.find(c=>c.type===type&&(lane==null||c.lane===lane));
+ if(!choice)return;
+ currentLane=choice.lane;
+ chosenNodes.push({depth,lane:choice.lane,type:choice.type});
  currentNode=type;wave=depth+1;
  if(type==='fight'||type==='fight2'||type==='elite'||type==='boss'){startWave();return}
  if(type==='shop'){openShopNode();return}
- if(type==='rest'){
-  healPlayer(.45);showNodeResult('整備休憩','最大HPの45%を回復した。',0);return;
- }
+ if(type==='rest'){healPlayer(.45);showNodeResult('整備休憩','最大HPの45%を回復した。');return}
  if(type==='cache'){
-  let amount=55+depth*13+Math.floor(rand(0,36));gold+=amount;updatePanels(true);
-  showNodeResult('資材庫を発見',amount+' Gを獲得した。',amount);return;
+  const amount=55+depth*13+Math.floor(rand(0,36));gold+=amount;updatePanels(true);
+  showNodeResult('資材庫を発見',amount+' Gを獲得した。');return;
  }
  if(type==='event'){openEvent();return}
 }
@@ -585,7 +641,7 @@ function partsPanel(id,load){
   lv.style.color=RARCOL[p.tier];el.append(left,lv);root.append(el);
  }
 }
-function showOverlay(html){$('dialog').innerHTML=html;$('overlay').classList.add('show')}
+function showOverlay(html){$('dialog').className='dialog';$('dialog').innerHTML=html;$('overlay').classList.add('show')}
 function closeOverlay(){$('overlay').classList.remove('show')}
 function win(){
  if(state!=='fight')return;
