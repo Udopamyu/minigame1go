@@ -151,6 +151,7 @@ box-shadow:inset 0 0 38px #061222b3;scrollbar-color:#567993 #0e2134}
  .mapLegend{font-size:10px}
 }
 
+ .overlayOpen .mobilePad{display:none!important}
 </style>
 </head>
 <body>
@@ -172,8 +173,8 @@ box-shadow:inset 0 0 38px #061222b3;scrollbar-color:#567993 #0e2134}
     <div class="dialog" id="dialog">
      <p class="flag">ARENA / SALVAGE PROTOCOL</p>
      <h2>倒した敵から<br><span class="highlight">パーツを1つ奪え。</span></h2>
-     <p>敵のロボットは毎回ランダムな装備で出現。武器・装甲・脚部・コアの4種から、勝利するたびに1個だけ選んで自機を改造。敵もラウンドごとに強くなる。</p>
-     <div class="statline"><div class="statpill">1 VS 1</div><div class="statpill">4 SLOT CUSTOM</div><div class="statpill">1 LOOT / WIN</div></div>
+     <p>全10マスの分岐ルートを進み、最終ボスへ。敵の装備は毎回ランダム。倒した敵から1パーツを奪うか、売却してゴールドに換えるか選び、ショップや休憩を活用して進もう。</p>
+     <div class="statline"><div class="statpill">10 NODES + BOSS</div><div class="statpill">3 ROUTES / TURN</div><div class="statpill">SALVAGE PARTS</div></div>
      <button class="primary" id="startBtn">出撃する ▶</button>
      <div class="mini">PC：WASD移動 / マウス長押しで射撃 / Spaceで自動照準射撃 / Shiftでダッシュ<br>スマホ：左スティック移動 / FIREで自動照準射撃 / DASHで回避</div>
     </div>
@@ -643,8 +644,8 @@ function partsPanel(id,load){
   lv.style.color=RARCOL[p.tier];el.append(left,lv);root.append(el);
  }
 }
-function showOverlay(html){$('dialog').className='dialog';$('dialog').innerHTML=html;$('overlay').classList.add('show')}
-function closeOverlay(){$('overlay').classList.remove('show')}
+function showOverlay(html){$('dialog').className='dialog';$('dialog').innerHTML=html;$('overlay').classList.add('show');document.querySelector('.shell').classList.add('overlayOpen')}
+function closeOverlay(){$('overlay').classList.remove('show');document.querySelector('.shell').classList.remove('overlayOpen')}
 function win(){
  if(state!=='fight')return;
  fireMouse=false;fireTouch=false;keys={};encountersWon++;
