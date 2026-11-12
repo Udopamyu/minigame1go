@@ -1075,7 +1075,28 @@ if(navigator.webdriver)window.__roboQATest={
  selectNode:type=>{if(state==='route'){routeCandidates=[{lane:currentLane,type}];routeOptions=[type];enterNode(type,currentLane)}},
  jumpToBoss:()=>{if(state==='route'){depth=10;wave=11;showRoute()}},
  sampleLayouts:()=>{const saved=depth,seen=[];for(let i=0;i<15;i++){depth=i;seen.push(makeCover().map(b=>Math.round(b.x/10)+','+Math.round(b.y/10)).join(';'))}depth=saved;return seen},
- sampleLayoutShapes:()=>{const saved=depth,seen=[];for(let i=0;i<15;i++){depth=i;const b=makeCover();seen.push({layout:arenaIndex(),count:b.length,area:Math.round(b.reduce((a,x)=>a+x.w*x.h,0)),kinds:[...new Set(b.map(x=>x.material))],rects:b.map(x=>({x:x.x,y:x.y,w:x.w,h:x.h}))})}depth=saved;return seen}
+ sampleLayoutShapes:()=>{const saved=depth,seen=[];for(let i=0;i<15;i++){depth=i;const b=makeCover();seen.push({layout:arenaIndex(),count:b.length,area:Math.round(b.reduce((a,x)=>a+x.w*x.h,0)),kinds:[...new Set(b.map(x=>x.material))],rects:b.map(x=>({x:x.x,y:x.y,w:x.w,h:x.h}))})}depth=saved;return seen},
+ sampleArenaAccess:()=>{
+  const saved=depth,report=[];
+  const cols=30,rows=19,cell=(i,j)=>({x:120+i*26,y:61+j*26});
+  for(let k=0;k<15;k++){
+   depth=k;const obs=makeCover(),pass=(i,j)=>{
+    if(i<0||i>=cols||j<0||j>=rows)return false;
+    const p=cell(i,j);
+    return arenaAllowed(p.x,p.y,22)&&!obs.some(b=>hitRect(p.x,p.y,22,b));
+   };
+   const queue=[[2,9]],seen=new Set(),key=(i,j)=>i+','+j;
+   while(queue.length){
+    const [i,j]=queue.shift(),id=key(i,j);if(seen.has(id)||!pass(i,j))continue;
+    seen.add(id);
+    for(const [di,dj] of [[0,1],[0,-1],[1,0],[-1,0]])queue.push([i+di,j+dj]);
+   }
+   report.push({layout:arenaIndex(),type:arenaIndex()%5,
+      playerSafe:pass(2,9),enemySafe:pass(28,9),
+      reachable:seen.has(key(28,9)),openCells:seen.size});
+  }
+  depth=saved;return report;
+ }
 };
 window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
