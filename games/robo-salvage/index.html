@@ -84,6 +84,35 @@ body{background:#0c1b2d}
 .mobilePad>*{pointer-events:auto}.joy{width:105px;height:105px;background:#10233bb9}
 .touchGroup{gap:14px}.touchGroup .touchbtn{width:82px;height:82px;padding:0;border-radius:50%;background:#1a314ddd}
 }
+
+/* Route selection, shop and loot share the fullscreen modal, not the combat HUD. */
+.routeDialog{width:min(790px,100%)}
+.routeTrack{display:flex;align-items:center;gap:3px;overflow:hidden;margin:16px 0 19px}
+.routeDot{flex:1;min-width:4px;height:9px;border-radius:3px;background:#30465e;border:1px solid #506478}
+.routeDot.done{background:#66dedc;border-color:#71f2ef}
+.routeDot.next{background:#eec47e;border-color:#ffe0aa}
+.routeBoss{flex:none;margin-left:6px;font:800 11px ui-monospace,monospace;color:#e9a1ad}
+.routeChoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.routeChoice{background:linear-gradient(145deg,#17314a,#0f1e33);border:1px solid #4c708c;border-radius:14px;text-align:left;padding:17px 13px;min-height:142px;color:#eff7ff;cursor:pointer}
+.routeChoice:hover{border-color:#70f3e8;background:#24415a}
+.routeChoice .symbol{font-size:27px;display:block;margin-bottom:11px}
+.routeChoice strong{font-size:17px;display:block;margin-bottom:8px}
+.routeChoice small{font-size:11px;color:#a8c2d9;line-height:1.6;display:block}
+.routeChoice.elite{border-color:#d1a36e}.routeChoice.rest{border-color:#6ac5a4}
+.resourceLine{display:flex;flex-wrap:wrap;gap:9px;margin:13px 0;color:#e3d5a8;font:800 13px ui-monospace,monospace}
+.shopGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}
+.shopItem{border:1px solid #436180;border-radius:12px;padding:13px;text-align:left;background:#172c44;color:#edf5ff;cursor:pointer}
+.shopItem:disabled{opacity:.42;cursor:not-allowed}
+.shopItem strong{display:block;font-size:14px;margin-bottom:4px}.shopItem small{display:block;color:#a6c1d7;font-size:11px;line-height:1.5}
+.shopItem .cost{color:#f9d28d;display:block;margin-top:7px;font-weight:850}
+.secondary{border:1px solid #62829b;color:#c9e9f9;background:#1a3048;border-radius:10px;font-weight:800;padding:11px 16px;cursor:pointer}
+.dialog button:focus-visible,.menuToggle:focus-visible{outline:2px solid #78ece9;outline-offset:2px}
+@media(max-width:560px){
+ .routeChoices{gap:6px}.routeChoice{min-height:120px;padding:11px 8px}
+ .routeChoice strong{font-size:13px}.routeChoice .symbol{font-size:23px}.routeChoice small{font-size:10px}
+ .shopGrid{gap:7px}.shopItem{padding:10px}.shopItem strong{font-size:12px}
+ .routeDialog h2{font-size:21px}
+}
 </style>
 </head>
 <body>
@@ -131,6 +160,7 @@ body{background:#0c1b2d}
    <div class="health enemy"><div id="enemyHpBar"></div></div><div class="healthNumbers"><span id="enemyHpText">-- / -- HP</span><span id="enemyPower">THREAT 1</span></div>
    <div class="partList" id="enemyParts"></div>
   </section>
+  <div class="panel"><h3>探索状況</h3><div class="healthNumbers"><span>進行 <b id="depthText">0 / 10</b></span><span>所持金 <b id="goldText">0 G</b></span></div><div class="statusLabel">ボスは10マス通過後に登場</div></div>
   <div class="sideFoot">敵の装備は毎戦ランダム。勝利画面に表示される4部位の中から、<strong>持ち帰れるのは必ず1個だけ</strong>です。パーツは入れ替え式なので、組み合わせを考えて進みましょう。</div>
  </aside>
 </div>
@@ -189,7 +219,7 @@ function specs(load){
  const cf=1+.06*(load.core.lv-1)+.08*(load.core.tier-1);
  const wf=1+.095*(load.weapon.lv-1)+.15*(load.weapon.tier-1);
  return {
-  hp:Math.round(a.hp*af+(l.bonusHp||0)*lf),
+  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)),
   guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1),0,.36),
   speed:l.speed*lf,dashCooldown:Math.max(1.32,l.dash/Math.sqrt(lf)),
   dmg:w.damage*wf*c.damage*cf,fireCooldown:Math.max(.14,w.cool/(c.rate*cf)),
@@ -201,6 +231,7 @@ const initial=()=>({
  legs:part('legs','wheel'),core:part('core','spark')
 });
 let state='menu',wave=1,best=Number(localStorage.getItem('roboSalvageBest')||0);
+let depth=0,gold=0,routeOptions=[],currentNode='fight',bossCleared=false,runSeed=0,encountersWon=0,shopOffers=[],mapHistory=[];
 let player=null,enemy=null,bullets=[],effects=[],rings=[],blocks=[],aim={x:800,y:295},keys={},fireMouse=false,fireTouch=false,joy={x:0,y:0},wantsDash=false;
 let activeJoyPointer=null,soundOn=true,audio=null,clock=0,screenShake=0,enemySeed=0,lootTaken=false,shotsFired=0,menuOpen=false;
 $('best').textContent=String(best).padStart(2,'0');
@@ -225,9 +256,21 @@ function makeCover(){
  const sets=[
   [{x:440,y:148,w:80,h:64},{x:470,y:386,w:68,h:67},{x:630,y:266,w:66,h:58}],
   [{x:414,y:270,w:75,h:83},{x:587,y:137,w:65,h:76},{x:608,y:427,w:85,h:57}],
-  [{x:493,y:142,w:75,h:55},{x:475,y:396,w:75,h:63},{x:625,y:285,w:55,h:83}]
+  [{x:493,y:142,w:75,h:55},{x:475,y:396,w:75,h:63},{x:625,y:285,w:55,h:83}],
+  [{x:342,y:135,w:65,h:84},{x:520,y:425,w:110,h:48},{x:716,y:155,w:58,h:100}],
+  [{x:373,y:430,w:140,h:48},{x:618,y:140,w:140,h:48},{x:525,y:277,w:50,h:60}],
+  [{x:344,y:220,w:57,h:125},{x:485,y:365,w:90,h:50},{x:690,y:236,w:57,h:125}],
+  [{x:410,y:158,w:54,h:72},{x:590,y:158,w:54,h:72},{x:410,y:430,w:54,h:72},{x:590,y:430,w:54,h:72}],
+  [{x:480,y:216,w:130,h:38},{x:565,y:363,w:130,h:38}],
+  [{x:366,y:140,w:90,h:46},{x:492,y:295,w:52,h:115},{x:646,y:458,w:91,h:46}],
+  [{x:452,y:114,w:45,h:94},{x:452,y:474,w:45,h:94},{x:635,y:294,w:83,h:52}],
+  [{x:374,y:314,w:85,h:52},{x:530,y:156,w:66,h:74},{x:655,y:382,w:66,h:74}],
+  [{x:505,y:195,w:96,h:50},{x:505,y:395,w:96,h:50},{x:690,y:295,w:49,h:90}],
+  [{x:325,y:160,w:56,h:65},{x:475,y:280,w:56,h:65},{x:625,y:400,w:56,h:65}],
+  [{x:430,y:300,w:112,h:44},{x:580,y:165,w:50,h:88},{x:580,y:425,w:50,h:88}],
+  [{x:340,y:300,w:56,h:110},{x:520,y:145,w:128,h:42},{x:695,y:315,w:56,h:110}]
  ];
- let chosen=sets[(wave-1)%sets.length];
+ const chosen=sets[(depth*3+runSeed)%sets.length];
  return chosen.map((v,i)=>({x:v.x+rand(-13,13),y:v.y+rand(-13,13),w:v.w,h:v.h,idx:i}));
 }
 function beginRun(){
@@ -254,6 +297,7 @@ function startWave(first=false){
 }
 function updatePanels(forceParts){
  $('topWave').textContent=String(wave).padStart(2,'0');
+ $('goldText').textContent=gold+' G';$('depthText').textContent=depth+' / 10';
  $('playerModel').textContent='SALVAGER-01';
  $('enemyModel').textContent=enemy?enemy.name:'SCANNING';
  if(player){
