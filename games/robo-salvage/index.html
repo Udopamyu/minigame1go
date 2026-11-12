@@ -877,12 +877,20 @@ function drawArena(){
 function drawCover(){
  for(const b of blocks){
   ctx.fillStyle='#060d19bb';ctx.fillRect(b.x-b.w/2+9,b.y-b.h/2+9,b.w,b.h);
-  roundRect(b.x-b.w/2,b.y-b.h/2,b.w,b.h,7,'#273b53');
-  roundRect(b.x-b.w/2+7,b.y-b.h/2+7,b.w-14,b.h-14,4,'#465a70');
+  const m=b.material||'wall';
+  const tone=m==='core'?['#394965','#637b99']:m==='pillar'?['#335b5a','#6b9991']:
+    m==='tower'?['#51495e','#847d98']:m==='rubble'?['#61495b','#926e7c']:['#273b53','#465a70'];
+  roundRect(b.x-b.w/2,b.y-b.h/2,b.w,b.h,7,tone[0]);
+  roundRect(b.x-b.w/2+7,b.y-b.h/2+7,b.w-14,b.h-14,4,tone[1]);
   ctx.strokeStyle='#7891a46a';ctx.lineWidth=3;ctx.strokeRect(b.x-b.w/2+8,b.y-b.h/2+8,b.w-16,b.h-16);
   ctx.strokeStyle='#1c2c42';ctx.beginPath();ctx.moveTo(b.x-b.w/2+11,b.y-b.h/2+11);ctx.lineTo(b.x+b.w/2-11,b.y+b.h/2-11);
   ctx.moveTo(b.x+b.w/2-11,b.y-b.h/2+11);ctx.lineTo(b.x-b.w/2+11,b.y+b.h/2-11);ctx.stroke();
-  ctx.fillStyle='#7febdd';ctx.fillRect(b.x-b.w/2+3,b.y-b.h/2+3,8,8);
+  ctx.fillStyle=m==='tower'?'#ffd0a7':m==='pillar'?'#b5f0c7':'#7febdd';
+  ctx.fillRect(b.x-b.w/2+3,b.y-b.h/2+3,8,8);
+  if(m==='core'&&b.w>60&&b.h>60){
+    ctx.strokeStyle='#ffce8b';ctx.lineWidth=3;
+    ctx.strokeRect(b.x-b.w/2+19,b.y-b.h/2+19,b.w-38,b.h-38);
+  }
  }
 }
 function drawRobot(o){
