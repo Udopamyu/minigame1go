@@ -1013,13 +1013,15 @@ if(navigator.webdriver)window.__roboQATest={
  defeatEnemy:()=>enemy&&state==='fight'&&damage(enemy,enemy.hp/(1-enemy.stats.guard)+200),
  setHealth:value=>{if(player){player.hp=clamp(value,1,player.maxHp);updatePanels(false)}},
  setGold:value=>{gold=Math.max(0,Math.floor(value));updatePanels(true)},
- selectNode:type=>{if(state==='route'){routeOptions=[type];enterNode(type)}},
+ selectNode:type=>{if(state==='route'){routeCandidates=[{lane:currentLane,type}];routeOptions=[type];enterNode(type,currentLane)}},
  jumpToBoss:()=>{if(state==='route'){depth=10;wave=11;showRoute()}},
- sampleLayouts:()=>{const saved=depth,seen=[];for(let i=0;i<15;i++){depth=i;seen.push(makeCover().map(b=>Math.round(b.x/10)+','+Math.round(b.y/10)).join(';'))}depth=saved;return seen}
+ sampleLayouts:()=>{const saved=depth,seen=[];for(let i=0;i<15;i++){depth=i;seen.push(makeCover().map(b=>Math.round(b.x/10)+','+Math.round(b.y/10)).join(';'))}depth=saved;return seen},
+ sampleLayoutShapes:()=>{const saved=depth,seen=[];for(let i=0;i<15;i++){depth=i;const b=makeCover();seen.push({layout:arenaIndex(),count:b.length,area:Math.round(b.reduce((a,x)=>a+x.w*x.h,0)),kinds:[...new Set(b.map(x=>x.material))],rects:b.map(x=>({x:x.x,y:x.y,w:x.w,h:x.h}))})}depth=saved;return seen}
 };
 window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
- depth,gold,encountersWon,currentNode,routeOptions:routeOptions.slice(),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:(depth*7+runSeed)%15,arenaLayoutCount:15,
+ depth,gold,encountersWon,currentNode,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
+ coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),
  player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
   dashCooldown:player.dashCooldown,load:player.load}:null,
  enemy:enemy?{x:enemy.x,y:enemy.y,hp:enemy.hp,maxHp:enemy.maxHp,
