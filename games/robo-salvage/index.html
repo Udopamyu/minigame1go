@@ -697,6 +697,18 @@ function drawRobot(o){
  if(!o)return;
  let col=o.enemy?'#ef8e91':'#70e6eb',armor=o.stats.armor.color,legs=o.stats.legs.color,weapon=o.stats.weapon.color,core=o.stats.core.color;
  ctx.save();ctx.translate(o.x,o.y);
+ if(o.enemy&&(currentNode==='boss'||currentNode==='elite')){
+  const boss=currentNode==='boss',radius=boss?43:34;
+  ctx.save();ctx.rotate(clock*(boss?.34:-.22));
+  ctx.strokeStyle=boss?'#ffd99199':'#bd9df277';ctx.lineWidth=boss?4:3;
+  ctx.beginPath();ctx.arc(0,0,radius,0,TAU);ctx.stroke();
+  for(let i=0;i<(boss?8:5);i++){
+   const a=i*TAU/(boss?8:5);
+   ctx.fillStyle=boss?'#ffd08d':'#ceaff5';
+   ctx.fillRect(Math.cos(a)*radius-3,Math.sin(a)*radius-3,boss?8:6,boss?8:6);
+  }
+  ctx.restore();
+ }
  // contact shadow and pulsing peripheral circle
  ctx.fillStyle='#0207138a';ctx.beginPath();ctx.ellipse(4,11,27,15,0,0,TAU);ctx.fill();
  if(o.dashLeft>0){ctx.strokeStyle='#72effbcc';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,31+Math.sin(clock*34)*3,0,TAU);ctx.stroke()}
