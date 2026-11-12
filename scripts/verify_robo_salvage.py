@@ -185,10 +185,22 @@ def test(browser,url,label,size,mobile=False):
     page.locator("#skipLoot").click()
     check(label+" seven nodes completed",get()["depth"]==7)
 
-    # Confirm merge: forced unique boss after ten nodes and victory ends the run.
-    hook("jumpToBoss")
-    check(label+" converged boss only",get()["depth"]==10 and get()["routeOptions"]==["boss"])
-    check(label+" boss is the one final choice",page.locator('[data-route="boss"]').count()==1)
+    # Finish the actual 10-node route, with three more normal encounters.
+    # This checks natural convergence rather than cheating the route position.
+    remaining_layouts=[]
+    for step in range(7,10):
+        before=get()
+        remaining_layouts.append(before["arenaLayout"])
+        page.locator('[data-route="fight"]').click()
+        check(label+f" node {step+1}: actual fight started",get()["state"]=="fight")
+        hook("defeatEnemy")
+        check(label+f" node {step+1}: victory offers loot",get()["state"]=="loot")
+        page.locator("#skipLoot").click()
+        check(label+f" node {step+1}: completed",get()["depth"]==step+1)
+    check(label+" last three arenas are distinct",len(set(remaining_layouts))==3)
+    check(label+" naturally converges to one boss after ten nodes",
+          get()["depth"]==10 and get()["routeOptions"]==["boss"])
+    check(label+" boss is the only final choice",page.locator('[data-route="boss"]').count()==1)
     page.locator('[data-route="boss"]').click()
     check(label+" boss encounter started",get()["currentNode"]=="boss" and get()["state"]=="fight")
     hook("defeatEnemy")
