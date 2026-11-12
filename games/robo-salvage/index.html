@@ -252,27 +252,80 @@ function createRobot(load,x,y,isEnemy=false){
   cd:.25,dashLeft:0,dashCooldown:0,hitFlash:0,dead:false,enemy:isEnemy,aiPhase:rand(0,TAU),aiStrafe:Math.random()<.5?-1:1,
   name:isEnemy?pick(enemyNames):'SALVAGER-01'};
 }
+function arenaIndex(){return (depth*7+runSeed)%15}
+// Each layout changes the topology, not just the position of three crates.
+// Rectangles are solid and used by both movement and projectile collision.
 function makeCover(){
- const sets=[
-  [{x:440,y:148,w:80,h:64},{x:470,y:386,w:68,h:67},{x:630,y:266,w:66,h:58}],
-  [{x:414,y:270,w:75,h:83},{x:587,y:137,w:65,h:76},{x:608,y:427,w:85,h:57}],
-  [{x:493,y:142,w:75,h:55},{x:475,y:396,w:75,h:63},{x:625,y:285,w:55,h:83}],
-  [{x:342,y:135,w:65,h:84},{x:520,y:425,w:110,h:48},{x:716,y:155,w:58,h:100}],
-  [{x:373,y:430,w:140,h:48},{x:618,y:140,w:140,h:48},{x:525,y:277,w:50,h:60}],
-  [{x:344,y:220,w:57,h:125},{x:485,y:365,w:90,h:50},{x:690,y:236,w:57,h:125}],
-  [{x:410,y:158,w:54,h:72},{x:590,y:158,w:54,h:72},{x:410,y:430,w:54,h:72},{x:590,y:430,w:54,h:72}],
-  [{x:480,y:216,w:130,h:38},{x:565,y:363,w:130,h:38}],
-  [{x:366,y:140,w:90,h:46},{x:492,y:295,w:52,h:115},{x:646,y:458,w:91,h:46}],
-  [{x:452,y:114,w:45,h:94},{x:452,y:474,w:45,h:94},{x:635,y:294,w:83,h:52}],
-  [{x:374,y:314,w:85,h:52},{x:530,y:156,w:66,h:74},{x:655,y:382,w:66,h:74}],
-  [{x:505,y:195,w:96,h:50},{x:505,y:395,w:96,h:50},{x:690,y:295,w:49,h:90}],
-  [{x:325,y:160,w:56,h:65},{x:475,y:280,w:56,h:65},{x:625,y:400,w:56,h:65}],
-  [{x:430,y:300,w:112,h:44},{x:580,y:165,w:50,h:88},{x:580,y:425,w:50,h:88}],
-  [{x:340,y:300,w:56,h:110},{x:520,y:145,w:128,h:42},{x:695,y:315,w:56,h:110}]
- ];
- const chosen=sets[(depth*7+runSeed)%sets.length];
- return chosen.map((v,i)=>({x:v.x+rand(-13,13),y:v.y+rand(-13,13),w:v.w,h:v.h,idx:i}));
+ const layout=arenaIndex(),out=[];
+ const add=(x,y,w,h,material='wall')=>{
+  if(x-w/2<248||x+w/2>760||y-h/2<40||y+h/2>550)
+   return;
+  out.push({x,y,w,h,material,idx:out.length});
+ };
+ const row=(xs,y,w,h,kind)=>xs.forEach(x=>add(x,y,w,h,kind));
+ const col=(x,ys,w,h,kind)=>ys.forEach(y=>add(x,y,w,h,kind));
+ switch(layout){
+ case 0: // Twin parallel corridors and a central gate
+  add(485,149,345,27);add(515,443,345,27);add(510,297,55,104,'pillar');
+  add(341,296,30,82);add(672,296,30,82);break;
+ case 1: // Four-room arena with open cross-shaped passages
+  row([397,603],180,130,30);row([397,603],415,130,30);
+  col(500,[136,457],38,93);add(500,298,62,58,'core');break;
+ case 2: // Long zigzag canyon: alternate high and low bulkheads
+  add(346,194,38,252);add(472,408,38,252);
+  add(597,193,38,252);add(720,406,38,252);break;
+ case 3: // A central fortress surrounded by six pillars
+  add(505,295,182,110,'core');row([347,661],157,52,60,'pillar');
+  row([347,661],435,52,60,'pillar');
+  row([455,556],92,63,35);row([455,556],501,63,35);break;
+ case 4: // Very wide ruined wall, split into three passages
+  row([352,505,657],299,88,38,'rubble');
+  row([413,592],178,125,36);row([413,592],427,125,36);break;
+ case 5: // Ring of ruins: gaps for maneuvering
+  add(497,128,210,31);add(497,469,210,31);
+  col(383,[220,377],30,88);col(612,[220,377],30,88);
+  add(497,298,76,76,'core');break;
+ case 6: // Serpentine S-shaped bunker
+  add(354,230,36,265);add(461,388,184,31);
+  add(580,201,35,255);add(690,390,122,31);break;
+ case 7: // Narrow horizontal shipping lanes
+  row([360,517,674],195,119,32);
+  row([360,517,674],398,119,32);
+  col(517,[294],37,82,'pillar');break;
+ case 8: // Four tall towers / open courtyard
+  row([360,638],171,80,138,'tower');
+  row([360,638],422,80,138,'tower');
+  add(499,298,110,30,'rubble');break;
+ case 9: // Double broken moats, asymmetric route
+  add(411,185,228,38);add(411,408,228,38);
+  add(626,228,37,182);add(626,429,37,125);
+  add(507,298,58,55,'pillar');break;
+ case 10: // Heavy diagonal stairways
+  add(344,172,90,40);add(424,244,90,40);
+  add(504,317,90,40);add(584,391,90,40);
+  add(667,463,90,40);add(600,145,100,32,'rubble');break;
+ case 11: // Layered open strongholds, left and right
+  col(385,[157,440],38,94);col(615,[157,440],38,94);
+  row([500],158,110,29);row([500],440,110,29);
+  add(500,300,68,40,'core');break;
+ case 12: // Pillar forest with alternating open passage lanes
+  row([332,432,536,636,725],185,37,83,'pillar');
+  row([385,488,591,686],395,37,83,'pillar');
+  add(515,295,84,30,'rubble');break;
+ case 13: // Broad mirrored Z-corridors, large arena-negative spaces
+  add(386,216,183,32);add(610,376,183,32);
+  add(363,405,35,193);add(636,171,35,193);
+  add(504,296,66,61,'core');break;
+ case 14: // Final coliseum: semicircular walls around a spacious center
+  add(496,110,316,38,'tower');add(496,480,316,38,'tower');
+  add(350,197,42,100,'tower');add(350,387,42,100,'tower');
+  add(650,197,42,100,'tower');add(650,387,42,100,'tower');
+  row([416,584],298,52,39,'pillar');break;
+ }
+ // A deterministic layout, retaining varied enemies and allowing all stages to be replayed.
+ return out;
 }
+
 const NODE={
  fight:{name:'巡回ロボ',symbol:'⚔',desc:'通常戦。撃破でゴールド＋パーツ選択'},
  fight2:{name:'迎撃戦',symbol:'◎',desc:'別の装備の敵と通常戦。戦利品あり'},
