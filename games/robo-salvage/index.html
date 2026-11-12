@@ -796,7 +796,15 @@ function update(dt){
   let approach=clamp((d-desired)/125,-.85,1);
   const strafe=Math.sin(clock*.9+enemy.aiPhase)*enemy.aiStrafe*.65;
   let vx=(dx/d)*approach+(-dy/d)*strafe,vy=(dy/d)*approach+(dx/d)*strafe;
-  let m=Math.max(1,Math.hypot(vx,vy));moveRobot(enemy,vx/m*enemy.stats.speed*.59*dt,vy/m*enemy.stats.speed*.59*dt);
+  let m=Math.max(1,Math.hypot(vx,vy)),step=enemy.stats.speed*.59*dt;
+  const ex=enemy.x,ey=enemy.y;
+  moveRobot(enemy,vx/m*step,vy/m*step);
+  if(Math.hypot(enemy.x-ex,enemy.y-ey)<step*.16){
+   // Follow collision edges instead of staying trapped behind new large structures.
+   const side=enemy.aiStrafe;
+   moveRobot(enemy,(-dy/d)*side*step*1.35,(dx/d)*side*step*1.35);
+   if(Math.hypot(enemy.x-ex,enemy.y-ey)<step*.13)enemy.aiStrafe*=-1;
+  }
   enemy.cd=Math.max(0,enemy.cd-dt);
   if(d<730&&(lineOfSight(enemy,player)||enemy.stats.weapon.id==='rail'||enemy.stats.weapon.id==='missile'))shoot(enemy,player,a+Math.sin(clock*1.4+enemySeed)*(.10+Math.min(.12,wave*.006)));
  }
