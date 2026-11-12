@@ -270,7 +270,7 @@ function makeCover(){
   [{x:430,y:300,w:112,h:44},{x:580,y:165,w:50,h:88},{x:580,y:425,w:50,h:88}],
   [{x:340,y:300,w:56,h:110},{x:520,y:145,w:128,h:42},{x:695,y:315,w:56,h:110}]
  ];
- const chosen=sets[(depth*3+runSeed)%sets.length];
+ const chosen=sets[(depth*7+runSeed)%sets.length];
  return chosen.map((v,i)=>({x:v.x+rand(-13,13),y:v.y+rand(-13,13),w:v.w,h:v.h,idx:i}));
 }
 const NODE={
@@ -496,38 +496,61 @@ function showOverlay(html){$('dialog').innerHTML=html;$('overlay').classList.add
 function closeOverlay(){$('overlay').classList.remove('show')}
 function win(){
  if(state!=='fight')return;
- state='loot';lootTaken=false;fireMouse=false;fireTouch=false;
- let name=enemy.name;best=Math.max(best,wave);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
- let text='<p class="flag">TARGET DESTROYED / SALVAGE COMPLETE</p><h2>勝利！ <span class="highlight">パーツを1つ奪おう。</span></h2>';
- text+='<p>敵機 <strong>'+name+'</strong> の装備から、好きなパーツを<strong>1個だけ</strong>持ち帰れます。ほかの3個は失います。</p>';
+ fireMouse=false;fireTouch=false;keys={};encountersWon++;
+ const reward=currentNode==='boss'?240+depth*25:currentNode==='elite'?112+depth*22:55+depth*13;
+ gold+=reward;healPlayer(.30);
+ best=Math.max(best,depth+1);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
+ if(currentNode==='boss'){
+  bossCleared=true;state='victory';mapHistory.push('boss');
+  showOverlay('<p class="flag">ROUTE CLEAR / BOSS DEFEATED</p><h2>全エリア踏破！</h2>'
+   +'<p>10マスの分岐を生き抜き、最終ボスを撃破しました。</p>'
+   +'<div class="statline"><div class="statpill">通過 '+depth+' マス</div>'
+   +'<div class="statpill">撃破 '+encountersWon+' 機</div>'
+   +'<div class="statpill">GOLD '+gold+'</div></div>'
+   +'<button id="newRun" class="primary">新しい探索を始める ▶</button>');
+  $('newRun').addEventListener('click',beginRun);beep(860,.27,.05);return;
+ }
+ state='loot';lootTaken=false;
+ const bonus=40+depth*9;
+ let text='<p class="flag">TARGET DESTROYED / SALVAGE COMPLETE</p><h2>撃破成功！</h2>';
+ text+='<div class="resourceLine"><span>獲得 +'+reward+' G</span><span>戦闘後 HP +30%</span><span>所持 '+gold+' G</span></div>';
+ text+='<p>敵機 <strong>'+enemy.name+'</strong> のパーツを1個奪うか、交換を見送って追加ゴールドを得るか選択。</p>';
  text+='<div class="lootGrid">';
  const descriptions={
  weapon:p=>'攻撃 '+Math.round(specs({...player.load,weapon:p}).dmg)+' / '+find(p).detail,
- armor:p=>'HP '+specs({...player.load,armor:p}).hp+' / '+find(p).detail,
+ armor:p=>'最大HP '+specs({...player.load,armor:p}).hp+' / '+find(p).detail,
  legs:p=>'速度 '+Math.round(specs({...player.load,legs:p}).speed)+' / '+find(p).detail,
  core:p=>find(p).detail
  };
  for(const slot of Object.keys(SLOT)){
-  let p=enemy.load[slot],own=player.load[slot],desc=find(p);
-  text+='<button type="button" class="lootCard" data-loot="'+slot+'"><span class="slot">'+SLOT[slot]+'</span><span class="rarity" style="color:'+RARCOL[p.tier]+';border-color:'+RARCOL[p.tier]+'66">'+RAR[p.tier]+'</span>';
-  text+='<div class="partname">'+desc.name+'</div><div class="detail">Lv.'+p.lv+' ★'+p.tier+'　'+descriptions[slot](p)+'</div>';
-  text+='<div class="repl">現在：'+find(own).name+' Lv.'+own.lv+' → これに交換</div></button>';
+  const p=enemy.load[slot],own=player.load[slot],desc=find(p);
+  text+='<button type="button" class="lootCard" data-loot="'+slot+'"><span class="slot">'+SLOT[slot]+'</span>'
+   +'<span class="rarity" style="color:'+RARCOL[p.tier]+';border-color:'+RARCOL[p.tier]+'66">'+RAR[p.tier]+'</span>'
+   +'<div class="partname">'+desc.name+'</div><div class="detail">Lv.'+p.lv+' ★'+p.tier+'　'+descriptions[slot](p)+'</div>'
+   +'<div class="repl">現在：'+find(own).name+' Lv.'+own.lv+' → 交換</div></button>';
  }
- text+='</div><div class="lootHelp">※ 一度に奪えるパーツは必ず1個。選び直しはできません。</div>';
- showOverlay(text);
+ text+='</div><button id="skipLoot" class="secondary" style="margin-top:13px;width:100%">奪わずに解体する（+'+bonus+' G）</button>';
+ text+='<div class="lootHelp">※ 部品は最大1個。スキップでも次の分岐へ進みます。</div>';
+ showOverlay(text);updatePanels(true);
  document.querySelectorAll('[data-loot]').forEach(b=>b.addEventListener('click',()=>chooseLoot(b.getAttribute('data-loot'))));
+ $('skipLoot').addEventListener('click',skipLoot);
  beep(820,.23,.055,'sine');setTimeout(()=>beep(990,.2,.038),90);
 }
 function chooseLoot(slot){
  if(state!=='loot'||lootTaken||!SLOT[slot])return;
  lootTaken=true;player.load[slot]=clone(enemy.load[slot]);
- wave+=1;startWave(false);
+ restoreVitalsFromLoad();completeNode();
 }
+function skipLoot(){
+ if(state!=='loot'||lootTaken)return;
+ lootTaken=true;gold+=40+depth*9;completeNode();
+}
+
 function lost(){
  if(state!=='fight')return;
  state='dead';fireMouse=false;fireTouch=false;
- best=Math.max(best,wave-1);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
- showOverlay('<p class="flag">SIGNAL LOST / RUN ENDED</p><h2>機体、戦闘不能。</h2><p>到達ラウンド <strong>'+wave+'</strong> ／ 今回撃破 <strong>'+(wave-1)+'</strong>機。次の挑戦では敵の構成が変わります。</p><div class="statline"><div class="statpill">撃破 '+(wave-1)+'</div><div class="statpill">BEST '+best+'</div></div><button class="primary" id="againBtn">もう一度出撃 ▶</button><div class="mini">毎回、敵の武器・装甲・脚部・コアがランダムで変わります。</div>');
+ best=Math.max(best,depth);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
+ showOverlay('<p class="flag">SIGNAL LOST / RUN ENDED</p><h2>機体、戦闘不能。</h2><p>到達地点 <strong>'+(depth+1)+'</strong> ／ 今回撃破 <strong>'+encountersWon+'</strong>機。次の挑戦では敵の構成が変わります。</p><div class="statline"><div class="statpill">撃破 '+encountersWon+'</div><div class="statpill">BEST '+best+'</div></div><button class="primary" id="againBtn">もう一度出撃 ▶</button><div class="mini">毎回、敵の武器・装甲・脚部・コアがランダムで変わります。</div>');
  $('againBtn').addEventListener('click',beginRun);
  beep(140,.36,.055,'sawtooth');
 }
