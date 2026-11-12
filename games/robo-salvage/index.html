@@ -848,9 +848,17 @@ $('soundBtn').addEventListener('click',()=>{soundOn=!soundOn;$('soundBtn').textC
 $('startBtn').addEventListener('click',beginRun);
 // Read-only telemetry for browser QA; it cannot mutate combat state.
 // Test-only integration hook, available to browser automation but not ordinary players.
-if(navigator.webdriver)window.__roboQATest={defeatEnemy:()=>damage(enemy,enemy.hp+100)};
+if(navigator.webdriver)window.__roboQATest={
+ defeatEnemy:()=>enemy&&state==='fight'&&damage(enemy,enemy.hp/(1-enemy.stats.guard)+200),
+ setHealth:value=>{if(player){player.hp=clamp(value,1,player.maxHp);updatePanels(false)}},
+ setGold:value=>{gold=Math.max(0,Math.floor(value));updatePanels(true)},
+ selectNode:type=>{if(state==='route'){routeOptions=[type];enterNode(type)}},
+ jumpToBoss:()=>{if(state==='route'){depth=10;wave=11;showRoute()}},
+ sampleLayouts:()=>{const saved=depth,seen=[];for(let i=0;i<15;i++){depth=i;seen.push(makeCover().map(b=>Math.round(b.x/10)+','+Math.round(b.y/10)).join(';'))}depth=saved;return seen}
+};
 window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
+ depth,gold,encountersWon,currentNode,routeOptions:routeOptions.slice(),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:(depth*7+runSeed)%15,arenaLayoutCount:15,
  player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
   dashCooldown:player.dashCooldown,load:player.load}:null,
  enemy:enemy?{x:enemy.x,y:enemy.y,hp:enemy.hp,maxHp:enemy.maxHp,
