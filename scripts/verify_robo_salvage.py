@@ -50,12 +50,34 @@ def test(browser,url,label,size,mobile=False):
     check(label+" exactly three offered nodes",len(start["routeOptions"])==3,
           start["routeOptions"])
     check(label+" normal battle always available","fight" in start["routeOptions"])
-    check(label+" route converges after ten nodes",page.locator(".routeDot").count()==10)
+    check(label+" map shows 10 tiers of five nodes",
+          page.locator("#mapScroll .map-node:not(.boss)").count()==50)
+    check(label+" graph has connected visible routes",
+          page.locator("#mapScroll .map-edge").count()>=100)
+    check(label+" boss shown at top",page.locator("#mapScroll .map-node.boss").count()==1)
+    check(label+" three connected playable map nodes",
+          page.locator("#mapScroll .map-node.current:not(.boss)").count()==3)
+    check(label+" three legal adjacent choices",
+          sorted(x["lane"] for x in start["routeCandidates"])==[1,2,3])
+    check(label+" full run graph pre-generated",
+          len(start["routeGraph"])==10 and all(len(row)==5 for row in start["routeGraph"]))
+    check(label+" all map tiers offer ordinary fights",
+          all(sum(t in ("fight","fight2") for t in row)>=3 for row in start["routeGraph"]))
+    check(label+" all possible connected edges match adjacency",
+          page.evaluate("""() => [...document.querySelectorAll('#mapScroll .map-edge')].length >= 125"""))
     check(label+" starts with no gold",start["gold"]==0)
     check(label+" player HP doubled",start["player"]["maxHp"]>=240,
           start["player"]["maxHp"])
     check(label+" 15 available arena layouts",start["arenaLayoutCount"]==15)
     check(label+" each layout differs",len(set(hook("sampleLayouts")))==15)
+    shapes=hook("sampleLayoutShapes")
+    check(label+" new arenas use significantly different topology",
+          len(shapes)==15 and len({x["count"] for x in shapes})>=5
+          and len({x["area"] for x in shapes})>=9,
+          [(x["layout"],x["count"],x["area"]) for x in shapes])
+    check(label+" no arena is just three crates",
+          all(x["count"]>=5 for x in shapes),
+          [x["count"] for x in shapes])
 
     # Equipment drawer opens above the map and pauses combat.
     check(label+" hamburger visible",page.locator("#menuBtn").is_visible())
@@ -73,6 +95,9 @@ def test(browser,url,label,size,mobile=False):
     page.wait_for_timeout(350)
     fight=get()
     check(label+" selected battle started",fight["state"]=="fight")
+    check(label+" chosen path is recorded",
+          len(fight["chosenNodes"])==1 and fight["chosenNodes"][0]["depth"]==0,
+          fight["chosenNodes"])
     check(label+" enemy HP doubled",fight["enemy"]["maxHp"]>=180,
           fight["enemy"]["maxHp"])
     check(label+" enemy random four-part loadout",
@@ -119,6 +144,13 @@ def test(browser,url,label,size,mobile=False):
     check(label+" skip-for-gold button exists",page.locator("#skipLoot").is_visible())
     page.locator('[data-loot="weapon"]').click()
     after=get()
+    check(label+" continuing shows connected next nodes",
+          sorted(x["lane"] for x in after["routeCandidates"]) ==
+          ([0,1,2] if after["currentLane"]<=1 else
+           [2,3,4] if after["currentLane"]>=3 else
+           [after["currentLane"]-1,after["currentLane"],after["currentLane"]+1]))
+    check(label+" taken path appears highlighted",
+          page.locator("#mapScroll .map-edge.done").count()>0)
     check(label+" taking one part advances route",after["depth"]==1 and after["state"]=="route",
           (after["depth"],after["state"]))
     check(label+" defeated weapon was equipped",
@@ -198,6 +230,8 @@ def test(browser,url,label,size,mobile=False):
         page.locator("#skipLoot").click()
         check(label+f" node {step+1}: completed",get()["depth"]==step+1)
     check(label+" last three arenas are distinct",len(set(remaining_layouts))==3)
+    check(label+" ten connected choices recorded",
+          len(get()["chosenNodes"])==10)
     check(label+" naturally converges to one boss after ten nodes",
           get()["depth"]==10 and get()["routeOptions"]==["boss"])
     check(label+" boss is the only final choice",page.locator('[data-route="boss"]').count()==1)
