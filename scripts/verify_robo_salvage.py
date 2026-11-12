@@ -78,6 +78,13 @@ def test(browser,url,label,size,mobile=False):
     check(label+" no arena is just three crates",
           all(x["count"]>=5 for x in shapes),
           [x["count"] for x in shapes])
+    access=hook("sampleArenaAccess")
+    check(label+" five irregular playfield shapes",
+          len(set(x["type"] for x in access))==5)
+    check(label+" player and enemy safe at spawn for all arenas",
+          all(x["playerSafe"] and x["enemySafe"] for x in access),access)
+    check(label+" all fifteen arenas have continuous navigable combat routes",
+          len(access)==15 and all(x["reachable"] for x in access),access)
 
     # Equipment drawer opens above the map and pauses combat.
     check(label+" hamburger visible",page.locator("#menuBtn").is_visible())
