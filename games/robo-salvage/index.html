@@ -273,28 +273,193 @@ function makeCover(){
  const chosen=sets[(depth*3+runSeed)%sets.length];
  return chosen.map((v,i)=>({x:v.x+rand(-13,13),y:v.y+rand(-13,13),w:v.w,h:v.h,idx:i}));
 }
-function beginRun(){
- wave=1;player=createRobot(initial(),166,295);
- startWave(true);
+const NODE={
+ fight:{name:'巡回ロボ',symbol:'⚔',desc:'通常戦。撃破でゴールド＋パーツ選択'},
+ fight2:{name:'迎撃戦',symbol:'◎',desc:'別の装備の敵と通常戦。戦利品あり'},
+ elite:{name:'強敵',symbol:'◆',desc:'装備の強い敵。報酬ゴールドが多い'},
+ shop:{name:'ショップ',symbol:'▣',desc:'パーツ購入・強化・修理にゴールドを使う'},
+ rest:{name:'休憩',symbol:'✚',desc:'最大HPの45%を回復する'},
+ event:{name:'イベント',symbol:'?',desc:'補給・整備・改造から選ぶ'},
+ cache:{name:'資材庫',symbol:'▤',desc:'戦わずに追加ゴールドを回収'},
+ boss:{name:'最終ボス',symbol:'★',desc:'すべての分岐がここに収束する'}
+};
+function shuffled(arr){
+ const a=arr.slice();
+ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+ return a;
 }
-function startWave(first=false){
+function beginRun(){
+ wave=1;depth=0;gold=0;encountersWon=0;runSeed=Math.floor(rand(0,15));
+ bossCleared=false;mapHistory=[];currentNode='fight';routeOptions=[];shopOffers=[];
+ player=createRobot(initial(),166,295);enemy=null;
+ bullets=[];effects=[];rings=[];keys={};fireMouse=false;fireTouch=false;
+ closeMenu();updatePanels(true);
+ showRoute();
+}
+function chooseRouteOptions(){
+ const special=pick(['shop','shop','rest','rest','elite','elite','event','event','cache']);
+ return shuffled(['fight','fight2',special]);
+}
+function routeTrack(){
+ let h='<div class="routeTrack" aria-label="10マス進行した後ボス">';
+ for(let n=0;n<10;n++)h+='<span class="routeDot '+(n<depth?'done':n===depth?'next':'')+'"></span>';
+ return h+'<span class="routeBoss">★ BOSS</span></div>';
+}
+function showRoute(){
+ state='route';updatePanels(true);
+ if(depth>=10){
+  routeOptions=['boss'];
+  showOverlay('<p class="flag">FINAL SECTOR / ROUTES CONVERGE</p><h2>最終ボスへ</h2>'
+   +routeTrack()+'<p>10マスを通過。すべての道が最終地点へつながります。</p>'
+   +'<div class="resourceLine"><span>GOLD '+gold+'</span><span>HP '+Math.ceil(player.hp)+' / '+player.maxHp+'</span></div>'
+   +'<button class="primary" data-route="boss">ボスに挑む ▶</button>');
+ }else{
+  routeOptions=chooseRouteOptions();
+  let html='<p class="flag">ROUTE SELECT / NODE '+(depth+1)+' OF 10</p><h2>次のマスを選ぶ</h2>';
+  html+=routeTrack()+'<div class="resourceLine"><span>GOLD '+gold+'</span><span>HP '+Math.ceil(player.hp)+' / '+player.maxHp+'</span></div>';
+  html+='<div class="routeChoices">';
+  for(const type of routeOptions){
+   const n=NODE[type];
+   html+='<button class="routeChoice '+type+'" data-route="'+type+'"><span class="symbol">'+n.symbol
+    +'</span><strong>'+n.name+'</strong><small>'+n.desc+'</small></button>';
+  }
+  html+='</div><p class="mini">進路は毎回変わります。10マス後はボスマスに合流。</p>';
+  showOverlay(html);
+ }
+ document.querySelectorAll('[data-route]').forEach(b=>b.addEventListener('click',()=>enterNode(b.dataset.route)));
+}
+function enterNode(type){
+ if(state!=='route'||!routeOptions.includes(type))return;
+ currentNode=type;wave=depth+1;
+ if(type==='fight'||type==='fight2'||type==='elite'||type==='boss'){startWave();return}
+ if(type==='shop'){openShopNode();return}
+ if(type==='rest'){
+  healPlayer(.45);showNodeResult('整備休憩','最大HPの45%を回復した。',0);return;
+ }
+ if(type==='cache'){
+  let amount=55+depth*13+Math.floor(rand(0,36));gold+=amount;updatePanels(true);
+  showNodeResult('資材庫を発見',amount+' Gを獲得した。',amount);return;
+ }
+ if(type==='event'){openEvent();return}
+}
+function restoreVitalsFromLoad(){
+ if(!player)return;
+ const previous=player.maxHp,missing=Math.max(0,previous-player.hp);
+ player.stats=specs(player.load);player.maxHp=player.stats.hp;
+ player.hp=clamp(player.maxHp-missing,0,player.maxHp);
+ updatePanels(true);
+}
+function healPlayer(fraction){
+ if(!player)return;
+ player.hp=Math.min(player.maxHp,player.hp+Math.ceil(player.maxHp*fraction));
+ updatePanels(true);
+}
+function completeNode(){
+ mapHistory.push(currentNode);
+ depth++;wave=depth+1;
+ showRoute();
+}
+function showNodeResult(title,details){
+ state='nodeResult';updatePanels(true);
+ showOverlay('<p class="flag">NODE COMPLETE</p><h2>'+title+'</h2><p>'+details+'</p>'
+   +'<div class="resourceLine">GOLD '+gold+'　HP '+Math.ceil(player.hp)+' / '+player.maxHp+'</div>'
+   +'<button class="primary" id="nodeContinue">進路を選ぶ ▶</button>');
+ $('nodeContinue').addEventListener('click',completeNode);
+}
+function startWave(){
  state='fight';lootTaken=false;bullets=[];effects=[];rings=[];
  blocks=makeCover();
- let load=makeEnemyLoadout(wave);
+ const load=makeEnemyLoadout(wave);
  enemy=createRobot(load,840,295,true);
- // First fight is an accessible warm-up; randomized loot still keeps its full power.
- const warmup=wave===1?.79:wave===2?.88:wave===3?.95:1;
- enemy.maxHp=Math.round(enemy.maxHp*warmup);enemy.hp=enemy.maxHp;
- enemy.name=pick(enemyNames);
+ let warmup=wave===1?.76:wave===2?.87:wave===3?.94:1;
+ const kind=currentNode;
+ const hpScale=kind==='boss'?2.15:kind==='elite'?1.42:1;
+ enemy.maxHp=Math.round(enemy.maxHp*warmup*hpScale);enemy.hp=enemy.maxHp;
+ if(kind==='boss'){enemy.stats.dmg*=1.22;enemy.r=30;enemy.name='OMEGA GUARDIAN'}
+ else if(kind==='elite'){enemy.stats.dmg*=1.1;enemy.name='ELITE '+pick(enemyNames)}
+ else enemy.name=pick(enemyNames);
  enemySeed=Math.random()*10;
  player.x=165;player.y=295;player.vx=0;player.vy=0;player.cd=0;player.hitFlash=0;
- player.stats=specs(player.load);player.maxHp=player.stats.hp;
- player.hp=first?player.maxHp:Math.min(player.maxHp,player.hp+Math.ceil(player.maxHp*(.26+player.stats.repair)));
+ // Healing happens only after combat, not on entering a new fight.
+ player.stats=specs(player.load);player.maxHp=player.stats.hp;player.hp=Math.min(player.hp,player.maxHp);
  player.dashCooldown=0;player.dashLeft=0;
- updatePanels(true);
- closeOverlay();
- beep(520,.12,.04);
+ updatePanels(true);closeOverlay();beep(520,.12,.04);
 }
+function openEvent(){
+ state='event';
+ const boostSlot=Object.keys(SLOT).reduce((a,b)=>player.load[a].lv<=player.load[b].lv?a:b);
+ let html='<p class="flag">UNKNOWN SIGNAL / EVENT</p><h2>廃工場で発見したもの</h2>'
+  +'<p>次の3つから1つだけ選択。</p><div class="routeChoices">'
+  +'<button class="routeChoice" data-event="supply"><span class="symbol">▤</span><strong>補給物資</strong><small>ゴールド +'+(65+depth*14)+'</small></button>'
+  +'<button class="routeChoice rest" data-event="heal"><span class="symbol">✚</span><strong>応急整備</strong><small>最大HPの22%を回復</small></button>'
+  +'<button class="routeChoice" data-event="upgrade"><span class="symbol">✧</span><strong>未知の設計図</strong><small>'+SLOT[boostSlot]+' Lv.+1</small></button>'
+  +'</div>';
+ showOverlay(html);
+ document.querySelectorAll('[data-event]').forEach(b=>b.addEventListener('click',()=>{
+  if(state!=='event')return;
+  const choice=b.dataset.event;
+  let detail='';
+  if(choice==='supply'){const reward=65+depth*14;gold+=reward;detail=reward+' G獲得'}
+  if(choice==='heal'){healPlayer(.22);detail='最大HPの22%を回復'}
+  if(choice==='upgrade'){player.load[boostSlot].lv++;restoreVitalsFromLoad();detail=SLOT[boostSlot]+'をLv.'+player.load[boostSlot].lv+'に改造'}
+  showNodeResult('イベント完了',detail);
+ }));
+}
+function shopCost(kind,slot){
+ if(kind==='repair')return 55+depth*8;
+ if(kind==='upgrade')return 68+player.load[slot].lv*28+depth*7;
+ return 100+depth*16;
+}
+function openShopNode(){
+ state='shop';
+ shopOffers=shuffled(Object.keys(SLOT)).slice(0,2).map(slot=>{
+  const def=pick(DEF[slot]);
+  return {slot,part:part(slot,def.id,Math.max(player.load[slot].lv+1,1+Math.round(depth*.57)),rarity(depth+2)),
+          price:shopCost('offer',slot)+Math.round(rand(4,31))};
+ });
+ renderShop();
+}
+function buyShop(kind,arg){
+ if(state!=='shop')return;
+ let cost=0;
+ if(kind==='repair'){
+  cost=shopCost('repair');if(player.hp>=player.maxHp||gold<cost)return;
+  gold-=cost;healPlayer(.35);
+ }else if(kind==='upgrade'&&SLOT[arg]){
+  cost=shopCost('upgrade',arg);if(gold<cost)return;
+  gold-=cost;player.load[arg].lv++;restoreVitalsFromLoad();
+ }else if(kind==='offer'){
+  const item=shopOffers[Number(arg)];if(!item||item.bought||gold<item.price)return;
+  gold-=item.price;player.load[item.slot]=clone(item.part);item.bought=true;restoreVitalsFromLoad();
+ }else return;
+ updatePanels(true);beep(730,.11,.035);renderShop();
+}
+function renderShop(){
+ if(state!=='shop')return;
+ let html='<p class="flag">SERVICE BAY / SHOP</p><h2>ショップ</h2>'
+ +'<div class="resourceLine"><span>GOLD '+gold+'</span><span>HP '+Math.ceil(player.hp)+' / '+player.maxHp+'</span></div>'
+ +'<div class="shopGrid">';
+ const repair=shopCost('repair');
+ html+='<button class="shopItem" data-shop="repair" '+(gold<repair||player.hp>=player.maxHp?'disabled':'')
+  +'><strong>✚ 機体を修理</strong><small>最大HPの35%を回復</small><span class="cost">'+repair+' G</span></button>';
+ for(const slot of Object.keys(SLOT)){
+  const cost=shopCost('upgrade',slot);
+  html+='<button class="shopItem" data-shop="upgrade" data-arg="'+slot+'" '+(gold<cost?'disabled':'')
+   +'><strong>↑ '+SLOT[slot]+'</strong><small>'+find(player.load[slot]).name+' Lv.'+player.load[slot].lv+' → '+(player.load[slot].lv+1)+'</small>'
+   +'<span class="cost">'+cost+' G</span></button>';
+ }
+ for(let i=0;i<shopOffers.length;i++){
+  const item=shopOffers[i],p=item.part;
+  html+='<button class="shopItem" data-shop="offer" data-arg="'+i+'" '+(item.bought||gold<item.price?'disabled':'')
+   +'><strong>⇄ '+find(p).name+'</strong><small>'+SLOT[item.slot]+' / Lv.'+p.lv+' ★'+p.tier+'　装備と交換</small>'
+   +'<span class="cost">'+(item.bought?'購入済':item.price+' G')+'</span></button>';
+ }
+ html+='</div><button class="primary" id="leaveShop">ショップを出る ▶</button>';
+ showOverlay(html);
+ document.querySelectorAll('[data-shop]').forEach(b=>b.addEventListener('click',()=>buyShop(b.dataset.shop,b.dataset.arg)));
+ $('leaveShop').addEventListener('click',completeNode);
+}
+
 function updatePanels(forceParts){
  $('topWave').textContent=String(wave).padStart(2,'0');
  $('goldText').textContent=gold+' G';$('depthText').textContent=depth+' / 10';
