@@ -113,6 +113,44 @@ body{background:#0c1b2d}
  .shopGrid{gap:7px}.shopItem{padding:10px}.shopItem strong{font-size:12px}
  .routeDialog h2{font-size:21px}
 }
+
+/* Vertical branching atlas. Nodes and links are a connected, navigable route map. */
+.routeDialog{width:min(770px,100%)}
+.mapWrap{max-height:min(60dvh,610px);overflow:auto;overscroll-behavior:contain;border:1px solid #3b5773;
+border-radius:14px;background:radial-gradient(ellipse at 48% 38%,#24394a,#0d2032 62%,#0a1b2a);
+box-shadow:inset 0 0 38px #061222b3;scrollbar-color:#567993 #0e2134}
+.mapBoard{width:100%;margin:0 auto;display:block}
+.mapBoard .map-edge{stroke:#58748c;stroke-width:2;opacity:.28;fill:none;stroke-dasharray:4 7}
+.mapBoard .map-edge.done{stroke:#76f7e3;stroke-width:6;stroke-dasharray:none;opacity:.98;filter:drop-shadow(0 0 7px #3bddd1)}
+.mapBoard .map-edge.active{stroke:#e9be86;stroke-width:4.5;stroke-dasharray:8 6;opacity:.95}
+.mapBoard .map-node{pointer-events:none;opacity:.57}
+.mapBoard .map-node.completed{opacity:1}
+.mapBoard .map-node.current{pointer-events:all;opacity:1;cursor:pointer}
+.mapBoard .map-node.current:hover circle,.mapBoard .map-node.current:focus circle{stroke:#ffffff;stroke-width:6}
+.mapBoard .map-node circle{fill:#172f45;stroke:#7189a0;stroke-width:3}
+.mapBoard .map-node.completed circle{fill:#14525c;stroke:#9af8e7;stroke-width:4}
+.mapBoard .map-node.current circle{fill:#334659;stroke:#ffd092;stroke-width:5}
+.mapBoard .map-node.current.special circle{stroke:#e2a1e9}
+.mapBoard .map-node text{font:800 21px system-ui,sans-serif;text-anchor:middle;dominant-baseline:central;fill:#d4e5ed}
+.mapBoard .map-node.current text{fill:#fff3d5}
+.mapBoard .map-node text.small{font-size:12px;fill:#b3ccda}
+.mapBoard .map-node.current text.small{fill:#ffd8a2}
+.mapBoard .map-node.boss circle{fill:#584055;stroke:#fdc6a0}
+.mapBoard .map-node.current.boss circle{fill:#6e4451;stroke:#ffcf91}
+.mapBoard .startNode{fill:#183b4a;stroke:#8adfd7;stroke-width:3}
+.mapBoard .map-caption{fill:#8eaec5;font:800 11px ui-monospace,monospace}
+.mapLegend{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#a7c0d7;font-size:11px;padding:9px 2px 1px}
+.mapLegend b{color:#ffe1aa}
+.mapLegend .statusDot{height:10px;width:10px;border-radius:50%;background:#ffd29c;display:inline-block;margin-right:5px}
+.mapHint{font-size:12px;line-height:1.6;color:#bbd0e0;margin-top:10px}
+@media(max-width:560px){
+ .routeDialog{padding:12px;width:100%;max-height:calc(100dvh - 16px)}
+ .routeDialog h2{font-size:20px;margin-bottom:6px}
+ .routeDialog .resourceLine{font-size:11px;margin:6px 0}
+ .mapWrap{max-height:min(66dvh,680px)}
+ .mapLegend{font-size:10px}
+}
+
 </style>
 </head>
 <body>
@@ -232,6 +270,7 @@ const initial=()=>({
 });
 let state='menu',wave=1,best=Number(localStorage.getItem('roboSalvageBest')||0);
 let depth=0,gold=0,routeOptions=[],currentNode='fight',bossCleared=false,runSeed=0,encountersWon=0,shopOffers=[],mapHistory=[];
+let routeGraph=[],routeCandidates=[],currentLane=2,chosenNodes=[];
 let player=null,enemy=null,bullets=[],effects=[],rings=[],blocks=[],aim={x:800,y:295},keys={},fireMouse=false,fireTouch=false,joy={x:0,y:0},wantsDash=false;
 let activeJoyPointer=null,soundOn=true,audio=null,clock=0,screenShake=0,enemySeed=0,lootTaken=false,shotsFired=0,menuOpen=false;
 $('best').textContent=String(best).padStart(2,'0');
@@ -344,6 +383,7 @@ function shuffled(arr){
 function beginRun(){
  wave=1;depth=0;gold=0;encountersWon=0;runSeed=Math.floor(rand(0,15));
  bossCleared=false;mapHistory=[];currentNode='fight';routeOptions=[];shopOffers=[];
+ currentLane=2;chosenNodes=[];routeCandidates=[];routeGraph=buildRouteGraph();
  player=createRobot(initial(),166,295);enemy=null;
  bullets=[];effects=[];rings=[];keys={};fireMouse=false;fireTouch=false;
  closeMenu();updatePanels(true);
