@@ -47,6 +47,11 @@ def test(browser,url,label,size,mobile=False):
     page.wait_for_timeout(200)
     start=get()
     check(label+" game starts on a three-way route",start["state"]=="route",start["state"])
+    if mobile:
+        check(label+" joystick hidden behind route-selection modal",
+              page.locator("#joystick").is_hidden())
+        check(label+" fire button hidden while selecting route",
+              page.locator("#fireTouch").is_hidden())
     check(label+" exactly three offered nodes",len(start["routeOptions"])==3,
           start["routeOptions"])
     check(label+" normal battle always available","fight" in start["routeOptions"])
