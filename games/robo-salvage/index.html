@@ -717,6 +717,8 @@ function hitRect(x,y,r,b){
 }
 function moveRobot(o,dx,dy){
  let nx=clamp(o.x+dx,38,W-38),ny=clamp(o.y+dy,39,H-39);
+ if(!arenaAllowed(nx,o.y,o.r))nx=o.x;
+ if(!arenaAllowed(nx,ny,o.r))ny=o.y;
  for(const b of blocks){if(hitRect(nx,o.y,o.r,b))nx=o.x;if(hitRect(nx,ny,o.r,b))ny=o.y}
  o.x=nx;o.y=ny;
 }
@@ -820,8 +822,45 @@ function update(dt){
 function roundRect(x,y,w,h,r,color){
  ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();
 }
+// Five outer arena silhouettes, in addition to fifteen solid-cover topologies.
+// Boundaries apply to robot movement (not decorative paint alone).
+function arenaAllowed(x,y,r=20){
+ const kind=arenaIndex()%5,dx=Math.abs(x-500),dy=Math.abs(y-295);
+ if(kind===0)return x>=35+r&&x<=965-r&&y>=35+r&&y<=555-r;
+ if(kind===1)return (dx/(465-r))**2+(dy/(274-r))**2<=1;
+ if(kind===2)return dx<=465-r&&dy<=262-r&&dx/465+dy/262<=1.67-r/340;
+ if(kind===3){
+  const maxY=dx<=80?205:dx>=250?255:205+(dx-80)*50/170;
+  return dx<=462-r&&dy<=maxY-r;
+ }
+ if(dx>462-r||dy>260-r)return false;
+ if(dx<=300-r||dy<=154-r)return true;
+ return ((dx-(300-r))/(162))**2+((dy-(154-r))/(106))**2<=1;
+}
+function arenaOutline(){
+ const kind=arenaIndex()%5,p=new Path2D();
+ if(kind===0)p.roundRect(35,35,930,520,14);
+ else if(kind===1)p.ellipse(500,295,465,274,0,0,TAU);
+ else if(kind===2){
+  const ps=[[146,33],[854,33],[965,131],[965,459],[854,557],[146,557],[35,459],[35,131]];
+  p.moveTo(...ps[0]);for(const v of ps.slice(1))p.lineTo(...v);p.closePath();
+ }else if(kind===3){
+  const ps=[[38,40],[250,40],[420,90],[580,90],[750,40],[962,40],
+  [962,550],[750,550],[580,500],[420,500],[250,550],[38,550]];
+  p.moveTo(...ps[0]);for(const v of ps.slice(1))p.lineTo(...v);p.closePath();
+ }else p.roundRect(38,35,924,520,108);
+ return p;
+}
 function drawArena(){
- let grad=ctx.createLinearGradient(0,0,W,H);grad.addColorStop(0,'#0d2338');grad.addColorStop(.6,'#101f32');grad.addColorStop(1,'#1a223c');ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+ const palette=[
+ ['#0d2338','#101f32','#1a223c'],['#183944','#15333e','#1b2b40'],
+ ['#3a293f','#2d2d42','#1e2b3c'],['#193c38','#183334','#1c2e42'],
+ ['#3e2d3d','#302b44','#1c2e45']][Math.floor(arenaIndex()/3)];
+ let grad=ctx.createLinearGradient(0,0,W,H);
+ grad.addColorStop(0,palette[0]);grad.addColorStop(.6,palette[1]);grad.addColorStop(1,palette[2]);
+ ctx.fillStyle='#060e1b';ctx.fillRect(0,0,W,H);
+ const outline=arenaOutline();ctx.fillStyle=grad;ctx.fill(outline);
+ ctx.save();ctx.clip(outline);
  ctx.strokeStyle='#3c6a8140';ctx.lineWidth=1;for(let x=30;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
  for(let y=30;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
  ctx.strokeStyle='#4a8daa85';ctx.lineWidth=3;ctx.strokeRect(28,28,W-56,H-56);
@@ -832,6 +871,8 @@ function drawArena(){
  // subtle moving hazard lines
  ctx.strokeStyle='#8bcdcc13';ctx.lineWidth=3;
  for(let j=0;j<4;j++){let x=((clock*11+j*280)%1400)-200;ctx.beginPath();ctx.moveTo(x,-20);ctx.lineTo(x+240,H+20);ctx.stroke()}
+ ctx.restore();
+ ctx.strokeStyle='#87dddb8d';ctx.lineWidth=4;ctx.stroke(outline);
 }
 function drawCover(){
  for(const b of blocks){
