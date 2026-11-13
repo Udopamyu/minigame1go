@@ -215,25 +215,37 @@ const DEF={
   {id:'pulse',name:'パルスガン',detail:'連射に優れる標準銃',damage:14,cool:.32,velocity:810,count:1,spread:0,color:'#63eff3'},
   {id:'shot',name:'スプレッド砲',detail:'近距離で強烈な散弾',damage:8,cool:.78,velocity:740,count:5,spread:.19,color:'#ffce78'},
   {id:'rail',name:'レールランサー',detail:'障害物を貫く高威力弾',damage:33,cool:1.06,velocity:1160,count:1,spread:0,color:'#c1acff',pierce:true},
-  {id:'missile',name:'ホーミング弾',detail:'追尾する低速ミサイル',damage:25,cool:1.02,velocity:425,count:1,spread:0,color:'#ff867d',homing:true}
+  {id:'missile',name:'ホーミング弾',detail:'追尾する低速ミサイル',damage:25,cool:1.02,velocity:425,count:1,spread:0,color:'#ff867d',homing:true},
+  {id:'micro',name:'ニードルガン',detail:'低威力・高速連射',damage:7,cool:.19,velocity:960,count:1,spread:.015,color:'#82f5bb'},
+  {id:'burst',name:'バーストライフル',detail:'3発同時射撃の中距離型',damage:8,cool:.62,velocity:920,count:3,spread:.072,color:'#8ab5fa'},
+  {id:'slug',name:'グラビティスラグ',detail:'遅い連射の一撃重視型',damage:49,cool:1.5,velocity:950,count:1,spread:0,color:'#e5bcff'}
  ],
  armor:[
   {id:'mesh',name:'メッシュ装甲',detail:'軽量で基本的な防御',hp:125,guard:.025,color:'#65e1e9'},
   {id:'plated',name:'プレート装甲',detail:'高耐久の積層プレート',hp:158,guard:.065,color:'#91acd0'},
   {id:'fortress',name:'フォートレス',detail:'重装甲と厚いシールド',hp:184,guard:.105,color:'#f5b56e'},
-  {id:'reactive',name:'リアクティブ装甲',detail:'反応装甲で被弾を軽減',hp:147,guard:.15,color:'#bc98f6'}
+  {id:'reactive',name:'リアクティブ装甲',detail:'反応装甲で被弾を軽減',hp:147,guard:.15,color:'#bc98f6'},
+  {id:'composite',name:'コンポジット装甲',detail:'重さと防御力のバランス',hp:168,guard:.09,color:'#9dbdb2'},
+  {id:'feather',name:'フェザー装甲',detail:'軽装甲・機動型ビルド向け',hp:118,guard:.045,color:'#c4d5f1'},
+  {id:'prism',name:'プリズム装甲',detail:'最大HPより被弾軽減を重視',hp:136,guard:.18,color:'#a2e5f4'}
  ],
  legs:[
   {id:'wheel',name:'ローラー脚',detail:'安定した移動性能',speed:223,dash:2.8,color:'#74dce0'},
   {id:'booster',name:'ブースター脚',detail:'高機動・素早い回避',speed:262,dash:2.5,color:'#ffca80'},
   {id:'tank',name:'キャタピラ脚',detail:'低速だが耐久補助',speed:184,dash:3.0,bonusHp:18,color:'#c4b89a'},
-  {id:'spider',name:'スパイダー脚',detail:'小回りの効く俊敏型',speed:246,dash:2.1,color:'#d0a7fa'}
+  {id:'spider',name:'スパイダー脚',detail:'小回りの効く俊敏型',speed:246,dash:2.1,color:'#d0a7fa'},
+  {id:'jet',name:'ジェット脚',detail:'直進速度が高い軽量型',speed:278,dash:2.35,color:'#f7ab84'},
+  {id:'crawler',name:'ヘビークローラー',detail:'頑丈だが低速、HP増加',speed:180,dash:3,bonusHp:33,color:'#b4bfa2'},
+  {id:'ranger',name:'レンジャー脚',detail:'回避と速度の中間',speed:252,dash:2.25,color:'#89d1fb'}
  ],
  core:[
   {id:'spark',name:'スパークコア',detail:'バランスのよい動力源',damage:1.03,rate:1.04,heal:0,color:'#71f3d0'},
   {id:'blaze',name:'ブレイズコア',detail:'一撃の威力を増幅',damage:1.23,rate:.93,heal:0,color:'#ff9d79'},
   {id:'rapid',name:'ラピッドコア',detail:'連射性能を大幅強化',damage:.94,rate:1.32,heal:0,color:'#9cdafa'},
-  {id:'repair',name:'リペアコア',detail:'勝利時に追加回復',damage:1,rate:1,heal:.18,color:'#c5a6f8'}
+  {id:'repair',name:'リペアコア',detail:'勝利時に追加回復',damage:1,rate:1,heal:.18,color:'#c5a6f8'},
+  {id:'capacitor',name:'キャパシタコア',detail:'連射と火力を少し増強',damage:1.08,rate:1.13,heal:0,color:'#a5e2ff'},
+  {id:'aegis',name:'イージスコア',detail:'攻撃力を抑えてダメージ軽減',damage:.96,rate:1,heal:0,guardBonus:.055,color:'#b3edb6'},
+  {id:'salvager',name:'サルベージコア',detail:'勝利後の回復をさらに増強',damage:.98,rate:.98,heal:.12,color:'#f4d08d'}
  ]
 };
 const RAR=['','STANDARD','ADVANCED','RARE','LEGEND'],RARCOL=['','#a9bbc9','#65dece','#b9a5ff','#ffca7b'];
@@ -243,6 +255,17 @@ const clone=p=>({slot:p.slot,id:p.id,lv:p.lv,tier:p.tier});
 const score=p=>p.lv*(1+.23*(p.tier-1));
 const rarity=wave=>{const r=Math.random();return r<Math.max(.02,(wave-8)*.025)?4:r<Math.min(.38,.04+wave*.021)?3:r<Math.min(.66,.16+wave*.034)?2:1};
 const enemyNames=['NEON JACKAL','IRON MOTH','RUST VIPER','VOID CAT','DUST HOUND','SKY MANTIS','STEEL GHOST','COBALT FOX'];
+// Tactical roles alter positioning and aiming without adding raw damage.
+const ENEMY_ROLES={
+ skirmisher:{label:'SKIRMISHER',distance:265,strafe:.8,speed:1,accuracy:1,attackRange:700},
+ charger:{label:'CHARGER',distance:152,strafe:.25,speed:1.05,accuracy:1.1,attackRange:680},
+ sniper:{label:'SNIPER',distance:410,strafe:.35,speed:.86,accuracy:.65,attackRange:820},
+ flanker:{label:'FLANKER',distance:290,strafe:1.25,speed:1.08,accuracy:1.25,attackRange:730},
+ guardian:{label:'GUARDIAN',distance:250,strafe:.55,speed:.9,accuracy:.85,attackRange:730},
+ boss:{label:'OMEGA',distance:280,strafe:.75,speed:1,accuracy:.88,attackRange:790}
+};
+const NORMAL_ROLES=['skirmisher','charger','sniper','flanker'];
+const chooseEnemyRole=kind=>kind==='boss'?'boss':kind==='elite'?'guardian':pick(NORMAL_ROLES);
 function makeEnemyLoadout(wave){
  let obj={};
  for(const slot of Object.keys(SLOT)){
@@ -259,7 +282,7 @@ function specs(load){
  const wf=1+.095*(load.weapon.lv-1)+.15*(load.weapon.tier-1);
  return {
   hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)),
-  guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1),0,.36),
+  guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1)+(c.guardBonus||0),0,.36),
   speed:l.speed*lf,dashCooldown:Math.max(1.32,l.dash/Math.sqrt(lf)),
   dmg:w.damage*wf*c.damage*cf,fireCooldown:Math.max(.14,w.cool/(c.rate*cf)),
   weapon:w,armor:a,legs:l,core:c,repair:c.heal*cf
@@ -290,7 +313,7 @@ function createRobot(load,x,y,isEnemy=false){
  const s=specs(load);
  return {x,y,vx:0,vy:0,angle:isEnemy?Math.PI:0,r:22,load,stats:s,hp:s.hp,maxHp:s.hp,
   cd:.25,dashLeft:0,dashCooldown:0,hitFlash:0,dead:false,enemy:isEnemy,aiPhase:rand(0,TAU),aiStrafe:Math.random()<.5?-1:1,
-  name:isEnemy?pick(enemyNames):'SALVAGER-01'};
+  role:isEnemy?'skirmisher':'player',name:isEnemy?pick(enemyNames):'SALVAGER-01'};
 }
 function arenaIndex(){return (depth*7+runSeed)%15}
 // Each layout changes the topology, not just the position of three crates.
@@ -523,13 +546,14 @@ function startWave(){
  blocks=makeCover();
  const load=makeEnemyLoadout(wave);
  enemy=createRobot(load,840,295,true);
+ enemy.role=chooseEnemyRole(currentNode);
  let warmup=wave===1?.76:wave===2?.87:wave===3?.94:1;
  const kind=currentNode;
  const hpScale=kind==='boss'?2.15:kind==='elite'?1.42:1;
  enemy.maxHp=Math.round(enemy.maxHp*warmup*hpScale);enemy.hp=enemy.maxHp;
  if(kind==='boss'){enemy.stats.dmg*=1.22;enemy.r=30;enemy.name='OMEGA GUARDIAN'}
  else if(kind==='elite'){enemy.stats.dmg*=1.1;enemy.name='ELITE '+pick(enemyNames)}
- else enemy.name=pick(enemyNames);
+ else enemy.name=ENEMY_ROLES[enemy.role].label+' '+pick(enemyNames);
  enemySeed=Math.random()*10;
  player.x=165;player.y=295;player.vx=0;player.vy=0;player.cd=0;player.hitFlash=0;
  // Healing happens only after combat, not on entering a new fight.
@@ -793,11 +817,12 @@ function update(dt){
  if(!enemy.dead){
   const dx=player.x-enemy.x,dy=player.y-enemy.y,d=Math.max(.001,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
   enemy.angle=a;
-  let desired=enemy.stats.weapon.id==='shot'?190:enemy.stats.weapon.id==='rail'?390:280;
-  let approach=clamp((d-desired)/125,-.85,1);
-  const strafe=Math.sin(clock*.9+enemy.aiPhase)*enemy.aiStrafe*.65;
+  const tactics=ENEMY_ROLES[enemy.role]||ENEMY_ROLES.skirmisher;
+  const preferred=tactics.distance+(enemy.stats.weapon.id==='shot'?-45:enemy.stats.weapon.id==='rail'?80:0);
+  let approach=clamp((d-preferred)/125,-.85,1);
+  const strafe=Math.sin(clock*.9+enemy.aiPhase)*enemy.aiStrafe*.65*tactics.strafe;
   let vx=(dx/d)*approach+(-dy/d)*strafe,vy=(dy/d)*approach+(dx/d)*strafe;
-  let m=Math.max(1,Math.hypot(vx,vy)),step=enemy.stats.speed*.59*dt;
+  let m=Math.max(1,Math.hypot(vx,vy)),step=enemy.stats.speed*.59*tactics.speed*dt;
   const ex=enemy.x,ey=enemy.y;
   moveRobot(enemy,vx/m*step,vy/m*step);
   if(Math.hypot(enemy.x-ex,enemy.y-ey)<step*.16){
@@ -807,7 +832,8 @@ function update(dt){
    if(Math.hypot(enemy.x-ex,enemy.y-ey)<step*.13)enemy.aiStrafe*=-1;
   }
   enemy.cd=Math.max(0,enemy.cd-dt);
-  if(d<730&&(lineOfSight(enemy,player)||enemy.stats.weapon.id==='rail'||enemy.stats.weapon.id==='missile'))shoot(enemy,player,a+Math.sin(clock*1.4+enemySeed)*(.10+Math.min(.12,wave*.006)));
+  if(d<tactics.attackRange&&(lineOfSight(enemy,player)||enemy.stats.weapon.id==='rail'||enemy.stats.weapon.id==='missile'))
+    shoot(enemy,player,a+Math.sin(clock*1.4+enemySeed)*(.10+Math.min(.12,wave*.006))*tactics.accuracy);
  }
  for(let i=bullets.length-1;i>=0;i--){
   let b=bullets[i];b.life-=dt;if(b.life<=0){bullets.splice(i,1);continue}
@@ -1102,11 +1128,13 @@ if(navigator.webdriver)window.__roboQATest={
 window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
  depth,gold,encountersWon,currentNode,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
+ partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),
+ roles:Object.keys(ENEMY_ROLES),
  coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),
  player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
   dashCooldown:player.dashCooldown,load:player.load}:null,
  enemy:enemy?{x:enemy.x,y:enemy.y,hp:enemy.hp,maxHp:enemy.maxHp,
-  load:enemy.load}:null,
+  role:enemy.role,load:enemy.load}:null,
  bullets:bullets.length,lootCards:document.querySelectorAll('[data-loot]').length
 });
 const previewLoad=initial();
