@@ -529,6 +529,7 @@ function tick(time){
  if(player){if(phase==='battle')battleUpdate(dt);else updateFx(dt);updateCamera(Math.max(.01,dt));shake=Math.max(0,shake-dt*3)}
  renderer.render(scene,camera);requestAnimationFrame(tick);
 }
+window.__ROBO_TPS_QA__=()=>({phase,stage,enemyCount:enemies.filter(e=>e.active).length,playerPos:player?[player.pos.x,player.pos.z]:null,playerHp:player?player.hp:0,fireCd:player?player.fireCd:0});
 $('loader').style.display='none';makeArena(1);camera.position.set(2,3.5,22);camera.lookAt(0,1.5,0);requestAnimationFrame(tick);
 </script>
 </body>
