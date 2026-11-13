@@ -1106,7 +1106,7 @@ if(navigator.webdriver)window.__roboQATest={
   return {...enemy.status};
  },
  testHazard:kind=>{
-  if(state!=='fight'||!HAZARD_KIN.includes(kind))return null;
+  if(state!=='fight'||!HAZARD_KINDS.includes(kind))return null;
   const before=player.hp,old=hazards,st={...player.status};
   player.hp=player.maxHp*.5;player.status={burn:0,stun:0,slow:0,sunder:0};
   hazards=[{kind,x:player.x,y:player.y,r:75,phase:.6,cooldown:0}];
@@ -1172,7 +1172,7 @@ window.__roboQA=()=>({
  partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
  roles:Object.keys(ENEMY_ROLES),
  coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),
- hazards:hazards.map(h=>({kind:h.kind,x:h.x,y:h.y,r:h.r,phase:h.phase})),hazardKinds:HAZARD_KIN.slice(),
+ hazards:hazards.map(h=>({kind:h.kind,x:h.x,y:h.y,r:h.r,phase:h.phase})),hazardKinds:HAZARD_KINDS.slice(),
  bossPattern:bossAttack?.kind||null,bossAttackCount,bossPhase:enemy&&currentNode==='boss'?(enemy.hp/enemy.maxHp<.5?2:1):0,
  player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
   dashCooldown:player.dashCooldown,status:{...player.status},load:player.load}:null,
