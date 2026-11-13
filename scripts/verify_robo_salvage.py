@@ -94,7 +94,7 @@ def test(browser,url,label,size,mobile=False):
         info=hook("inspectBuild",parts)
         check(label+" synergy "+combo+" activates",
               info is not None and combo in info["ids"],info)
-    basic=hook("inspectBuild",{})
+    basic=hook("inspectBuild",{"weapon":"burst","core":"spark"})
     offense=hook("inspectBuild",{"weapon":"burst","core":"blaze"})
     check(label+" build synergy actually changes weapon damage",
           offense["damage"]>basic["damage"],
