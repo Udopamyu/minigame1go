@@ -208,7 +208,7 @@ function makeHazards(){
  const a=positions[index%3*2],b=positions[index%3*2+1];
  const zones=[{...a,kind,phase:0,cooldown:0}];
  // The second hazard has different rules so positioning matters.
- zones.push({...b,kind:HAZARD_KIN[(index+1)%HAZARD_KIN.length],phase:1.2,cooldown:0});
+ zones.push({...b,kind:HAZARD_KINDS[(index+1)%HAZARD_KINDS.length],phase:1.2,cooldown:0});
  if(currentNode==='elite'||currentNode==='boss'){
   zones.push({x:500,y:295,r:38,kind:'shock',phase:2.3,cooldown:0});
  }
