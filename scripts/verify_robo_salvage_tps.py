@@ -75,8 +75,7 @@ with sync_playwright() as p:
     errors = open_and_start(page, "mobile")
     assert page.locator("#touch").evaluate("(e) => getComputedStyle(e).display") != "none"
     page.locator("#dashBtn").tap()
-    page.wait_for_timeout(80)
-    assert snapshot(page)["dashCd"] > 0, "Mobile dash did not activate"
+    page.wait_for_function("window.__ROBO_TPS_QA__().dashCd > 0", timeout=3000)
     page.locator("#fireBtn").tap()
     page.screenshot(path=str(SCREENSHOTS / "mobile-combat.png"))
     assert not errors, ("Mobile JS errors", errors)
