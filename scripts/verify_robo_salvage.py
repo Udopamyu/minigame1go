@@ -170,6 +170,16 @@ def test(browser,url,label,size,mobile=False):
               len(fight["enemySynergies"])>=1,fight["enemySynergies"])
     check(label+" combat screen lacks text HUD",page.locator(".controls").is_hidden())
     check(label+" battle spawns active hazards",len(fight["hazards"])>=2)
+    check(label+" material-specific cover durability",
+          len(fight["coverDurability"])>0 and
+          all(c["hp"]==c["maxHp"] and c["hp"]>=70
+              for c in fight["coverDurability"]),
+          fight["coverDurability"])
+    breached=hook("testBreakCover")
+    check(label+" shooting cover opens tactical passage",
+          bool(breached) and breached["removed"] and
+          breached["after"]==breached["before"]-1 and breached["unblocked"],
+          breached)
     for name,key in (("pulse","stun"),("rail","sunder"),("micro","sunder"),
                      ("burst","burn"),("slug","stun"),("shot",None),("missile",None)):
         effect=hook("testWeaponTrait",name)
