@@ -965,50 +965,9 @@ function drawCover(){
   }
  }
 }
+/* @include-pixel-art */
 function drawRobot(o){
- if(!o)return;
- let col=o.enemy?'#ef8e91':'#70e6eb',armor=o.stats.armor.color,legs=o.stats.legs.color,weapon=o.stats.weapon.color,core=o.stats.core.color;
- ctx.save();ctx.translate(o.x,o.y);
- if(o.enemy&&(currentNode==='boss'||currentNode==='elite')){
-  const boss=currentNode==='boss',radius=boss?43:34;
-  ctx.save();ctx.rotate(clock*(boss?.34:-.22));
-  ctx.strokeStyle=boss?'#ffd99199':'#bd9df277';ctx.lineWidth=boss?4:3;
-  ctx.beginPath();ctx.arc(0,0,radius,0,TAU);ctx.stroke();
-  for(let i=0;i<(boss?8:5);i++){
-   const a=i*TAU/(boss?8:5);
-   ctx.fillStyle=boss?'#ffd08d':'#ceaff5';
-   ctx.fillRect(Math.cos(a)*radius-3,Math.sin(a)*radius-3,boss?8:6,boss?8:6);
-  }
-  ctx.restore();
- }
- // contact shadow and pulsing peripheral circle
- ctx.fillStyle='#0207138a';ctx.beginPath();ctx.ellipse(4,11,27,15,0,0,TAU);ctx.fill();
- if(o.dashLeft>0){ctx.strokeStyle='#72effbcc';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,31+Math.sin(clock*34)*3,0,TAU);ctx.stroke()}
- ctx.rotate(o.angle);
- // mobile legs and silhouette
- ctx.fillStyle='#0b1927';roundRect(-21,-24,28,14,4,'#0b1927');roundRect(-21,10,28,14,4,'#0b1927');
- roundRect(-25,-19,34,12,4,legs);roundRect(-25,7,34,12,4,legs);
- for(let j=-1;j<=1;j++){ctx.fillStyle='#142735';ctx.fillRect(-19+j*9,-16,4,7);ctx.fillRect(-19+j*9,12,4,5)}
- // armour silhouette
- roundRect(-19,-20,43,40,8,'#0c1a2a');
- roundRect(-16,-18,38,36,7,o.hitFlash>0?'#ffffff':armor);
- roundRect(-9,-12,23,24,4,o.enemy?'#803b51':'#19586b');
- // articulation and core
- ctx.fillStyle=core;ctx.beginPath();ctx.arc(2,0,8+Math.sin(clock*5)*.7,0,TAU);ctx.fill();
- ctx.fillStyle='#e8fcff';ctx.beginPath();ctx.arc(2,0,3,0,TAU);ctx.fill();
- // gun barrel points in aim direction, mechanically attached
- roundRect(9,-9,26,18,5,'#122334');
- roundRect(15,-6,27,12,3,weapon);
- ctx.fillStyle='#173249';ctx.fillRect(31,-4,14,8);
- ctx.fillStyle='#8de9f2';ctx.fillRect(38,-3,4,6);
- // top armour trim
- ctx.strokeStyle=col;ctx.lineWidth=2;ctx.strokeRect(-15,-17,35,34);
- ctx.restore();
- if(state==='fight'){
-  let w=65;ctx.fillStyle='#071321';ctx.fillRect(o.x-w/2,o.y-42,w,7);
-  ctx.fillStyle=o.enemy?'#ff8798':'#65e8e4';ctx.fillRect(o.x-w/2,o.y-42,w*clamp(o.hp/o.maxHp,0,1),7);
-  // No player or enemy name captions in the combat view.
- }
+ drawMechEquipment(o);
 }
 function drawBullets(){
  for(const b of bullets){
@@ -1058,6 +1017,7 @@ function render(){
  if(screenShake>0)ctx.translate(rand(-screenShake,screenShake),rand(-screenShake,screenShake));
  drawArena();drawHazards();drawCover();drawBossTelegraph();drawEffects();drawRobot(player);drawRobot(enemy);drawBullets();
  ctx.restore();
+ renderPixelFrame();
 }
 function loop(t){let dt=Math.min(.033,(t-(loop.last||t))/1000||0);loop.last=t;update(dt);render();requestAnimationFrame(loop)}
 function mousePos(e){
@@ -1209,6 +1169,7 @@ window.__roboQA=()=>({
  depth,gold,encountersWon,currentNode,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
  partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
  synergyCount:SYNERGY_RULES.length,playerSynergies:player?.stats.synergies.map(rule=>rule.id)||[],
+ pixelMode:PIXEL_RENDER_MODE.enabled,pixelBuffer:{width:MECH_PIXELS.width,height:MECH_PIXELS.height},
  roles:Object.keys(ENEMY_ROLES),
  coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),
  hazards:hazards.map(h=>({kind:h.kind,x:h.x,y:h.y,r:h.r,phase:h.phase})),hazardKinds:HAZARD_KINDS.slice(),
