@@ -76,6 +76,12 @@ def test(browser,url,label,size,mobile=False):
     check(label+" 15 available arena layouts",start["arenaLayoutCount"]==15)
     check(label+" twenty synergies available",
           start["synergyCount"]==20,start["synergyCount"])
+    check(label+" sixteen tactical enemy archetypes available",
+          start["enemyArchetypeCount"]==16,start["enemyArchetypeCount"])
+    builds=hook("enemyBuilds")
+    check(label+" all enemy archetypes activate a combo",
+          len(builds)==16 and all(len(b["combinations"])>=1 for b in builds),
+          builds)
     check(label+" starting pulse+spark build activates synergy",
           "plasma-loop" in start["playerSynergies"],start["playerSynergies"])
     check(label+" pixel mode is active",start["pixelMode"] is True,start["pixelMode"])
@@ -157,8 +163,11 @@ def test(browser,url,label,size,mobile=False):
     check(label+" enemy random four-part loadout",
           set(fight["enemy"]["load"])=={"weapon","armor","legs","core"})
     check(label+" enemy has distinct tactical behaviour",
-          fight["enemy"]["role"] in ("skirmisher","charger","sniper","flanker"),
+          fight["enemy"]["role"] in ("skirmisher","charger","sniper","flanker","guardian"),
           fight["enemy"]["role"])
+    if fight["enemyArchetype"]:
+        check(label+" encountered archetype has synergistic build",
+              len(fight["enemySynergies"])>=1,fight["enemySynergies"])
     check(label+" combat screen lacks text HUD",page.locator(".controls").is_hidden())
     check(label+" battle spawns active hazards",len(fight["hazards"])>=2)
     for name,key in (("pulse","stun"),("rail","sunder"),("micro","sunder"),
