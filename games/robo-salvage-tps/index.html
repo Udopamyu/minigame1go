@@ -537,6 +537,7 @@ $('stick').addEventListener('pointerup',stickEnd);$('stick').addEventListener('p
 $('fireBtn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();$('fireBtn').setPointerCapture(e.pointerId);firing=true});
 $('fireBtn').addEventListener('pointerup',()=>firing=false);$('fireBtn').addEventListener('pointercancel',()=>firing=false);
 $('dashBtn').addEventListener('pointerdown',e=>{e.preventDefault();dashRequest=true});
+$('dashBtn').addEventListener('click',()=>{if(phase==='battle')dashRequest=true});
 $('pause').addEventListener('click',()=>{if(phase==='battle')pause();else if(phase==='pause')resume()});
 $('startBtn').addEventListener('click',startRun);
 function tick(time){
