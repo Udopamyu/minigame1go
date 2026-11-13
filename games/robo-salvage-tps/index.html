@@ -409,8 +409,8 @@ function updateHud(){
 }
 function battleUpdate(dt){
  elapsed+=dt;const f=forward(),r=right();
- const mx=Number(keys['KeyD']||keys['ArrowRight'])-Number(keys['KeyA']||keys['ArrowLeft'])+joy.x;
- const mz=Number(keys['KeyW']||keys['ArrowUp'])-Number(keys['KeyS']||keys['ArrowDown'])-joy.y;
+ const mx=Number(Boolean(keys['KeyD']||keys['ArrowRight']))-Number(Boolean(keys['KeyA']||keys['ArrowLeft']))+joy.x;
+ const mz=Number(Boolean(keys['KeyW']||keys['ArrowUp']))-Number(Boolean(keys['KeyS']||keys['ArrowDown']))-joy.y;
  const v=f.multiplyScalar(mz).addScaledVector(r,mx);if(v.length()>1)v.normalize();
  player.dashCd=Math.max(0,player.dashCd-dt);player.invul=Math.max(0,player.invul-dt);player.fireCd=Math.max(0,player.fireCd-dt);
  if(dashRequest&&player.dashCd===0){player.dashCd=player.stats.dash;player.dashTime=.21;player.invul=Math.max(.22,player.invul);noise(.18,.15,.04)}
