@@ -408,10 +408,36 @@ const ENEMY_ROLES={
 };
 const NORMAL_ROLES=['skirmisher','charger','sniper','flanker'];
 const chooseEnemyRole=kind=>kind==='boss'?'boss':kind==='elite'?'guardian':pick(NORMAL_ROLES);
+// Enemy archetypes bias two slots toward recognisable combat styles.
+// The other two slots, all levels and rarities remain random. Roughly
+// one quarter of enemies are completely random to preserve roguelite variety.
+const ENEMY_ARCHETYPES=[
+ {id:'voltage-hound',role:'skirmisher',parts:{weapon:'pulse',core:'spark'}},
+ {id:'ion-jackal',role:'skirmisher',parts:{weapon:'pulse',core:'capacitor'}},
+ {id:'shock-sentinel',role:'guardian',parts:{armor:'prism',core:'spark'}},
+ {id:'scatter-raider',role:'charger',parts:{weapon:'shot',legs:'jet'}},
+ {id:'crawler-titan',role:'guardian',parts:{armor:'fortress',legs:'crawler'}},
+ {id:'siege-cannon',role:'sniper',parts:{weapon:'rail',legs:'tank'}},
+ {id:'mobile-sniper',role:'sniper',parts:{weapon:'rail',legs:'ranger'}},
+ {id:'flame-rifle',role:'skirmisher',parts:{weapon:'burst',core:'blaze'}},
+ {id:'staccato-burst',role:'flanker',parts:{weapon:'burst',core:'rapid'}},
+ {id:'needle-swarm',role:'flanker',parts:{weapon:'micro',core:'rapid'}},
+ {id:'missile-platform',role:'guardian',parts:{weapon:'missile',legs:'crawler'}},
+ {id:'missile-runner',role:'flanker',parts:{weapon:'missile',legs:'booster'}},
+ {id:'heavy-breaker',role:'charger',parts:{weapon:'slug',armor:'plated'}},
+ {id:'jet-breaker',role:'charger',parts:{weapon:'slug',legs:'jet'}},
+ {id:'aegis-bastion',role:'guardian',parts:{armor:'reactive',core:'aegis'}},
+ {id:'scout-escape',role:'flanker',parts:{armor:'feather',legs:'ranger'}}
+];
+let chosenEnemyArchetype=null;
 function makeEnemyLoadout(wave){
- let obj={};
+ const selection=Math.random()<.72?pick(ENEMY_ARCHETYPES):null;
+ chosenEnemyArchetype=selection;
+ const obj={};
  for(const slot of Object.keys(SLOT)){
-  let def=pick(DEF[slot]);let lv=wave===1?1:Math.max(1,Math.round(1+(wave-1)*.56+rand(-.5,.65)));
+  const locked=selection?.parts[slot];
+  const def=locked?DEF[slot].find(d=>d.id===locked):pick(DEF[slot]);
+  const lv=wave===1?1:Math.max(1,Math.round(1+(wave-1)*.56+rand(-.5,.65)));
   obj[slot]=part(slot,def.id,lv,rarity(wave));
  }
  return obj;
@@ -999,7 +1025,7 @@ function startWave(){
  blocks=makeCover();hazards=makeHazards();bossAttack=null;bossCooldown=4;bossPattern=0;bossAttackCount=0;
  const load=makeEnemyLoadout(wave);
  enemy=createRobot(load,840,295,true);
- enemy.role=chooseEnemyRole(currentNode);
+ enemy.role=currentNode==='boss'||currentNode==='elite'?chooseEnemyRole(currentNode):chosenEnemyArchetype?.role||chooseEnemyRole(currentNode);
  let warmup=wave===1?.76:wave===2?.87:wave===3?.94:1;
  const kind=currentNode;
  const hpScale=kind==='boss'?2.15:kind==='elite'?1.42:1;
@@ -1913,6 +1939,8 @@ if(navigator.webdriver)window.__roboQATest={
  defeatEnemy:()=>{if(!enemy||state!=='fight')return;enemy.shieldCooldown=9999;enemy.status.burn=0;damage(enemy,enemy.hp/(1-enemy.stats.guard)+500)},
  setHealth:value=>{if(player){player.hp=clamp(value,1,player.maxHp);updatePanels(false)}},
  setGold:value=>{gold=Math.max(0,Math.floor(value));updatePanels(true)},
+ enemyBuilds:()=>ENEMY_ARCHETYPES.map(profile=>({id:profile.id,role:profile.role,parts:profile.parts,
+  combinations:findBuildSynergies({...initial(),...Object.fromEntries(Object.entries(profile.parts).map(([slot,id])=>[slot,part(slot,id)]))}).map(x=>x.id)})),
  inspectBuild:parts=>{
   const load=initial();
   for(const [slot,id] of Object.entries(parts||{})){
@@ -2007,6 +2035,8 @@ window.__roboQA=()=>({
  depth,gold,encountersWon,currentNode,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
  partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
  synergyCount:SYNERGY_RULES.length,playerSynergies:player?.stats.synergies.map(rule=>rule.id)||[],
+ enemyArchetype:chosenEnemyArchetype?.id||null,enemyArchetypeCount:ENEMY_ARCHETYPES.length,
+ enemySynergies:enemy?.stats.synergies.map(rule=>rule.id)||[],
  pixelMode:PIXEL_RENDER_MODE.enabled,pixelBuffer:{width:MECH_PIXELS.width,height:MECH_PIXELS.height},
  roles:Object.keys(ENEMY_ROLES),
  coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),
