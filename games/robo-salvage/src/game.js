@@ -77,18 +77,21 @@ function makeEnemyLoadout(wave){
  }
  return obj;
 }
+/* @include-synergies */
 function specs(load){
  const a=find(load.armor),l=find(load.legs),c=find(load.core),w=find(load.weapon);
  const af=1+.095*(load.armor.lv-1)+.12*(load.armor.tier-1);
  const lf=1+.053*(load.legs.lv-1)+.055*(load.legs.tier-1);
  const cf=1+.06*(load.core.lv-1)+.08*(load.core.tier-1);
  const wf=1+.095*(load.weapon.lv-1)+.15*(load.weapon.tier-1);
+ const synergy=resolveBuildSynergies(load),m=synergy.modifiers;
  return {
-  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)),
-  guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1)+(c.guardBonus||0),0,.36),
-  speed:l.speed*lf,dashCooldown:Math.max(1.32,l.dash/Math.sqrt(lf)),
-  dmg:w.damage*wf*c.damage*cf,fireCooldown:Math.max(.14,w.cool/(c.rate*cf)),
-  weapon:w,armor:a,legs:l,core:c,repair:c.heal*cf
+  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)*m.hp),
+  guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1)+(c.guardBonus||0)+m.guard,0,.38),
+  speed:l.speed*lf*m.speed,dashCooldown:Math.max(1.08,l.dash/Math.sqrt(lf)*m.dashCooldown),
+  dmg:w.damage*wf*c.damage*cf*m.damage,fireCooldown:Math.max(.125,w.cool/(c.rate*cf)*m.fireCooldown),
+  weapon:w,armor:a,legs:l,core:c,repair:clamp(c.heal*cf+m.repair,0,.65),
+  synergies:synergy.active,modifiers:m
  };
 }
 const initial=()=>({
@@ -499,7 +502,8 @@ function renderShop(){
   const item=shopOffers[i],p=item.part;
   html+='<button class="shopItem" data-shop="offer" data-arg="'+i+'" '+(item.bought||gold<item.price?'disabled':'')
    +'><strong>⇄ '+find(p).name+'</strong><small>'+SLOT[item.slot]+' / Lv.'+p.lv+' ★'+p.tier+'　装備と交換</small>'
-   +'<span class="cost">'+(item.bought?'購入済':item.price+' G')+'</span></button>';
+   +'<span class="cost">'+(item.bought?'購入済':item.price+' G')+'</span>'
+   +buildComparisonMarkup(player.load,{...player.load,[item.slot]:p})+'</button>';
  }
  html+='</div><button class="primary" id="leaveShop">ショップを出る ▶</button>';
  showOverlay(html);
@@ -538,6 +542,23 @@ function partsPanel(id,load){
   const lv=document.createElement('div');lv.className='lvl';lv.textContent='Lv.'+p.lv+' ★'+p.tier;
   lv.style.color=RARCOL[p.tier];el.append(left,lv);root.append(el);
  }
+ const active=findBuildSynergies(load);
+ const section=document.createElement('div');section.className='synergySummary';
+ const label=document.createElement('div');label.className='synergyLabel';
+ label.textContent='4部位コンボ '+active.length+' 件';section.append(label);
+ if(active.length){
+  for(const combo of active){
+   const item=document.createElement('div');item.className='synergyEntry';
+   const name=document.createElement('strong');name.textContent=combo.name;
+   const detail=document.createElement('small');detail.textContent=combo.description;
+   item.append(name,detail);section.append(item);
+  }
+ }else{
+  const none=document.createElement('small');
+  none.textContent='装備の組み合わせで固有の相乗効果が発動';
+  section.append(none);
+ }
+ root.append(section);
 }
 function showOverlay(html){$('dialog').className='dialog';$('dialog').innerHTML=html;$('overlay').classList.add('show');document.querySelector('.shell').classList.add('overlayOpen')}
 function closeOverlay(){$('overlay').classList.remove('show');document.querySelector('.shell').classList.remove('overlayOpen')}
@@ -574,7 +595,8 @@ function win(){
   text+='<button type="button" class="lootCard" data-loot="'+slot+'"><span class="slot">'+SLOT[slot]+'</span>'
    +'<span class="rarity" style="color:'+RARCOL[p.tier]+';border-color:'+RARCOL[p.tier]+'66">'+RAR[p.tier]+'</span>'
    +'<div class="partname">'+desc.name+'</div><div class="detail">Lv.'+p.lv+' ★'+p.tier+'　'+descriptions[slot](p)+'</div>'
-   +'<div class="repl">現在：'+find(own).name+' Lv.'+own.lv+' → 交換</div></button>';
+   +'<div class="repl">現在：'+find(own).name+' Lv.'+own.lv+' → 交換</div>'
+   +buildComparisonMarkup(player.load,{...player.load,[slot]:p})+'</button>';
  }
  text+='</div><button id="skipLoot" class="secondary" style="margin-top:13px;width:100%">奪わずに解体する（+'+bonus+' G）</button>';
  text+='<div class="lootHelp">※ 部品は最大1個。スキップでも次の分岐へ進みます。</div>';
@@ -595,10 +617,14 @@ function skipLoot(){
 
 function lost(){
  if(state!=='fight')return;
+ const lostGold=gold;
+ // Permadeath is immediate: no equipped part or gold survives this run.
+ // Only the best depth counter persists in localStorage.
+ gold=0;player.load=initial();player.stats=specs(player.load);
  state='dead';fireMouse=false;fireTouch=false;
  best=Math.max(best,depth);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
- showOverlay('<p class="flag">SIGNAL LOST / RUN ENDED</p><h2>機体、戦闘不能。</h2><p>到達地点 <strong>'+(depth+1)+'</strong> ／ 今回撃破 <strong>'+encountersWon+'</strong>機。次の挑戦では敵の構成が変わります。</p><div class="statline"><div class="statpill">撃破 '+encountersWon+'</div><div class="statpill">BEST '+best+'</div></div><button class="primary" id="againBtn">もう一度出撃 ▶</button><div class="mini">毎回、敵の武器・装甲・脚部・コアがランダムで変わります。</div>');
- $('againBtn').addEventListener('click',beginRun);
+ showOverlay('<p class="flag">SIGNAL LOST / RUN ENDED</p><h2>機体、戦闘不能。</h2><p>到達地点 <strong>'+(depth+1)+'</strong> ／ 今回撃破 <strong>'+encountersWon+'</strong>機。装備と所持金 '+lostGold+' Gをすべて失いました。</p><div class="statline"><div class="statpill">撃破 '+encountersWon+'</div><div class="statpill">BEST '+best+'</div></div><button class="primary" id="againBtn">もう一度出撃 ▶</button><div class="mini">毎回、敵の武器・装甲・脚部・コアがランダムで変わります。</div>');
+ updatePanels(true);$('againBtn').addEventListener('click',beginRun);
  beep(140,.36,.055,'sawtooth');
 }
 function setInputVector(){
@@ -632,7 +658,7 @@ function damage(target,amount){
  const armor=target.stats.armor;
  let protection=target.stats.guard-(target.status?.sunder>0?.085:0);
  if(armor.id==='reactive'&&target.shieldCooldown<=0){
-  amount*=.58;target.shieldCooldown=6.8;ring(target.x,target.y,'#a6d7ff',30);
+  amount*=.58*target.stats.modifiers.reactive;target.shieldCooldown=6.8;ring(target.x,target.y,'#a6d7ff',30);
  }
  const loss=amount*(1-clamp(protection,0,.38));
  target.hp=Math.max(0,target.hp-loss);target.hitFlash=.15;screenShake=Math.min(8,screenShake+2.1);
@@ -647,15 +673,16 @@ function damage(target,amount){
 function applyWeaponImpact(b,target){
  if(state!=='fight'||target.dead)return;
  const traits=WEAPON_TRAITS[b.kind]||{};
+ const modifiers=b.source?.stats?.modifiers||SYNERGY_DEFAULT;
  for(const key of ['burn','slow','stun','sunder'])
-  if(traits[key])target.status[key]=Math.max(target.status[key],traits[key]);
+  if(traits[key])target.status[key]=Math.max(target.status[key],traits[key]*modifiers[key]);
  if(traits.push){
   const dx=target.x-b.source.x,dy=target.y-b.source.y,d=Math.max(1,Math.hypot(dx,dy));
-  moveRobot(target,dx/d*traits.push,dy/d*traits.push);
+  moveRobot(target,dx/d*traits.push*modifiers.push,dy/d*traits.push*modifiers.push);
   ring(target.x,target.y,'#ffd3a5',24);
  }
  if(traits.splash){
-  ring(target.x,target.y,b.color,traits.splash*.6);
+  ring(target.x,target.y,b.color,traits.splash*modifiers.splash*.6);
   particle(target.x,target.y,b.color,14,.65);
  }
 }
@@ -671,7 +698,7 @@ function updateStatus(robot,dt){
  }else robot.burnTimer=0;
 }
 function blastMissileOnWall(b){
- const r=WEAPON_TRAITS.missile.splash,target=b.source.enemy?player:enemy;
+ const r=WEAPON_TRAITS.missile.splash*b.source.stats.modifiers.splash,target=b.source.enemy?player:enemy;
  particle(b.x,b.y,b.color,15,.75);ring(b.x,b.y,b.color,r*.6);
  if(target&&!target.dead&&Math.hypot(target.x-b.x,target.y-b.y)<r)
   damage(target,b.damage*.6);
@@ -1181,6 +1208,7 @@ window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
  depth,gold,encountersWon,currentNode,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
  partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
+ synergyCount:SYNERGY_RULES.length,playerSynergies:player?.stats.synergies.map(rule=>rule.id)||[],
  roles:Object.keys(ENEMY_ROLES),
  coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),
  hazards:hazards.map(h=>({kind:h.kind,x:h.x,y:h.y,r:h.r,phase:h.phase})),hazardKinds:HAZARD_KINDS.slice(),
