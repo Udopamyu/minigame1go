@@ -98,7 +98,7 @@ const initial=()=>({
 let state='menu',wave=1,best=Number(localStorage.getItem('roboSalvageBest')||0);
 let depth=0,gold=0,routeOptions=[],currentNode='fight',bossCleared=false,runSeed=0,encountersWon=0,shopOffers=[],mapHistory=[];
 let routeGraph=[],routeCandidates=[],currentLane=2,chosenNodes=[];
-let player=null,enemy=null,bullets=[],effects=[],rings=[],blocks=[],aim={x:800,y:295},keys={},fireMouse=false,fireTouch=false,joy={x:0,y:0},wantsDash=false;
+let player=null,enemy=null,bullets=[],effects=[],rings=[],blocks=[],hazards=[],bossAttack=null,bossCooldown=4,bossPattern=0,bossAttackCount=0,aim={x:800,y:295},keys={},fireMouse=false,fireTouch=false,joy={x:0,y:0},wantsDash=false;
 let activeJoyPointer=null,soundOn=true,audio=null,clock=0,screenShake=0,enemySeed=0,lootTaken=false,shotsFired=0,menuOpen=false;
 $('best').textContent=String(best).padStart(2,'0');
 function beep(hz,dur=0.07,vol=.025,type='triangle'){
@@ -195,6 +195,66 @@ function makeCover(){
  return out;
 }
 
+// Hazards are physical arena interactions, not background decoration.
+const HAZARD_KINDS=['shock','frost','repair','rotor'];
+function makeHazards(){
+ const index=arenaIndex();
+ const kind=HAZARD_KINDS[index%HAZARD_KINDS.length];
+ const positions=[
+  {x:368,y:156,r:42},{x:660,y:412,r:42},
+  {x:501,y:130,r:36},{x:498,y:468,r:36},
+  {x:344,y:352,r:43},{x:669,y:219,r:43}
+ ];
+ const a=positions[index%3*2],b=positions[index%3*2+1];
+ const zones=[{...a,kind,phase:0,cooldown:0}];
+ // The second hazard has different rules so positioning matters.
+ zones.push({...b,kind:HAZARD_KIN[(index+1)%HAZARD_KIN.length],phase:1.2,cooldown:0});
+ if(currentNode==='elite'||currentNode==='boss'){
+  zones.push({x:500,y:295,r:38,kind:'shock',phase:2.3,cooldown:0});
+ }
+ return zones;
+}
+function updateHazards(dt){
+ if(state!=='fight')return;
+ for(const h of hazards){
+  h.phase+=dt;
+  const pulse=(Math.sin(h.phase*2.2)+1)/2;
+  const active=h.kind==='shock'?pulse>.68:h.kind==='rotor'?pulse>.45:true;
+  for(const o of [player,enemy]){
+   if(!o||o.dead)continue;
+   const d=Math.hypot(o.x-h.x,o.y-h.y);
+   if(d>h.r+o.r*.3)continue;
+   if(h.kind==='shock'&&active){damage(o,7.5*dt);o.status.slow=Math.max(o.status.slow,.12)}
+   else if(h.kind==='frost'){o.status.slow=Math.max(o.status.slow,.16)}
+   else if(h.kind==='rotor'&&active){damage(o,5.5*dt)}
+   else if(h.kind==='repair'&&!o.enemy){o.hp=Math.min(o.maxHp,o.hp+4*dt)}
+  }
+  if(state!=='fight')return;
+ }
+}
+function drawHazards(){
+ for(const h of hazards){
+  const pulse=(Math.sin(h.phase*2.2)+1)/2;
+  const c=h.kind==='shock'?'#ffa85e':h.kind==='frost'?'#76daff':h.kind==='repair'?'#81f4bd':'#fd829f';
+  ctx.save();ctx.globalAlpha=.2+pulse*.28;
+  ctx.fillStyle=c;ctx.beginPath();ctx.arc(h.x,h.y,h.r,0,TAU);ctx.fill();
+  ctx.globalAlpha=.55+pulse*.4;ctx.strokeStyle=c;ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(h.x,h.y,h.r-5,0,TAU);ctx.stroke();
+  if(h.kind==='rotor'){
+   ctx.translate(h.x,h.y);ctx.rotate(h.phase*1.45);
+   for(let j=0;j<3;j++){ctx.rotate(TAU/3);ctx.fillRect(0,-4,h.r-8,8)}
+  }else if(h.kind==='shock'){
+   for(let j=0;j<3;j++){
+    let a=j*TAU/3+h.phase*.35;
+    ctx.beginPath();ctx.moveTo(h.x+Math.cos(a)*8,h.y+Math.sin(a)*8);
+    ctx.lineTo(h.x+Math.cos(a+.25)*(h.r-7),h.y+Math.sin(a+.25)*(h.r-7));ctx.stroke();
+   }
+  }else if(h.kind==='repair'){
+   ctx.fillRect(h.x-3,h.y-14,6,28);ctx.fillRect(h.x-14,h.y-3,28,6);
+  }else{for(let j=-1;j<=1;j++)ctx.fillRect(h.x-25,h.y+j*11,50,2)}
+  ctx.restore();
+ }
+}
 const NODE={
  fight:{name:'巡回ロボ',symbol:'⚔',desc:'通常戦。撃破でゴールド＋パーツ選択'},
  fight2:{name:'迎撃戦',symbol:'◎',desc:'別の装備の敵と通常戦。戦利品あり'},
@@ -347,7 +407,7 @@ function showNodeResult(title,details){
 }
 function startWave(){
  state='fight';lootTaken=false;bullets=[];effects=[];rings=[];
- blocks=makeCover();
+ blocks=makeCover();hazards=makeHazards();bossAttack=null;bossCooldown=4;bossPattern=0;bossAttackCount=0;
  const load=makeEnemyLoadout(wave);
  enemy=createRobot(load,840,295,true);
  enemy.role=chooseEnemyRole(currentNode);
@@ -641,6 +701,8 @@ function update(dt){
  player.hitFlash=Math.max(0,player.hitFlash-dt);enemy.hitFlash=Math.max(0,enemy.hitFlash-dt);
  updateStatus(player,dt);updateStatus(enemy,dt);
  if(state!=='fight')return;
+ updateHazards(dt);
+ if(state!=='fight')return;
  player.dashCooldown=Math.max(0,player.dashCooldown-dt);player.dashLeft=Math.max(0,player.dashLeft-dt);
  const move=setInputVector();
  if(wantsDash&&player.dashCooldown<=0){wantsDash=false;
@@ -862,7 +924,7 @@ function render(){
  }else ctx.translate((cw-W*scale)/2,(ch-H*scale)/2);
  ctx.scale(scale,scale);
  if(screenShake>0)ctx.translate(rand(-screenShake,screenShake),rand(-screenShake,screenShake));
- drawArena();drawCover();drawEffects();drawRobot(player);drawRobot(enemy);drawBullets();
+ drawArena();drawHazards();drawCover();drawEffects();drawRobot(player);drawRobot(enemy);drawBullets();
  ctx.restore();
 }
 function loop(t){let dt=Math.min(.033,(t-(loop.last||t))/1000||0);loop.last=t;update(dt);render();requestAnimationFrame(loop)}
@@ -974,6 +1036,7 @@ window.__roboQA=()=>({
  partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
  roles:Object.keys(ENEMY_ROLES),
  coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),
+ hazards:hazards.map(h=>({kind:h.kind,x:h.x,y:h.y,r:h.r,phase:h.phase})),hazardKinds:HAZARD_KIN.slice(),
  player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
   dashCooldown:player.dashCooldown,status:{...player.status},load:player.load}:null,
  enemy:enemy?{x:enemy.x,y:enemy.y,hp:enemy.hp,maxHp:enemy.maxHp,
