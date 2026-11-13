@@ -967,7 +967,7 @@ function drawCover(){
 }
 /* @include-pixel-art */
 function drawRobot(o){
- drawMechEquipment(o);
+ if(o)drawMechEquipment(o);
 }
 function drawBullets(){
  for(const b of bullets){
