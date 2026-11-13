@@ -74,6 +74,31 @@ def test(browser,url,label,size,mobile=False):
     check(label+" player HP doubled",start["player"]["maxHp"]>=240,
           start["player"]["maxHp"])
     check(label+" 15 available arena layouts",start["arenaLayoutCount"]==15)
+    check(label+" twenty synergies available",
+          start["synergyCount"]==20,start["synergyCount"])
+    check(label+" starting pulse+spark build activates synergy",
+          "plasma-loop" in start["playerSynergies"],start["playerSynergies"])
+    check(label+" pixel mode is active",start["pixelMode"] is True,start["pixelMode"])
+    check(label+" fullscreen is rasterized to a smaller pixel grid",
+          start["pixelBuffer"]["width"]>0
+          and start["pixelBuffer"]["width"]<frame["width"]*.8,
+          start["pixelBuffer"])
+    for combo,parts in (
+        ("moving-fortress",{"armor":"fortress","legs":"crawler"}),
+        ("burn-engine",{"weapon":"burst","core":"blaze"}),
+        ("missile-platform",{"weapon":"missile","legs":"tank"}),
+        ("reactive-aegis",{"armor":"reactive","core":"aegis"}),
+        ("light-escape",{"armor":"feather","legs":"spider"}),
+        ("salvo-control",{"weapon":"burst","core":"rapid"}),
+    ):
+        info=hook("inspectBuild",parts)
+        check(label+" synergy "+combo+" activates",
+              info is not None and combo in info["ids"],info)
+    basic=hook("inspectBuild",{})
+    offense=hook("inspectBuild",{"weapon":"burst","core":"blaze"})
+    check(label+" build synergy actually changes weapon damage",
+          offense["damage"]>basic["damage"],
+          {"base":basic["damage"],"combo":offense["damage"]})
     check(label+" all seven weapons have distinct impact traits",
           set(start["weaponTraits"])=={"pulse","shot","rail","missile","micro","burst","slug"},
           start["weaponTraits"])
@@ -109,6 +134,10 @@ def test(browser,url,label,size,mobile=False):
     page.locator("#menuBtn").click()
     page.wait_for_timeout(270)
     check(label+" drawer opens",page.locator("#sidePanel").is_visible())
+    check(label+" active synergies shown in equipment menu",
+          page.locator("#playerParts .synergyEntry").count()>=1)
+    check(label+" synergy descriptions are readable",
+          "プラズマ" in page.locator("#playerParts .synergySummary").inner_text())
     check(label+" menu pauses",get()["menuOpen"])
     check(label+" gold and progress visible inside drawer",
           page.locator("#goldText").is_visible() and page.locator("#depthText").is_visible())
@@ -183,6 +212,8 @@ def test(browser,url,label,size,mobile=False):
           abs(result["player"]["hp"]-expected)<=1, (result["player"]["hp"],expected))
     check(label+" battle gold received",result["gold"]>0,result["gold"])
     check(label+" four available loot parts",result["lootCards"]==4)
+    check(label+" loot choices display live statistical comparisons",
+          page.locator('[data-loot="weapon"] .compareStats').count()==1)
     check(label+" skip-for-gold button exists",page.locator("#skipLoot").is_visible())
     page.locator('[data-loot="weapon"]').click()
     after=get()
@@ -217,6 +248,8 @@ def test(browser,url,label,size,mobile=False):
     check(label+" shop node opens",get()["state"]=="shop")
     check(label+" shop sells equipment upgrades",page.locator('[data-shop="upgrade"]').count()==4)
     check(label+" shop sells replacement parts",page.locator('[data-shop="offer"]').count()==2)
+    check(label+" shop offers show swap comparison",
+          page.locator('[data-shop="offer"] .compareStats').count()==2)
     check(label+" shop sells repairs",page.locator('[data-shop="repair"]').count()==1)
     first=get()
     page.screenshot(path=str(OUT/(label+"-shop.png")),full_page=True)
@@ -294,6 +327,30 @@ def test(browser,url,label,size,mobile=False):
     hook("defeatEnemy")
     check(label+" boss victory finishes run",get()["state"]=="victory" and get()["bossCleared"])
     check(label+" final screen can start again",page.locator("#newRun").is_visible())
+
+    # Every run is ironman: losing clears equipped parts and all gold.
+    page.locator("#newRun").click()
+    hook("selectNode","fight")
+    check(label+" next run enters battle",get()["state"]=="fight")
+    hook("setGold",430)
+    hook("equipTestPart","weapon","rail")
+    check(label+" test run had a rare weapon",
+          get()["player"]["load"]["weapon"]["id"]=="rail")
+    check(label+" test run had gold",
+          get()["gold"]==430)
+    check(label+" losing battle triggers permadeath",hook("defeatPlayer") is True)
+    after_death=get()
+    check(label+" death removes all gold",after_death["gold"]==0)
+    check(label+" death resets all equipped parts",
+          all(after_death["player"]["load"][slot]["lv"]==1 and
+              after_death["player"]["load"][slot]["tier"]==1 for slot in
+              ("weapon","armor","legs","core"))
+          and after_death["player"]["load"]["weapon"]["id"]=="pulse")
+    check(label+" death result states all gold and equipment lost",
+          "すべて失いました" in page.locator("#dialog").inner_text())
+    page.locator("#againBtn").click()
+    check(label+" restarting after death begins new zero-gold run",
+          get()["gold"]==0 and get()["depth"]==0 and get()["state"]=="route")
 
     check(label+" no JavaScript errors",not errors,errors)
     check(label+" no horizontal overflow",
