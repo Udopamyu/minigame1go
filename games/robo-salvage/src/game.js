@@ -116,7 +116,7 @@ function createRobot(load,x,y,isEnemy=false){
  const s=specs(load);
  return {x,y,vx:0,vy:0,angle:isEnemy?Math.PI:0,r:22,load,stats:s,hp:s.hp,maxHp:s.hp,
   cd:.25,dashLeft:0,dashCooldown:0,hitFlash:0,dead:false,enemy:isEnemy,aiPhase:rand(0,TAU),aiStrafe:Math.random()<.5?-1:1,
-  status:{burn:0,stun:0,slow:0,sunder:0},shieldCooldown:0,aiDodgeCooldown:0,aiRetreat:false,
+  status:{burn:0,stun:0,slow:0,sunder:0},burnTimer:0,shieldCooldown:0,aiDodgeCooldown:0,aiRetreat:false,
   role:isEnemy?'skirmisher':'player',name:isEnemy?pick(enemyNames):'SALVAGER-01'};
 }
 function arenaIndex(){return (depth*7+runSeed)%15}
@@ -224,9 +224,16 @@ function updateHazards(dt){
    if(!o||o.dead)continue;
    const d=Math.hypot(o.x-h.x,o.y-h.y);
    if(d>h.r+o.r*.3)continue;
-   if(h.kind==='shock'&&active){damage(o,7.5*dt);o.status.slow=Math.max(o.status.slow,.12)}
+   if(!h.nextHit)h.nextHit={player:0,enemy:0};
+   const key=o.enemy?'enemy':'player';
+   if(h.kind==='shock'&&active){
+    if(clock>=h.nextHit[key]){damage(o,6.5);h.nextHit[key]=clock+.72}
+    if(!o.dead)o.status.slow=Math.max(o.status.slow,.12);
+   }
    else if(h.kind==='frost'){o.status.slow=Math.max(o.status.slow,.16)}
-   else if(h.kind==='rotor'&&active){damage(o,5.5*dt)}
+   else if(h.kind==='rotor'&&active){
+    if(clock>=h.nextHit[key]){damage(o,4.5);h.nextHit[key]=clock+.62}
+   }
    else if(h.kind==='repair'&&!o.enemy){o.hp=Math.min(o.maxHp,o.hp+4*dt)}
   }
   if(state!=='fight')return;
@@ -657,7 +664,11 @@ function updateStatus(robot,dt){
  robot.shieldCooldown=Math.max(0,robot.shieldCooldown-dt);
  for(const key of ['stun','slow','sunder','burn'])
   robot.status[key]=Math.max(0,robot.status[key]-dt);
- if(robot.status.burn>0&&state==='fight')damage(robot,3.2*dt);
+ // Damage-over-time has a tick interval to avoid spawning hit particles every frame.
+ if(robot.status.burn>0&&state==='fight'){
+  robot.burnTimer-=dt;
+  if(robot.burnTimer<=0){robot.burnTimer=.35;damage(robot,1.12)}
+ }else robot.burnTimer=0;
 }
 function blastMissileOnWall(b){
  const r=WEAPON_TRAITS.missile.splash,target=b.source.enemy?player:enemy;
