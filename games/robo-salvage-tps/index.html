@@ -463,7 +463,22 @@ function nextRoute(){
  {slot:'PATH 02',title:'強敵',desc:'高耐久・高火力の敵機2体。報酬が多い',stat:'+120 SCRAP 報酬',action:()=>advance('elite')},
  {slot:'PATH 03',title:'整備',desc:'部品を修理してから次の通常戦に突入',stat:'最大HPの35%を修理',action:()=>{player.hp=Math.min(player.maxHp,player.hp+player.maxHp*.35);advance('fight')}}
  ];
+ if(credits>=100)opts.push({slot:'BONUS PATH',title:'改造ステーション',desc:'100 SCRAPで好きな1部位をLv.+1に強化して出撃',stat:'COST 100 SCRAP',action:upgradeMenu});
  modal('ROUTE PLANNING','次の作戦を選択','ステージ '+(stage+1)+' / '+MAX_STAGE+'。進行ルートは戦闘後に自由選択できます。',opts);
+}
+function upgradeMenu(){
+ modal('FIELD WORKSHOP','部位を改造','100 SCRAPで好きな1部位をLv.+1に強化し、次の通常戦へ進みます。',
+ SLOTS.map(s=>({slot:LABELS[s],title:get(player.load[s]).name+' Lv.'+player.load[s].level,
+ desc:get(player.load[s]).info,stat:'UPGRADE +1 / 100 SCRAP',
+ action:()=>{
+  if(credits<100)return;
+  credits-=100;const oldHpRatio=player.hp/player.maxHp;
+  player.load[s].level++;player.stats=metrics(player.load);player.maxHp=player.stats.maxHp;
+  player.hp=Math.max(1,Math.min(player.maxHp,Math.round(player.maxHp*oldHpRatio)));
+  scene.remove(player.mesh);player.mesh=makeRobot(player.load);scene.add(player.mesh);
+  advance('fight');
+ }})),
+ [{title:'BACK / 進路選択へ',action:nextRoute}]);
 }
 function advance(choice){
  stage++;if(choice==='elite')credits+=120;loot=[];spawnStage(choice);
