@@ -74,6 +74,13 @@ def test(browser,url,label,size,mobile=False):
     check(label+" player HP doubled",start["player"]["maxHp"]>=240,
           start["player"]["maxHp"])
     check(label+" 15 available arena layouts",start["arenaLayoutCount"]==15)
+    check(label+" all seven weapons have distinct impact traits",
+          set(start["weaponTraits"])=={"pulse","shot","rail","missile","micro","burst","slug"},
+          start["weaponTraits"])
+    check(label+" four interactive arena hazard types",
+          set(start["hazardKinds"])=={"shock","frost","repair","rotor"})
+    check(label+" all four hazard types appear across stages",
+          set(hook("sampleHazardKinds"))=={"shock","frost","repair","rotor"})
     check(label+" expanded 28 distinct collectible parts",
           all(start["partCounts"].get(slot)==7 for slot in ("weapon","armor","legs","core")),
           start["partCounts"])
@@ -124,6 +131,20 @@ def test(browser,url,label,size,mobile=False):
           fight["enemy"]["role"] in ("skirmisher","charger","sniper","flanker"),
           fight["enemy"]["role"])
     check(label+" combat screen lacks text HUD",page.locator(".controls").is_hidden())
+    check(label+" battle spawns active hazards",len(fight["hazards"])>=2)
+    for name,key in (("pulse","stun"),("rail","sunder"),("micro","sunder"),
+                     ("burst","burn"),("slug","stun"),("shot",None),("missile",None)):
+        effect=hook("testWeaponTrait",name)
+        check(label+" "+name+" weapon impact logic",
+              effect is not None and (key is None or effect[key]>0),effect)
+    for kind in ("shock","frost","repair","rotor"):
+        effect=hook("testHazard",kind)
+        passed=(effect["slow"]>0 if kind=="frost" else
+                effect["hpDelta"]>0 if kind=="repair" else effect["hpDelta"]<0)
+        check(label+" interactive "+kind+" stage hazard",passed,effect)
+    dodge=hook("testEnemyDodge")
+    check(label+" flanker AI reacts to incoming projectile",
+          bool(dodge) and dodge["triggered"] and dodge["distance"]>1,dodge)
     before=fight["shotsFired"]
     if mobile:
         check("mobile joystick visible",page.locator("#joystick").is_visible())
@@ -260,6 +281,16 @@ def test(browser,url,label,size,mobile=False):
     check(label+" boss encounter started",get()["currentNode"]=="boss" and get()["state"]=="fight")
     check(label+" boss has unique tactical profile",
           get()["enemy"]["role"]=="boss")
+    check(label+" boss opens in first combat phase",get()["bossPhase"]==1)
+    for pattern,minimum in (("fan",7),("ring",14),("beam",0),("salvo",5)):
+        attack=hook("testBossPattern",pattern)
+        check(label+" boss telegraphed "+pattern+" attack resolves",
+              attack and attack["fired"]==1 and attack["bulletsAdded"]>=minimum,
+              attack)
+    check(label+" boss attack sequence counts four patterns",
+          get()["bossAttackCount"]>=4,get()["bossAttackCount"])
+    hook("setBossHpRatio",.42)
+    check(label+" injured boss enters second phase",get()["bossPhase"]==2)
     hook("defeatEnemy")
     check(label+" boss victory finishes run",get()["state"]=="victory" and get()["bossCleared"])
     check(label+" final screen can start again",page.locator("#newRun").is_visible())
