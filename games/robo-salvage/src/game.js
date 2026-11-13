@@ -311,6 +311,7 @@ function shuffled(arr){
 function beginRun(){
  wave=1;depth=0;gold=0;encountersWon=0;runSeed=Math.floor(rand(0,15));
  bossCleared=false;mapHistory=[];currentNode='fight';routeOptions=[];shopOffers=[];
+ forcedEventVariant=null;activeEventVariant=null;
  currentLane=2;chosenNodes=[];routeCandidates=[];routeGraph=buildRouteGraph();
  player=createRobot(initial(),166,295);enemy=null;
  bullets=[];effects=[];rings=[];keys={};fireMouse=false;fireTouch=false;
@@ -463,23 +464,67 @@ function startWave(){
  player.dashCooldown=0;player.dashLeft=0;player.status={burn:0,stun:0,slow:0,sunder:0};player.shieldCooldown=0;
  updatePanels(true);closeOverlay();beep(520,.12,.04);
 }
+// Three node families provide different survival, salvage, and resource trade-offs.
+const EVENT_VARIANTS=[
+ {id:'depot',title:'放棄された補給庫',description:'残された資材を1つ回収する。',choices:['supply','heal','upgrade']},
+ {id:'forge',title:'無人の鍛造工場',description:'未知の武装に換装するか、堅実に整備するか。',choices:['reforge','heal','upgrade']},
+ {id:'vault',title:'汚染された金庫',description:'機体の耐久力を代償に大量の資金を得られる。',choices:['supply','overload','upgrade']}
+];
+let forcedEventVariant=null,activeEventVariant=null;
+function eventOptions(boostSlot){
+ const healthCost=Math.ceil(player.maxHp*.18);
+ return {
+  supply:{symbol:'▤',title:'補給物資',detail:'ゴールド +'+(65+depth*14)},
+  heal:{symbol:'✚',title:'応急整備',detail:'最大HPの22%を回復'},
+  upgrade:{symbol:'✧',title:'未知の設計図',detail:SLOT[boostSlot]+' Lv.+1'},
+  reforge:{symbol:'⚒',title:'武装の再構築',detail:'武器を別の種類に換装 / Lv.+1（ランダム）'},
+  overload:{symbol:'⚡',title:'危険な金庫開封',detail:'HP -'+healthCost+' / +'+(150+depth*20)+' G',
+   disabled:player.hp<=healthCost+1}
+ };
+}
 function openEvent(){
  state='event';
+ const variant=EVENT_VARIANTS.find(v=>v.id===forcedEventVariant)
+   ||EVENT_VARIANTS[(depth+runSeed)%EVENT_VARIANTS.length];
+ forcedEventVariant=null;activeEventVariant=variant.id;
  const boostSlot=Object.keys(SLOT).reduce((a,b)=>player.load[a].lv<=player.load[b].lv?a:b);
- let html='<p class="flag">UNKNOWN SIGNAL / EVENT</p><h2>廃工場で発見したもの</h2>'
-  +'<p>次の3つから1つだけ選択。</p><div class="routeChoices">'
-  +'<button class="routeChoice" data-event="supply"><span class="symbol">▤</span><strong>補給物資</strong><small>ゴールド +'+(65+depth*14)+'</small></button>'
-  +'<button class="routeChoice rest" data-event="heal"><span class="symbol">✚</span><strong>応急整備</strong><small>最大HPの22%を回復</small></button>'
-  +'<button class="routeChoice" data-event="upgrade"><span class="symbol">✧</span><strong>未知の設計図</strong><small>'+SLOT[boostSlot]+' Lv.+1</small></button>'
-  +'</div>';
+ const options=eventOptions(boostSlot);
+ let html='<p class="flag">UNKNOWN SIGNAL / '+variant.id.toUpperCase()+'</p><h2>'+variant.title+'</h2>'
+  +'<p>'+variant.description+' 次の3つから1つだけ選択。</p><div class="routeChoices">';
+ for(const id of variant.choices){
+  const item=options[id];
+  html+='<button class="routeChoice'+(id==='heal'?' rest':'')+'" data-event="'+id+'"'
+   +(item.disabled?' disabled aria-disabled="true"':'')+'>'
+   +'<span class="symbol">'+item.symbol+'</span><strong>'+item.title+'</strong>'
+   +'<small>'+item.detail+(item.disabled?'（HP不足）':'')+'</small></button>';
+ }
+ html+='</div>';
  showOverlay(html);
  document.querySelectorAll('[data-event]').forEach(b=>b.addEventListener('click',()=>{
-  if(state!=='event')return;
+  if(state!=='event'||b.disabled)return;
   const choice=b.dataset.event;
   let detail='';
-  if(choice==='supply'){const reward=65+depth*14;gold+=reward;detail=reward+' G獲得'}
-  if(choice==='heal'){healPlayer(.22);detail='最大HPの22%を回復'}
-  if(choice==='upgrade'){player.load[boostSlot].lv++;restoreVitalsFromLoad();detail=SLOT[boostSlot]+'をLv.'+player.load[boostSlot].lv+'に改造'}
+  if(choice==='supply'){
+   const reward=65+depth*14;gold+=reward;detail=reward+' G獲得';
+  }else if(choice==='heal'){
+   healPlayer(.22);detail='最大HPの22%を回復';
+  }else if(choice==='upgrade'){
+   player.load[boostSlot].lv++;restoreVitalsFromLoad();
+   detail=SLOT[boostSlot]+'をLv.'+player.load[boostSlot].lv+'に改造';
+  }else if(choice==='reforge'){
+   const previous=player.load.weapon;
+   const candidates=DEF.weapon.filter(w=>w.id!==previous.id);
+   const next=pick(candidates);
+   player.load.weapon=part('weapon',next.id,previous.lv+1,previous.tier);
+   restoreVitalsFromLoad();
+   detail='武器を'+next.name+' Lv.'+player.load.weapon.lv+'へ換装';
+  }else if(choice==='overload'){
+   const cost=Math.ceil(player.maxHp*.18);
+   if(player.hp<=cost+1)return;
+   const reward=150+depth*20;
+   player.hp-=cost;gold+=reward;updatePanels(true);
+   detail='HP '+cost+'を消費して'+reward+' G獲得';
+  }else return;
   showNodeResult('イベント完了',detail);
  }));
 }
@@ -1229,6 +1274,7 @@ if(navigator.webdriver)window.__roboQATest={
   depth=saved;return [...types];
  },
  setBossHpRatio:ratio=>{if(enemy&&currentNode==='boss'){enemy.hp=enemy.maxHp*clamp(ratio,.01,1);updatePanels(false)}},
+ forceNextEventVariant:id=>{if(!EVENT_VARIANTS.some(v=>v.id===id))return false;forcedEventVariant=id;return true},
  selectNode:type=>{if(state==='route'){routeCandidates=[{lane:currentLane,type}];routeOptions=[type];enterNode(type,currentLane)}},
  jumpToBoss:()=>{if(state==='route'){depth=10;wave=11;showRoute()}},
  sampleLayouts:()=>{const saved=depth,seen=[];for(let i=0;i<15;i++){depth=i;seen.push(makeCover().map(b=>Math.round(b.x/10)+','+Math.round(b.y/10)).join(';'))}depth=saved;return seen},
@@ -1257,7 +1303,7 @@ if(navigator.webdriver)window.__roboQATest={
 };
 window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
- depth,gold,encountersWon,currentNode,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
+ depth,gold,encountersWon,currentNode,eventVariant:activeEventVariant,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
  partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
  synergyCount:SYNERGY_RULES.length,playerSynergies:player?.stats.synergies.map(rule=>rule.id)||[],
  enemyArchetype:chosenEnemyArchetype?.id||null,enemyArchetypeCount:ENEMY_ARCHETYPES.length,

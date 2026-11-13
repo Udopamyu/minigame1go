@@ -371,6 +371,38 @@ def test(browser,url,label,size,mobile=False):
     check(label+" restarting after death begins new zero-gold run",
           get()["gold"]==0 and get()["depth"]==0 and get()["state"]=="route")
 
+    # All event families are exercised through their real button handlers.
+    for variant,option in (("depot","supply"),("forge","reforge"),("vault","overload")):
+        check(label+" can force "+variant+" QA event",hook("forceNextEventVariant",variant) is True)
+        before=get()
+        hook("selectNode","event")
+        check(label+" "+variant+" family displayed",get()["state"]=="event" and
+              get()["eventVariant"]==variant)
+        check(label+" "+variant+" has three decisions",page.locator('[data-event]').count()==3)
+        check(label+" "+variant+" preserves upgrade option",page.locator('[data-event="upgrade"]').count()==1)
+        check(label+" "+variant+" selection enabled",page.locator(f'[data-event="{option}"]').is_enabled())
+        page.locator(f'[data-event="{option}"]').click()
+        outcome=get()
+        check(label+" "+variant+" resolved",outcome["state"]=="nodeResult")
+        if variant=="depot":
+            check(label+" depot awards gold",outcome["gold"]>before["gold"])
+        elif variant=="forge":
+            check(label+" forge rerolls and levels weapon",
+                  outcome["player"]["load"]["weapon"]["id"]!=before["player"]["load"]["weapon"]["id"]
+                  and outcome["player"]["load"]["weapon"]["lv"]==before["player"]["load"]["weapon"]["lv"]+1)
+        else:
+            check(label+" vault exchanges HP for gold",
+                  outcome["gold"]>before["gold"] and 0<outcome["player"]["hp"]<before["player"]["hp"])
+        page.locator("#nodeContinue").click()
+        check(label+" "+variant+" returns to map",get()["state"]=="route")
+    hook("setHealth",1)
+    hook("forceNextEventVariant","vault")
+    hook("selectNode","event")
+    check(label+" low HP disables dangerous vault",page.locator('[data-event="overload"]').is_disabled())
+    page.locator('[data-event="upgrade"]').click()
+    check(label+" low HP still has safe option",get()["state"]=="nodeResult")
+    page.locator("#nodeContinue").click()
+
     check(label+" no JavaScript errors",not errors,errors)
     check(label+" no horizontal overflow",
           page.evaluate("()=>document.documentElement.scrollWidth<=innerWidth+2"))
