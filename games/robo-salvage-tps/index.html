@@ -132,7 +132,7 @@ const mat=(color,metalness=.55,roughness=.42,emissive=0)=>new THREE.MeshStandard
 const MAT={floor:mat(0x142535,.5,.9),wall:mat(0x314457,.55,.58),wallTop:mat(0x62788c,.5,.55),stripe:mat(0x21a7a9,.35,.5,0x0c6e78),neon:mat(0x64f8e4,.2,.25,0x27e7cf),amber:mat(0xffb56e,.2,.3,0xb9611a),dark:mat(0x101b2a,.7,.45)};
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(220,220),MAT.floor);ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 const grid=new THREE.GridHelper(48,24,0x256271,0x1c3c4f);grid.position.y=.012;scene.add(grid);
-let arena=new THREE.Group();scene.add(arena),obstacles=[],worldTargets=[],sceneryLights=[];
+let arena=new THREE.Group(),obstacles=[],worldTargets=[],sceneryLights=[];scene.add(arena);
 function meshBox(parent,w,h,d,m,x=0,y=0,z=0,shadow=true){
  const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=shadow;o.receiveShadow=true;parent.add(o);return o;
 }
