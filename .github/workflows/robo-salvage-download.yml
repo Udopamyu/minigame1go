@@ -16,8 +16,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Verify single-file HTML exists
-        run: test -s games/robo-salvage/index.html
+      - name: Ensure downloadable HTML matches modular sources
+        run: |
+          python scripts/build_robo_salvage.py --check
+          test -s games/robo-salvage/index.html
       - uses: actions/upload-artifact@v4
         with:
           name: robo-salvage-html
