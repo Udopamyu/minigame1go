@@ -1096,6 +1096,27 @@ if(navigator.webdriver)window.__roboQATest={
  defeatEnemy:()=>{if(!enemy||state!=='fight')return;enemy.shieldCooldown=9999;enemy.status.burn=0;damage(enemy,enemy.hp/(1-enemy.stats.guard)+500)},
  setHealth:value=>{if(player){player.hp=clamp(value,1,player.maxHp);updatePanels(false)}},
  setGold:value=>{gold=Math.max(0,Math.floor(value));updatePanels(true)},
+ inspectBuild:parts=>{
+  const load=initial();
+  for(const [slot,id] of Object.entries(parts||{})){
+   if(!SLOT[slot]||!DEF[slot].some(d=>d.id===id))return null;
+   load[slot]=part(slot,id);
+  }
+  const spec=specs(load);
+  return {ids:spec.synergies.map(x=>x.id),hp:spec.hp,
+   damage:spec.dmg,guard:spec.guard,speed:spec.speed,
+   fireCooldown:spec.fireCooldown,modifiers:spec.modifiers};
+ },
+ equipTestPart:(slot,id)=>{
+  if(!player||!SLOT[slot]||!DEF[slot].some(d=>d.id===id))return false;
+  player.load[slot]=part(slot,id);restoreVitalsFromLoad();return true;
+ },
+ defeatPlayer:()=>{
+  if(!player||state!=='fight')return false;
+  player.dashLeft=0;player.shieldCooldown=9999;
+  damage(player,player.hp/(Math.max(.01,1-player.stats.guard)*.86)+500);
+  return state==='dead';
+ },
  testWeaponTrait:kind=>{
   if(state!=='fight'||!enemy||!WEAPON_TRAITS[kind])return null;
   enemy.status={burn:0,stun:0,slow:0,sunder:0};
