@@ -23,6 +23,10 @@ jobs:
     steps:
       - name: Checkout prototype
         uses: actions/checkout@v4
+      - name: Verify assembled HTML and measure first-party source
+        run: |
+          python scripts/build_robo_salvage.py --check
+          python scripts/robo_line_count.py
       - name: Validate JavaScript syntax
         run: |
           python - <<'PY'
