@@ -42,6 +42,15 @@ const DEF={
   {id:'salvager',name:'サルベージコア',detail:'勝利後の回復をさらに増強',damage:.98,rate:.98,heal:.12,color:'#f4d08d'}
  ]
 };
+const WEAPON_TRAITS={
+ pulse:{name:'感電',stun:.14,slow:.45},
+ shot:{name:'吹き飛ばし',push:30},
+ rail:{name:'装甲破砕',sunder:2.2},
+ missile:{name:'爆風',splash:68},
+ micro:{name:'装甲削り',sunder:1.25},
+ burst:{name:'炎上',burn:1.65},
+ slug:{name:'強制停止',stun:.42,push:64}
+};
 const RAR=['','STANDARD','ADVANCED','RARE','LEGEND'],RARCOL=['','#a9bbc9','#65dece','#b9a5ff','#ffca7b'];
 const part=(slot,id,lv=1,tier=1)=>({slot,id,lv,tier});
 const find=p=>DEF[p.slot].find(d=>d.id===p.id)||DEF[p.slot][0];
@@ -107,6 +116,7 @@ function createRobot(load,x,y,isEnemy=false){
  const s=specs(load);
  return {x,y,vx:0,vy:0,angle:isEnemy?Math.PI:0,r:22,load,stats:s,hp:s.hp,maxHp:s.hp,
   cd:.25,dashLeft:0,dashCooldown:0,hitFlash:0,dead:false,enemy:isEnemy,aiPhase:rand(0,TAU),aiStrafe:Math.random()<.5?-1:1,
+  status:{burn:0,stun:0,slow:0,sunder:0},shieldCooldown:0,aiDodgeCooldown:0,aiRetreat:false,
   role:isEnemy?'skirmisher':'player',name:isEnemy?pick(enemyNames):'SALVAGER-01'};
 }
 function arenaIndex(){return (depth*7+runSeed)%15}
@@ -352,7 +362,7 @@ function startWave(){
  player.x=165;player.y=295;player.vx=0;player.vy=0;player.cd=0;player.hitFlash=0;
  // Healing happens only after combat, not on entering a new fight.
  player.stats=specs(player.load);player.maxHp=player.stats.hp;player.hp=Math.min(player.hp,player.maxHp);
- player.dashCooldown=0;player.dashLeft=0;
+ player.dashCooldown=0;player.dashLeft=0;player.status={burn:0,stun:0,slow:0,sunder:0};player.shieldCooldown=0;
  updatePanels(true);closeOverlay();beep(520,.12,.04);
 }
 function openEvent(){
@@ -468,7 +478,7 @@ function win(){
  if(state!=='fight')return;
  fireMouse=false;fireTouch=false;keys={};encountersWon++;
  const reward=currentNode==='boss'?240+depth*25:currentNode==='elite'?112+depth*22:55+depth*13;
- gold+=reward;healPlayer(.30);
+ gold+=reward;healPlayer(.30+player.stats.repair);
  best=Math.max(best,depth+1);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
  if(currentNode==='boss'){
   bossCleared=true;state='victory';mapHistory.push('boss');
@@ -552,7 +562,12 @@ function damage(target,amount){
  if(target.dead||state!=='fight')return;
  if(target===player)amount*=.86; // Enemy deals 14% less damage; loot strength unchanged.
  if(target===player&&target.dashLeft>0)return;
- const loss=amount*(1-target.stats.guard);
+ const armor=target.stats.armor;
+ let protection=target.stats.guard-(target.status?.sunder>0?.085:0);
+ if(armor.id==='reactive'&&target.shieldCooldown<=0){
+  amount*=.58;target.shieldCooldown=6.8;ring(target.x,target.y,'#a6d7ff',30);
+ }
+ const loss=amount*(1-clamp(protection,0,.38));
  target.hp=Math.max(0,target.hp-loss);target.hitFlash=.15;screenShake=Math.min(8,screenShake+2.1);
  particle(target.x,target.y,target.enemy?'#ff7e86':'#66edee',7,.7);
  if(target.hp<=0){
@@ -560,6 +575,35 @@ function damage(target,amount){
   ring(target.x,target.y,target.enemy?'#ffb578':'#62f0ef',42);
   if(target.enemy)win();else lost();
  }else beep(target.enemy?240:160,.04,.008);
+}
+// Weapon traits are explicit combat rules, applied equally to the enemy and player.
+function applyWeaponImpact(b,target){
+ if(state!=='fight'||target.dead)return;
+ const traits=WEAPON_TRAITS[b.kind]||{};
+ for(const key of ['burn','slow','stun','sunder'])
+  if(traits[key])target.status[key]=Math.max(target.status[key],traits[key]);
+ if(traits.push){
+  const dx=target.x-b.source.x,dy=target.y-b.source.y,d=Math.max(1,Math.hypot(dx,dy));
+  moveRobot(target,dx/d*traits.push,dy/d*traits.push);
+  ring(target.x,target.y,'#ffd3a5',24);
+ }
+ if(traits.splash){
+  ring(target.x,target.y,b.color,traits.splash*.6);
+  particle(target.x,target.y,b.color,14,.65);
+ }
+}
+function updateStatus(robot,dt){
+ if(!robot||robot.dead)return;
+ robot.shieldCooldown=Math.max(0,robot.shieldCooldown-dt);
+ for(const key of ['stun','slow','sunder','burn'])
+  robot.status[key]=Math.max(0,robot.status[key]-dt);
+ if(robot.status.burn>0&&state==='fight')damage(robot,3.2*dt);
+}
+function blastMissileOnWall(b){
+ const r=WEAPON_TRAITS.missile.splash,target=b.source.enemy?player:enemy;
+ particle(b.x,b.y,b.color,15,.75);ring(b.x,b.y,b.color,r*.6);
+ if(target&&!target.dead&&Math.hypot(target.x-b.x,target.y-b.y)<r)
+  damage(target,b.damage*.6);
 }
 function lineOfSight(a,b){
  for(const rect of blocks){
@@ -595,19 +639,21 @@ function update(dt){
  if(state!=='fight'||!player||!enemy)return;
  player.cd=Math.max(0,player.cd-dt);enemy.cd=Math.max(0,enemy.cd-dt);
  player.hitFlash=Math.max(0,player.hitFlash-dt);enemy.hitFlash=Math.max(0,enemy.hitFlash-dt);
+ updateStatus(player,dt);updateStatus(enemy,dt);
+ if(state!=='fight')return;
  player.dashCooldown=Math.max(0,player.dashCooldown-dt);player.dashLeft=Math.max(0,player.dashLeft-dt);
  const move=setInputVector();
  if(wantsDash&&player.dashCooldown<=0){wantsDash=false;
   const d=Math.hypot(move.x,move.y);
   player.vx=(d?move.x:Math.cos(player.angle))*710;player.vy=(d?move.y:Math.sin(player.angle))*710;
-  player.dashLeft=.18;player.dashCooldown=player.stats.dashCooldown;ring(player.x,player.y,'#89f7ff',26);beep(790,.12,.022);
+  player.dashLeft=player.stats.legs.id==='jet'?.29:.18;player.dashCooldown=player.stats.dashCooldown;ring(player.x,player.y,'#89f7ff',26);beep(790,.12,.022);
  }else if(wantsDash)wantsDash=false;
  if(player.dashLeft>0){moveRobot(player,player.vx*dt,player.vy*dt);particle(player.x,player.y,'#5ce4e9',2,.27)}
- else {moveRobot(player,move.x*player.stats.speed*dt,move.y*player.stats.speed*dt)}
+ else {const slow=player.status.slow>0?.66:1;moveRobot(player,move.x*player.stats.speed*slow*dt,move.y*player.stats.speed*slow*dt)}
  const autoAim=keys.Space||fireTouch||document.activeElement===$('fireDesk')||document.activeElement===$('fireTouch');
  if(autoAim)player.angle=Math.atan2(enemy.y-player.y,enemy.x-player.x);
  else player.angle=Math.atan2(aim.y-player.y,aim.x-player.x);
- if(keys.Space||fireMouse||fireTouch)shoot(player,autoAim?enemy:aim,player.angle);
+ if((keys.Space||fireMouse||fireTouch)&&player.status.stun<=0)shoot(player,autoAim?enemy:aim,player.angle);
  if(!enemy.dead){
   const dx=player.x-enemy.x,dy=player.y-enemy.y,d=Math.max(.001,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
   enemy.angle=a;
@@ -616,7 +662,8 @@ function update(dt){
   let approach=clamp((d-preferred)/125,-.85,1);
   const strafe=Math.sin(clock*.9+enemy.aiPhase)*enemy.aiStrafe*.65*tactics.strafe;
   let vx=(dx/d)*approach+(-dy/d)*strafe,vy=(dy/d)*approach+(dx/d)*strafe;
-  let m=Math.max(1,Math.hypot(vx,vy)),step=enemy.stats.speed*.59*tactics.speed*dt;
+  let m=Math.max(1,Math.hypot(vx,vy)),step=enemy.stats.speed*.59*tactics.speed*(enemy.status.slow>0?.66:1)*dt;
+  if(enemy.status.stun>0)step=0;
   const ex=enemy.x,ey=enemy.y;
   moveRobot(enemy,vx/m*step,vy/m*step);
   if(Math.hypot(enemy.x-ex,enemy.y-ey)<step*.16){
@@ -627,7 +674,7 @@ function update(dt){
   }
   enemy.cd=Math.max(0,enemy.cd-dt);
   if(d<tactics.attackRange&&(lineOfSight(enemy,player)||enemy.stats.weapon.id==='rail'||enemy.stats.weapon.id==='missile'))
-    shoot(enemy,player,a+Math.sin(clock*1.4+enemySeed)*(.10+Math.min(.12,wave*.006))*tactics.accuracy);
+    if(enemy.status.stun<=0)shoot(enemy,player,a+Math.sin(clock*1.4+enemySeed)*(.10+Math.min(.12,wave*.006))*tactics.accuracy);
  }
  for(let i=bullets.length-1;i>=0;i--){
   let b=bullets[i];b.life-=dt;if(b.life<=0){bullets.splice(i,1);continue}
@@ -639,11 +686,13 @@ function update(dt){
   b.trail.push({x:b.x,y:b.y});if(b.trail.length>7)b.trail.shift();
   if(b.x<-20||b.x>W+20||b.y<-20||b.y>H+20){bullets.splice(i,1);continue}
   if(!b.pierce&&blocks.some(o=>hitRect(b.x,b.y,b.r,o))){
-   particle(b.x,b.y,'#88a5b5',8,.55);bullets.splice(i,1);continue;
+   if(b.kind==='missile')blastMissileOnWall(b);
+   else particle(b.x,b.y,'#88a5b5',8,.55);
+   bullets.splice(i,1);continue;
   }
   const tgt=b.source.enemy?player:enemy;
   if(tgt&&!tgt.dead&&Math.hypot(b.x-tgt.x,b.y-tgt.y)<b.r+tgt.r){
-   damage(tgt,b.damage);ring(b.x,b.y,b.color,15);bullets.splice(i,1);
+   damage(tgt,b.damage);applyWeaponImpact(b,tgt);ring(b.x,b.y,b.color,15);bullets.splice(i,1);
   }
  }
  updatePanels(false);
@@ -922,13 +971,13 @@ if(navigator.webdriver)window.__roboQATest={
 window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
  depth,gold,encountersWon,currentNode,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
- partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),
+ partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
  roles:Object.keys(ENEMY_ROLES),
  coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),
  player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
-  dashCooldown:player.dashCooldown,load:player.load}:null,
+  dashCooldown:player.dashCooldown,status:{...player.status},load:player.load}:null,
  enemy:enemy?{x:enemy.x,y:enemy.y,hp:enemy.hp,maxHp:enemy.maxHp,
-  role:enemy.role,load:enemy.load}:null,
+  role:enemy.role,status:{...enemy.status},load:enemy.load}:null,
  bullets:bullets.length,lootCards:document.querySelectorAll('[data-loot]').length
 });
 const previewLoad=initial();
