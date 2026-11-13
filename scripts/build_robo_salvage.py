@@ -22,6 +22,19 @@ def build() -> str:
     template = (SOURCE / "template.html").read_text(encoding="utf-8")
     css = (SOURCE / "game.css").read_text(encoding="utf-8")
     js = (SOURCE / "game.js").read_text(encoding="utf-8")
+    # Modules are pasted *inside* the game IIFE. This keeps local file://
+    # execution and avoids module loaders / CORS / external dependencies.
+    modules = {
+        "/* @include-synergies */": "synergies.js",
+        "/* @include-pixel-art */": "pixel-art.js",
+    }
+    for marker, name in modules.items():
+        if js.count(marker) != 1:
+            raise ValueError(f"Expected exactly one {marker} in game.js")
+        fragment = (SOURCE / name).read_text(encoding="utf-8")
+        if "<script" in fragment.lower():
+            raise ValueError(f"Unsafe script tag inside source module {name}")
+        js = js.replace(marker, fragment)
     for marker in (CSS_MARKER, JS_MARKER):
         if template.count(marker) != 1:
             raise ValueError(f"Expected exactly one {marker} placeholder")
