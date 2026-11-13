@@ -152,6 +152,139 @@ box-shadow:inset 0 0 38px #061222b3;scrollbar-color:#567993 #0e2134}
 }
 
  .overlayOpen .mobilePad{display:none!important}
+
+
+/* =====================================================================
+   INDUSTRIAL PIXEL / MECHA UI
+   The battlefield and robot sprites are rasterised by pixel-art.js.
+   Panels keep sharp edges and mechanical readouts to match the visuals.
+   ===================================================================== */
+:root{
+ --bg:#09131e;
+ --panel:#142132;
+ --panel2:#203249;
+ --edge:#455f6e;
+ --ink:#e8f5fa;
+ --muted:#a2bec8;
+ --cyan:#82e0da;
+ --amber:#f3cc80;
+ --red:#eb8f8a;
+}
+body{background:#0b1724}
+.dialog,.panel,.side,.lootCard,.routeChoice,.shopItem{
+ border-radius:3px;
+ box-shadow:5px 5px 0 #03090f55;
+}
+.dialog{
+ background:linear-gradient(140deg,#172a3a,#0d1b2b);
+ border:2px solid #5f8393;
+}
+.dialog .flag,.panel h3,.routeBoss,.resourceLine,.statpill{
+ font-family:ui-monospace,"SFMono-Regular",Consolas,"Noto Sans JP",monospace;
+ letter-spacing:.6px;
+}
+.menuToggle,.drawerClose,.touchbtn,.secondary,.primary,.smallbtn{
+ border-radius:3px;
+}
+.menuToggle{
+ background:#132c40ed;
+ border:2px solid #83cfd2;
+ box-shadow:5px 5px 0 #01081290;
+}
+.lootCard:focus-visible,.routeChoice:focus-visible,.shopItem:focus-visible{
+ outline:3px solid #9cebe7;
+ outline-offset:2px;
+}
+.partRow{border-radius:1px;border-left:3px solid #5d9ca7}
+.partRow .name{font-family:ui-monospace,"Noto Sans JP",monospace}
+.synergySummary{
+ margin-top:12px;
+ border:1px solid #536f76;
+ background:#0d2030;
+ padding:9px;
+ display:flex;
+ flex-direction:column;
+ gap:6px;
+}
+.synergyLabel{
+ font:800 11px ui-monospace,"Noto Sans JP",monospace;
+ color:#a7e9d9;
+ letter-spacing:1px;
+}
+.synergyEntry{
+ border-left:3px solid #a7d98f;
+ padding:5px 7px;
+ background:#1a3342;
+ display:flex;
+ flex-direction:column;
+ gap:3px;
+}
+.synergyEntry strong{
+ color:#ecf7c5;
+ font-size:12px;
+}
+.synergyEntry small,.synergySummary>small{
+ color:#bad5d6;
+ font-size:11px;
+ line-height:1.45;
+}
+.compareStats{
+ display:flex;
+ flex-wrap:wrap;
+ gap:3px 6px;
+ margin-top:9px;
+}
+.compareStat{
+ display:inline-block;
+ font-size:10px;
+ padding:3px 5px;
+ border:1px solid #566879;
+ background:#1a2a3b;
+ white-space:nowrap;
+}
+.compareStat.good{
+ color:#acefc0;
+ border-color:#527d66;
+}
+.compareStat.bad{
+ color:#ffb3a4;
+ border-color:#8d6064;
+}
+.compareStat.neutral{color:#bfd2dd}
+.compareSynergy,.compareLoss{
+ font-size:10px;
+ line-height:1.5;
+ margin-top:6px;
+ word-break:break-word;
+}
+.compareSynergy{
+ color:#adf2c6;
+ border-left:3px solid #78ba8d;
+ padding-left:6px;
+}
+.compareLoss{
+ color:#ffd2a2;
+ border-left:3px solid #af8957;
+ padding-left:6px;
+}
+.lootCard{
+ min-height:122px;
+}
+.lootCard .detail{line-height:1.5}
+.shopItem{
+ min-height:95px;
+}
+.shopItem .compareStats{margin-top:8px}
+.arenaFrame canvas{
+ image-rendering:pixelated;
+ image-rendering:crisp-edges;
+}
+@media(max-width:560px){
+ .lootCard{min-height:144px}
+ .compareStat{font-size:9px;padding:2px 4px}
+ .synergyEntry strong{font-size:11px}
+ .synergyEntry small{font-size:10px}
+}
 </style>
 </head>
 <body>
@@ -283,18 +416,261 @@ function makeEnemyLoadout(wave){
  }
  return obj;
 }
+/*
+ * 4-SLOT BUILD SYNERGIES
+ *
+ * These are deliberately compositional bonuses. Players still equip just
+ * weapon, armor, legs and core: no extra slots, premium currency, or permanent
+ * meta-upgrades are introduced. A run can activate multiple non-conflicting
+ * combinations. Every rule has both a gameplay effect and a concise Japanese
+ * explanation for the equipment drawer.
+ *
+ * Multipliers are bounded in resolveSynergies so random high-tier equipment
+ * does not produce runaway fire rates or damage.
+ */
+const SYNERGY_RULES=[
+ {
+  id:'plasma-loop',
+  name:'プラズマ循環',
+  description:'パルスガン＋スパークコア：連射と感電性能が上昇',
+  requires:{weapon:['pulse'],core:['spark']},
+  modifiers:{fireCooldown:.88,stun:1.35}
+ },
+ {
+  id:'ion-capacitor',
+  name:'イオン過給',
+  description:'パルスガン＋キャパシタ：高威力だが移動速度が少し低下',
+  requires:{weapon:['pulse'],core:['capacitor']},
+  modifiers:{damage:1.15,speed:.95}
+ },
+ {
+  id:'shock-armor',
+  name:'静電防壁',
+  description:'プリズム装甲＋スパーク：守備力と感電時間を強化',
+  requires:{armor:['prism'],core:['spark']},
+  modifiers:{guard:.035,stun:1.22}
+ },
+ {
+  id:'close-quarters',
+  name:'突撃散弾',
+  description:'スプレッド砲＋ジェット脚：ダッシュ短縮と吹き飛ばし強化',
+  requires:{weapon:['shot'],legs:['jet']},
+  modifiers:{dashCooldown:.82,push:1.4}
+ },
+ {
+  id:'moving-fortress',
+  name:'移動要塞',
+  description:'フォートレス装甲＋クローラー脚：大幅な最大HP増加、鈍足',
+  requires:{armor:['fortress'],legs:['crawler']},
+  modifiers:{hp:1.22,guard:.018,speed:.88}
+ },
+ {
+  id:'siege-rail',
+  name:'攻城砲フレーム',
+  description:'レールランサー＋キャタピラ：高火力、移動は鈍重',
+  requires:{weapon:['rail'],legs:['tank','crawler']},
+  modifiers:{damage:1.19,speed:.91,sunder:1.28}
+ },
+ {
+  id:'ranger-rail',
+  name:'機動狙撃',
+  description:'レールランサー＋レンジャー脚：攻撃後の機動力を強化',
+  requires:{weapon:['rail'],legs:['ranger']},
+  modifiers:{speed:1.12,fireCooldown:.94}
+ },
+ {
+  id:'salvo-control',
+  name:'集中制圧',
+  description:'バーストライフル＋ラピッドコア：連射性能と炎上時間を強化',
+  requires:{weapon:['burst'],core:['rapid']},
+  modifiers:{fireCooldown:.88,burn:1.3}
+ },
+ {
+  id:'burn-engine',
+  name:'火炎炉',
+  description:'バーストライフル＋ブレイズ：燃焼が長く、攻撃威力が高い',
+  requires:{weapon:['burst'],core:['blaze']},
+  modifiers:{burn:1.6,damage:1.09}
+ },
+ {
+  id:'swarm-tactics',
+  name:'蜂群ドクトリン',
+  description:'ニードルガン＋ラピッド：高連射と装甲破砕を強化',
+  requires:{weapon:['micro'],core:['rapid']},
+  modifiers:{fireCooldown:.88,sunder:1.5}
+ },
+ {
+  id:'missile-platform',
+  name:'ミサイル架台',
+  description:'ホーミング弾＋キャタピラ：爆風範囲が拡大',
+  requires:{weapon:['missile'],legs:['tank','crawler']},
+  modifiers:{splash:1.35,damage:1.08}
+ },
+ {
+  id:'guided-evasion',
+  name:'追跡と回避',
+  description:'ホーミング弾＋ブースター：機動力と回避性能が上昇',
+  requires:{weapon:['missile'],legs:['booster']},
+  modifiers:{speed:1.13,dashCooldown:.90}
+ },
+ {
+  id:'heavy-slug',
+  name:'重力破砕',
+  description:'グラビティスラグ＋重装甲：ノックバックと耐久力を増強',
+  requires:{weapon:['slug'],armor:['fortress','plated']},
+  modifiers:{push:1.4,hp:1.12}
+ },
+ {
+  id:'slug-jet',
+  name:'強襲ハンマー',
+  description:'グラビティスラグ＋ジェット脚：瞬発力と威力を増強',
+  requires:{weapon:['slug'],legs:['jet']},
+  modifiers:{dashCooldown:.85,damage:1.1}
+ },
+ {
+  id:'reactive-aegis',
+  name:'反応防壁',
+  description:'リアクティブ装甲＋イージス：被弾時の軽減が強化',
+  requires:{armor:['reactive'],core:['aegis']},
+  modifiers:{guard:.045,reactive:.75}
+ },
+ {
+  id:'field-repair',
+  name:'自己修復',
+  description:'コンポジット装甲＋リペア：戦闘後回復量を増加',
+  requires:{armor:['composite'],core:['repair']},
+  modifiers:{repair:.09}
+ },
+ {
+  id:'light-escape',
+  name:'逃走回路',
+  description:'フェザー装甲＋レンジャー脚：機動力とダッシュ性能を強化',
+  requires:{armor:['feather'],legs:['ranger','spider']},
+  modifiers:{speed:1.14,dashCooldown:.80}
+ },
+ {
+  id:'recycle-tank',
+  name:'廃材再生',
+  description:'重装甲＋サルベージコア：耐久と戦闘後回復を増加',
+  requires:{armor:['plated','fortress','composite'],core:['salvager']},
+  modifiers:{hp:1.09,repair:.08}
+ },
+ {
+  id:'wheel-shield',
+  name:'ローリングガード',
+  description:'ローラー脚＋イージス：回避の再使用が速く防御力も増加',
+  requires:{legs:['wheel'],core:['aegis']},
+  modifiers:{dashCooldown:.83,guard:.015}
+ },
+ {
+  id:'prism-capacitor',
+  name:'高出力防衛',
+  description:'プリズム装甲＋キャパシタ：ガードと連射性能を強化',
+  requires:{armor:['prism'],core:['capacitor']},
+  modifiers:{guard:.02,fireCooldown:.93}
+ }
+];
+
+const SYNERGY_DEFAULT={
+ hp:1,damage:1,speed:1,fireCooldown:1,dashCooldown:1,
+ guard:0,repair:0,stun:1,slow:1,sunder:1,burn:1,
+ push:1,splash:1,reactive:1
+};
+
+function findBuildSynergies(load){
+ if(!load||!load.weapon||!load.armor||!load.legs||!load.core)return [];
+ return SYNERGY_RULES.filter(rule=>
+  Object.entries(rule.requires).every(([slot,ids])=>
+   Boolean(load[slot])&&ids.includes(load[slot].id)));
+}
+
+function resolveBuildSynergies(load){
+ const active=findBuildSynergies(load);
+ const modifiers={...SYNERGY_DEFAULT};
+ for(const rule of active){
+  for(const [stat,value] of Object.entries(rule.modifiers)){
+   if(stat==='guard'||stat==='repair'){
+    modifiers[stat]+=value;
+   }else{
+    modifiers[stat]*=value;
+   }
+  }
+ }
+ // Limit stacked synergies so synergy hunting is rewarding but not explosive.
+ const bounds={
+  hp:[.7,1.55],damage:[.7,1.65],speed:[.72,1.5],
+  fireCooldown:[.65,1.4],dashCooldown:[.65,1.35],
+  stun:[1,2],slow:[1,2],sunder:[1,2],burn:[1,2],
+  push:[1,1.8],splash:[1,1.8],reactive:[.5,1.2]
+ };
+ for(const [stat,[min,max]] of Object.entries(bounds))
+  modifiers[stat]=clamp(modifiers[stat],min,max);
+ modifiers.guard=clamp(modifiers.guard,0,.11);
+ modifiers.repair=clamp(modifiers.repair,0,.24);
+ return {active,modifiers};
+}
+
+function buildComparison(previous,candidate){
+ const oldStats=specs(previous);
+ const newStats=specs(candidate);
+ const pairs=[
+  {name:'最大HP',old:oldStats.hp,next:newStats.hp,digits:0,higher:true},
+  {name:'攻撃威力',old:oldStats.dmg,next:newStats.dmg,digits:0,higher:true},
+  {name:'連射間隔',old:oldStats.fireCooldown,next:newStats.fireCooldown,digits:2,higher:false},
+  {name:'防御率',old:oldStats.guard,next:newStats.guard,digits:0,higher:true,percent:true},
+  {name:'移動速度',old:oldStats.speed,next:newStats.speed,digits:0,higher:true}
+ ];
+ return {
+  old:oldStats,new:newStats,
+  diffs:pairs.map(metric=>{
+   const prev=metric.percent?metric.old*100:metric.old;
+   const next=metric.percent?metric.next*100:metric.next;
+   return {...metric,previous:Number(prev.toFixed(metric.digits)),
+    current:Number(next.toFixed(metric.digits)),
+    improved:metric.higher?next>prev:next<prev,
+    worsened:metric.higher?next<prev:next>prev};
+  }),
+  gains:newStats.synergies.filter(rule=>!oldStats.synergies.some(old=>old.id===rule.id)),
+  losses:oldStats.synergies.filter(rule=>!newStats.synergies.some(next=>next.id===rule.id))
+ };
+}
+
+function buildComparisonMarkup(previous,candidate){
+ const result=buildComparison(previous,candidate);
+ const main=result.diffs.filter(d=>Math.abs(d.old-d.next)>0.04).slice(0,3);
+ let html='<div class="compareStats">';
+ for(const metric of main){
+  const color=metric.improved?'good':metric.worsened?'bad':'neutral';
+  const arrow=metric.improved?'↑':metric.worsened?'↓':'→';
+  html+='<span class="compareStat '+color+'">'+metric.name+' '
+   +metric.previous+(metric.percent?'%':'')+' '+arrow+' '
+   +metric.current+(metric.percent?'%':'')+'</span>';
+ }
+ if(!main.length)html+='<span class="compareStat neutral">基礎性能は同等</span>';
+ html+='</div>';
+ if(result.gains.length)
+  html+='<div class="compareSynergy">新コンボ：'
+   +result.gains.map(x=>x.name).join('、')+'</div>';
+ if(result.losses.length)
+  html+='<div class="compareLoss">失うコンボ：'
+   +result.losses.map(x=>x.name).join('、')+'</div>';
+ return html;
+}
+
 function specs(load){
  const a=find(load.armor),l=find(load.legs),c=find(load.core),w=find(load.weapon);
  const af=1+.095*(load.armor.lv-1)+.12*(load.armor.tier-1);
  const lf=1+.053*(load.legs.lv-1)+.055*(load.legs.tier-1);
  const cf=1+.06*(load.core.lv-1)+.08*(load.core.tier-1);
  const wf=1+.095*(load.weapon.lv-1)+.15*(load.weapon.tier-1);
+ const synergy=resolveBuildSynergies(load),m=synergy.modifiers;
  return {
-  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)),
-  guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1)+(c.guardBonus||0),0,.36),
-  speed:l.speed*lf,dashCooldown:Math.max(1.32,l.dash/Math.sqrt(lf)),
-  dmg:w.damage*wf*c.damage*cf,fireCooldown:Math.max(.14,w.cool/(c.rate*cf)),
-  weapon:w,armor:a,legs:l,core:c,repair:c.heal*cf
+  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)*m.hp),
+  guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1)+(c.guardBonus||0)+m.guard,0,.38),
+  speed:l.speed*lf*m.speed,dashCooldown:Math.max(1.08,l.dash/Math.sqrt(lf)*m.dashCooldown),
+  dmg:w.damage*wf*c.damage*cf*m.damage,fireCooldown:Math.max(.125,w.cool/(c.rate*cf)*m.fireCooldown),
+  weapon:w,armor:a,legs:l,core:c,repair:clamp(c.heal*cf+m.repair,0,.65),
+  synergies:synergy.active,modifiers:m
  };
 }
 const initial=()=>({
@@ -705,7 +1081,8 @@ function renderShop(){
   const item=shopOffers[i],p=item.part;
   html+='<button class="shopItem" data-shop="offer" data-arg="'+i+'" '+(item.bought||gold<item.price?'disabled':'')
    +'><strong>⇄ '+find(p).name+'</strong><small>'+SLOT[item.slot]+' / Lv.'+p.lv+' ★'+p.tier+'　装備と交換</small>'
-   +'<span class="cost">'+(item.bought?'購入済':item.price+' G')+'</span></button>';
+   +'<span class="cost">'+(item.bought?'購入済':item.price+' G')+'</span>'
+   +buildComparisonMarkup(player.load,{...player.load,[item.slot]:p})+'</button>';
  }
  html+='</div><button class="primary" id="leaveShop">ショップを出る ▶</button>';
  showOverlay(html);
@@ -744,6 +1121,23 @@ function partsPanel(id,load){
   const lv=document.createElement('div');lv.className='lvl';lv.textContent='Lv.'+p.lv+' ★'+p.tier;
   lv.style.color=RARCOL[p.tier];el.append(left,lv);root.append(el);
  }
+ const active=findBuildSynergies(load);
+ const section=document.createElement('div');section.className='synergySummary';
+ const label=document.createElement('div');label.className='synergyLabel';
+ label.textContent='4部位コンボ '+active.length+' 件';section.append(label);
+ if(active.length){
+  for(const combo of active){
+   const item=document.createElement('div');item.className='synergyEntry';
+   const name=document.createElement('strong');name.textContent=combo.name;
+   const detail=document.createElement('small');detail.textContent=combo.description;
+   item.append(name,detail);section.append(item);
+  }
+ }else{
+  const none=document.createElement('small');
+  none.textContent='装備の組み合わせで固有の相乗効果が発動';
+  section.append(none);
+ }
+ root.append(section);
 }
 function showOverlay(html){$('dialog').className='dialog';$('dialog').innerHTML=html;$('overlay').classList.add('show');document.querySelector('.shell').classList.add('overlayOpen')}
 function closeOverlay(){$('overlay').classList.remove('show');document.querySelector('.shell').classList.remove('overlayOpen')}
@@ -780,7 +1174,8 @@ function win(){
   text+='<button type="button" class="lootCard" data-loot="'+slot+'"><span class="slot">'+SLOT[slot]+'</span>'
    +'<span class="rarity" style="color:'+RARCOL[p.tier]+';border-color:'+RARCOL[p.tier]+'66">'+RAR[p.tier]+'</span>'
    +'<div class="partname">'+desc.name+'</div><div class="detail">Lv.'+p.lv+' ★'+p.tier+'　'+descriptions[slot](p)+'</div>'
-   +'<div class="repl">現在：'+find(own).name+' Lv.'+own.lv+' → 交換</div></button>';
+   +'<div class="repl">現在：'+find(own).name+' Lv.'+own.lv+' → 交換</div>'
+   +buildComparisonMarkup(player.load,{...player.load,[slot]:p})+'</button>';
  }
  text+='</div><button id="skipLoot" class="secondary" style="margin-top:13px;width:100%">奪わずに解体する（+'+bonus+' G）</button>';
  text+='<div class="lootHelp">※ 部品は最大1個。スキップでも次の分岐へ進みます。</div>';
@@ -801,10 +1196,14 @@ function skipLoot(){
 
 function lost(){
  if(state!=='fight')return;
+ const lostGold=gold;
+ // Permadeath is immediate: no equipped part or gold survives this run.
+ // Only the best depth counter persists in localStorage.
+ gold=0;player.load=initial();player.stats=specs(player.load);
  state='dead';fireMouse=false;fireTouch=false;
  best=Math.max(best,depth);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
- showOverlay('<p class="flag">SIGNAL LOST / RUN ENDED</p><h2>機体、戦闘不能。</h2><p>到達地点 <strong>'+(depth+1)+'</strong> ／ 今回撃破 <strong>'+encountersWon+'</strong>機。次の挑戦では敵の構成が変わります。</p><div class="statline"><div class="statpill">撃破 '+encountersWon+'</div><div class="statpill">BEST '+best+'</div></div><button class="primary" id="againBtn">もう一度出撃 ▶</button><div class="mini">毎回、敵の武器・装甲・脚部・コアがランダムで変わります。</div>');
- $('againBtn').addEventListener('click',beginRun);
+ showOverlay('<p class="flag">SIGNAL LOST / RUN ENDED</p><h2>機体、戦闘不能。</h2><p>到達地点 <strong>'+(depth+1)+'</strong> ／ 今回撃破 <strong>'+encountersWon+'</strong>機。装備と所持金 '+lostGold+' Gをすべて失いました。</p><div class="statline"><div class="statpill">撃破 '+encountersWon+'</div><div class="statpill">BEST '+best+'</div></div><button class="primary" id="againBtn">もう一度出撃 ▶</button><div class="mini">毎回、敵の武器・装甲・脚部・コアがランダムで変わります。</div>');
+ updatePanels(true);$('againBtn').addEventListener('click',beginRun);
  beep(140,.36,.055,'sawtooth');
 }
 function setInputVector(){
@@ -838,7 +1237,7 @@ function damage(target,amount){
  const armor=target.stats.armor;
  let protection=target.stats.guard-(target.status?.sunder>0?.085:0);
  if(armor.id==='reactive'&&target.shieldCooldown<=0){
-  amount*=.58;target.shieldCooldown=6.8;ring(target.x,target.y,'#a6d7ff',30);
+  amount*=.58*target.stats.modifiers.reactive;target.shieldCooldown=6.8;ring(target.x,target.y,'#a6d7ff',30);
  }
  const loss=amount*(1-clamp(protection,0,.38));
  target.hp=Math.max(0,target.hp-loss);target.hitFlash=.15;screenShake=Math.min(8,screenShake+2.1);
@@ -853,15 +1252,16 @@ function damage(target,amount){
 function applyWeaponImpact(b,target){
  if(state!=='fight'||target.dead)return;
  const traits=WEAPON_TRAITS[b.kind]||{};
+ const modifiers=b.source?.stats?.modifiers||SYNERGY_DEFAULT;
  for(const key of ['burn','slow','stun','sunder'])
-  if(traits[key])target.status[key]=Math.max(target.status[key],traits[key]);
+  if(traits[key])target.status[key]=Math.max(target.status[key],traits[key]*modifiers[key]);
  if(traits.push){
   const dx=target.x-b.source.x,dy=target.y-b.source.y,d=Math.max(1,Math.hypot(dx,dy));
-  moveRobot(target,dx/d*traits.push,dy/d*traits.push);
+  moveRobot(target,dx/d*traits.push*modifiers.push,dy/d*traits.push*modifiers.push);
   ring(target.x,target.y,'#ffd3a5',24);
  }
  if(traits.splash){
-  ring(target.x,target.y,b.color,traits.splash*.6);
+  ring(target.x,target.y,b.color,traits.splash*modifiers.splash*.6);
   particle(target.x,target.y,b.color,14,.65);
  }
 }
@@ -877,7 +1277,7 @@ function updateStatus(robot,dt){
  }else robot.burnTimer=0;
 }
 function blastMissileOnWall(b){
- const r=WEAPON_TRAITS.missile.splash,target=b.source.enemy?player:enemy;
+ const r=WEAPON_TRAITS.missile.splash*b.source.stats.modifiers.splash,target=b.source.enemy?player:enemy;
  particle(b.x,b.y,b.color,15,.75);ring(b.x,b.y,b.color,r*.6);
  if(target&&!target.dead&&Math.hypot(target.x-b.x,target.y-b.y)<r)
   damage(target,b.damage*.6);
@@ -1144,50 +1544,247 @@ function drawCover(){
   }
  }
 }
-function drawRobot(o){
- if(!o)return;
- let col=o.enemy?'#ef8e91':'#70e6eb',armor=o.stats.armor.color,legs=o.stats.legs.color,weapon=o.stats.weapon.color,core=o.stats.core.color;
- ctx.save();ctx.translate(o.x,o.y);
- if(o.enemy&&(currentNode==='boss'||currentNode==='elite')){
-  const boss=currentNode==='boss',radius=boss?43:34;
-  ctx.save();ctx.rotate(clock*(boss?.34:-.22));
-  ctx.strokeStyle=boss?'#ffd99199':'#bd9df277';ctx.lineWidth=boss?4:3;
-  ctx.beginPath();ctx.arc(0,0,radius,0,TAU);ctx.stroke();
-  for(let i=0;i<(boss?8:5);i++){
-   const a=i*TAU/(boss?8:5);
-   ctx.fillStyle=boss?'#ffd08d':'#ceaff5';
-   ctx.fillRect(Math.cos(a)*radius-3,Math.sin(a)*radius-3,boss?8:6,boss?8:6);
+/*
+ * PIXEL MECH VISUAL SYSTEM
+ *
+ * Completely original, procedural pixel-mecha: no sprites, copied characters,
+ * image assets, shaders, remote files, or additional build dependencies.
+ *
+ * Every one of the four equipment slots has a tangible silhouette or color
+ * change. The final blit uses nearest-neighbour scaling and a low-resolution
+ * buffer; this is real pixel rendering rather than a pixel-font overlay.
+ */
+
+const MECH_PIXELS=document.createElement('canvas');
+const MECH_PIXELS_CTX=MECH_PIXELS.getContext('2d',{alpha:false});
+const PIXEL_RENDER_MODE={enabled:true,cssBlockSize:3};
+const PIXEL_PALETTE={
+ background:'#0b1427',
+ shadow:'#101728',
+ darkPlate:'#17263a',
+ trim:'#b1c4d0',
+ highlight:'#f0f7ff',
+ tread:'#263b48',
+ weaponSocket:'#1e3145',
+ enemyBadge:'#ffb1a4',
+ playerBadge:'#b2f6f2'
+};
+
+function mechTile(x,y,w,h,color){
+ ctx.fillStyle=color;
+ ctx.fillRect(Math.round(x),Math.round(y),Math.ceil(w),Math.ceil(h));
+}
+
+function drawMechEquipment(o){
+ const load=o.load,defs=o.stats;
+ const weapon=defs.weapon,armor=defs.armor,legs=defs.legs,core=defs.core;
+ const flicker=o.hitFlash>0;
+ const armorColor=flicker?'#ffffff':armor.color;
+ const trim=o.enemy?PIXEL_PALETTE.enemyBadge:PIXEL_PALETTE.playerBadge;
+ const bootSize=defs.legs.id==='crawler'?21:defs.legs.id==='tank'?19:14;
+ const armorWidth=defs.armor.id==='fortress'?49:
+  defs.armor.id==='plated'||defs.armor.id==='composite'?43:
+  defs.armor.id==='feather'?31:38;
+ const coreFlicker=Math.floor(clock*8)%2;
+ const isBoss=o.enemy&&currentNode==='boss';
+
+ ctx.save();
+ ctx.translate(Math.round(o.x),Math.round(o.y));
+
+ // Square tactical warnings use block geometry, not smooth circular outlines.
+ if(o.dashLeft>0){
+  for(let i=0;i<4;i++){
+   const a=i*TAU/4-clock*3;
+   mechTile(Math.cos(a)*39-4,Math.sin(a)*39-4,8,8,'#71f3ee');
   }
-  ctx.restore();
  }
- // contact shadow and pulsing peripheral circle
- ctx.fillStyle='#0207138a';ctx.beginPath();ctx.ellipse(4,11,27,15,0,0,TAU);ctx.fill();
- if(o.dashLeft>0){ctx.strokeStyle='#72effbcc';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,31+Math.sin(clock*34)*3,0,TAU);ctx.stroke()}
+ if(o.enemy&&(isBoss||currentNode==='elite')){
+  const size=isBoss?53:44;
+  const bar=isBoss?'#fac77c':'#b7a2e3';
+  for(const dx of [-size,size]){
+   mechTile(dx-3,-size,6,21,bar);
+   mechTile(dx-3,size-21,6,21,bar);
+  }
+  for(const dy of [-size,size]){
+   mechTile(-size,dy-3,21,6,bar);
+   mechTile(size-21,dy-3,21,6,bar);
+  }
+ }
+
+ // A four-layer, strictly rectilinear shadow grounds the chassis.
+ mechTile(-30,13,65,8,'#02071380');
+ mechTile(-28,18,61,5,'#0207135e');
+
  ctx.rotate(o.angle);
- // mobile legs and silhouette
- ctx.fillStyle='#0b1927';roundRect(-21,-24,28,14,4,'#0b1927');roundRect(-21,10,28,14,4,'#0b1927');
- roundRect(-25,-19,34,12,4,legs);roundRect(-25,7,34,12,4,legs);
- for(let j=-1;j<=1;j++){ctx.fillStyle='#142735';ctx.fillRect(-19+j*9,-16,4,7);ctx.fillRect(-19+j*9,12,4,5)}
- // armour silhouette
- roundRect(-19,-20,43,40,8,'#0c1a2a');
- roundRect(-16,-18,38,36,7,o.hitFlash>0?'#ffffff':armor);
- roundRect(-9,-12,23,24,4,o.enemy?'#803b51':'#19586b');
- // articulation and core
- ctx.fillStyle=core;ctx.beginPath();ctx.arc(2,0,8+Math.sin(clock*5)*.7,0,TAU);ctx.fill();
- ctx.fillStyle='#e8fcff';ctx.beginPath();ctx.arc(2,0,3,0,TAU);ctx.fill();
- // gun barrel points in aim direction, mechanically attached
- roundRect(9,-9,26,18,5,'#122334');
- roundRect(15,-6,27,12,3,weapon);
- ctx.fillStyle='#173249';ctx.fillRect(31,-4,14,8);
- ctx.fillStyle='#8de9f2';ctx.fillRect(38,-3,4,6);
- // top armour trim
- ctx.strokeStyle=col;ctx.lineWidth=2;ctx.strokeRect(-15,-17,35,34);
- ctx.restore();
- if(state==='fight'){
-  let w=65;ctx.fillStyle='#071321';ctx.fillRect(o.x-w/2,o.y-42,w,7);
-  ctx.fillStyle=o.enemy?'#ff8798':'#65e8e4';ctx.fillRect(o.x-w/2,o.y-42,w*clamp(o.hp/o.maxHp,0,1),7);
-  // No player or enemy name captions in the combat view.
+ if(isBoss)ctx.scale(1.2,1.2);
+
+ // Leg type changes the actual body silhouette.
+ switch(load.legs.id){
+ case 'wheel':
+  mechTile(-27,-25,35,13,PIXEL_PALETTE.tread);
+  mechTile(-27,12,35,13,PIXEL_PALETTE.tread);
+  for(let j=0;j<4;j++){
+   mechTile(-23+j*9,-22,5,7,legs.color);
+   mechTile(-23+j*9,15,5,7,legs.color);
+  }
+  break;
+ case 'booster':
+ case 'jet':
+  mechTile(-27,-24,39,10,legs.color);
+  mechTile(-27,14,39,10,legs.color);
+  mechTile(-32,-19,13,7,PIXEL_PALETTE.weaponSocket);
+  mechTile(-32,12,13,7,PIXEL_PALETTE.weaponSocket);
+  if(o.dashLeft>0||coreFlicker===1){
+   mechTile(-39,-19,9,6,'#fff1ae');
+   mechTile(-39,13,9,6,'#fff1ae');
+  }
+  break;
+ case 'spider':
+  for(const s of [-1,1]){
+   for(let j=0;j<3;j++){
+    const yy=s*(15+j*7);
+    mechTile(-22+j*12,yy,15,5,legs.color);
+    mechTile(-22+j*12,yy+s*4,5,10,PIXEL_PALETTE.tread);
+   }
+  }
+  break;
+ case 'crawler':
+ case 'tank':
+  mechTile(-31,-27,47,15,PIXEL_PALETTE.tread);
+  mechTile(-31,12,47,15,PIXEL_PALETTE.tread);
+  for(let j=0;j<6;j++){
+   mechTile(-29+j*7,-25,4,11,legs.color);
+   mechTile(-29+j*7,14,4,11,legs.color);
+  }
+  if(bootSize>18){
+   mechTile(-32,-30,12,5,armorColor);
+   mechTile(-32,25,12,5,armorColor);
+  }
+  break;
+ default:
+  mechTile(-27,-22,37,13,legs.color);
+  mechTile(-27,9,37,13,legs.color);
  }
+
+ // Armor cross-section: high-HP bodies are visibly broader.
+ const aw=Math.round(armorWidth);
+ mechTile(-aw/2-3,-21,aw+6,42,PIXEL_PALETTE.darkPlate);
+ mechTile(-aw/2,-18,aw,36,armorColor);
+ mechTile(-aw/2,-18,7,8,PIXEL_PALETTE.trim);
+ mechTile(-aw/2,10,7,8,PIXEL_PALETTE.trim);
+ mechTile(aw/2-7,-18,7,8,PIXEL_PALETTE.trim);
+ mechTile(aw/2-7,10,7,8,PIXEL_PALETTE.trim);
+
+ // Distinguishable armor decorations.
+ switch(load.armor.id){
+ case 'fortress':
+  mechTile(-aw/2-9,-10,10,21,armorColor);
+  mechTile(aw/2,-10,10,21,armorColor);
+  mechTile(-9,-20,20,8,'#dbb477');
+  break;
+ case 'reactive':
+  mechTile(-aw/2+2,-12,6,9,'#c9adff');
+  mechTile(-aw/2+2,5,6,9,'#c9adff');
+  mechTile(aw/2-8,-12,6,9,'#c9adff');
+  mechTile(aw/2-8,5,6,9,'#c9adff');
+  break;
+ case 'prism':
+  mechTile(-14,-17,7,7,'#e9f3ff');
+  mechTile(8,10,7,7,'#e9f3ff');
+  break;
+ case 'feather':
+  mechTile(-aw/2-6,-16,8,8,armorColor);
+  mechTile(-aw/2-6,8,8,8,armorColor);
+  break;
+ case 'composite':
+  for(let j=0;j<3;j++)mechTile(-aw/2+j*12,-16,7,6,'#cad9ce');
+  break;
+ }
+
+ // Engine core shows the selected core's energy color.
+ mechTile(-8,-11,22,22,PIXEL_PALETTE.weaponSocket);
+ mechTile(-5,-8,16,16,core.color);
+ mechTile(-2,-5,10,10,coreFlicker?'#e6f8ff':'#26445c');
+ if(load.core.id==='aegis'){
+  for(const y of [-13,11])mechTile(-7,y,23,3,'#cef6cb');
+ }
+ if(load.core.id==='salvager')mechTile(-15,-3,7,7,'#fed691');
+ if(load.core.id==='blaze')mechTile(-14,-2,6,6,'#ff796d');
+
+ // Every weapon has a different barrel geometry.
+ mechTile(15,-9,22,18,PIXEL_PALETTE.weaponSocket);
+ switch(load.weapon.id){
+ case 'shot':
+  for(let j=-1;j<=1;j++)mechTile(23,j*8-2,32,6,weapon.color);
+  break;
+ case 'rail':
+  mechTile(23,-5,45,10,weapon.color);
+  mechTile(29,-10,26,4,'#daccff');
+  mechTile(29,6,26,4,'#daccff');
+  break;
+ case 'missile':
+  mechTile(22,-14,23,28,weapon.color);
+  for(const dy of [-9,6])mechTile(43,dy,12,6,'#232d41');
+  break;
+ case 'burst':
+  mechTile(23,-10,32,7,weapon.color);
+  mechTile(23,4,32,7,weapon.color);
+  break;
+ case 'micro':
+  mechTile(23,-4,40,8,weapon.color);
+  mechTile(39,-8,7,16,'#8bcfe8');
+  break;
+ case 'slug':
+  mechTile(23,-11,29,22,weapon.color);
+  mechTile(51,-8,9,16,'#f6dbfd');
+  break;
+ default:
+  mechTile(23,-6,34,12,weapon.color);
+  mechTile(54,-4,6,8,'#daffff');
+ }
+ if(o.status?.burn>0){
+  mechTile(-14,-31,8,9,'#ff8d5a');
+  mechTile(-7,-35,6,9,'#ffcf6b');
+ }
+ if(o.status?.stun>0){
+  mechTile(-28,-33,8,7,'#fff5a0');
+  mechTile(17,-31,9,7,'#fff5a0');
+ }
+ ctx.restore();
+
+ // HP bars remain geometric and do not introduce combat labels.
+ if(state==='fight'){
+  const barWidth=64;
+  mechTile(o.x-barWidth/2,o.y-44,barWidth,8,'#061320');
+  mechTile(o.x-barWidth/2+1,o.y-43,
+    Math.max(0,(barWidth-2)*clamp(o.hp/o.maxHp,0,1)),6,
+    o.enemy?'#e78290':'#72eddf');
+  mechTile(o.x-barWidth/2,o.y-44,barWidth,2,'#b6c9d9');
+ }
+}
+
+function renderPixelFrame(){
+ if(!PIXEL_RENDER_MODE.enabled)return;
+ const density=Math.max(1,window.devicePixelRatio||1);
+ // About three CSS pixels per logical pixel, including high DPI screens.
+ const step=Math.max(3,Math.round(PIXEL_RENDER_MODE.cssBlockSize*density));
+ const width=Math.max(60,Math.ceil(canvas.width/step));
+ const height=Math.max(70,Math.ceil(canvas.height/step));
+ if(MECH_PIXELS.width!==width||MECH_PIXELS.height!==height){
+  MECH_PIXELS.width=width;
+  MECH_PIXELS.height=height;
+ }
+ MECH_PIXELS_CTX.setTransform(1,0,0,1,0,0);
+ MECH_PIXELS_CTX.imageSmoothingEnabled=true;
+ MECH_PIXELS_CTX.drawImage(canvas,0,0,width,height);
+ ctx.setTransform(1,0,0,1,0,0);
+ ctx.imageSmoothingEnabled=false;
+ ctx.drawImage(MECH_PIXELS,0,0,canvas.width,canvas.height);
+ ctx.imageSmoothingEnabled=true;
+}
+
+function drawRobot(o){
+ drawMechEquipment(o);
 }
 function drawBullets(){
  for(const b of bullets){
@@ -1237,6 +1834,7 @@ function render(){
  if(screenShake>0)ctx.translate(rand(-screenShake,screenShake),rand(-screenShake,screenShake));
  drawArena();drawHazards();drawCover();drawBossTelegraph();drawEffects();drawRobot(player);drawRobot(enemy);drawBullets();
  ctx.restore();
+ renderPixelFrame();
 }
 function loop(t){let dt=Math.min(.033,(t-(loop.last||t))/1000||0);loop.last=t;update(dt);render();requestAnimationFrame(loop)}
 function mousePos(e){
@@ -1387,6 +1985,8 @@ window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
  depth,gold,encountersWon,currentNode,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
  partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
+ synergyCount:SYNERGY_RULES.length,playerSynergies:player?.stats.synergies.map(rule=>rule.id)||[],
+ pixelMode:PIXEL_RENDER_MODE.enabled,pixelBuffer:{width:MECH_PIXELS.width,height:MECH_PIXELS.height},
  roles:Object.keys(ENEMY_ROLES),
  coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),
  hazards:hazards.map(h=>({kind:h.kind,x:h.x,y:h.y,r:h.r,phase:h.phase})),hazardKinds:HAZARD_KINDS.slice(),
