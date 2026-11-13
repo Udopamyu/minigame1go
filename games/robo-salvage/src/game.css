@@ -145,3 +145,136 @@ box-shadow:inset 0 0 38px #061222b3;scrollbar-color:#567993 #0e2134}
 }
 
  .overlayOpen .mobilePad{display:none!important}
+
+
+/* =====================================================================
+   INDUSTRIAL PIXEL / MECHA UI
+   The battlefield and robot sprites are rasterised by pixel-art.js.
+   Panels keep sharp edges and mechanical readouts to match the visuals.
+   ===================================================================== */
+:root{
+ --bg:#09131e;
+ --panel:#142132;
+ --panel2:#203249;
+ --edge:#455f6e;
+ --ink:#e8f5fa;
+ --muted:#a2bec8;
+ --cyan:#82e0da;
+ --amber:#f3cc80;
+ --red:#eb8f8a;
+}
+body{background:#0b1724}
+.dialog,.panel,.side,.lootCard,.routeChoice,.shopItem{
+ border-radius:3px;
+ box-shadow:5px 5px 0 #03090f55;
+}
+.dialog{
+ background:linear-gradient(140deg,#172a3a,#0d1b2b);
+ border:2px solid #5f8393;
+}
+.dialog .flag,.panel h3,.routeBoss,.resourceLine,.statpill{
+ font-family:ui-monospace,"SFMono-Regular",Consolas,"Noto Sans JP",monospace;
+ letter-spacing:.6px;
+}
+.menuToggle,.drawerClose,.touchbtn,.secondary,.primary,.smallbtn{
+ border-radius:3px;
+}
+.menuToggle{
+ background:#132c40ed;
+ border:2px solid #83cfd2;
+ box-shadow:5px 5px 0 #01081290;
+}
+.lootCard:focus-visible,.routeChoice:focus-visible,.shopItem:focus-visible{
+ outline:3px solid #9cebe7;
+ outline-offset:2px;
+}
+.partRow{border-radius:1px;border-left:3px solid #5d9ca7}
+.partRow .name{font-family:ui-monospace,"Noto Sans JP",monospace}
+.synergySummary{
+ margin-top:12px;
+ border:1px solid #536f76;
+ background:#0d2030;
+ padding:9px;
+ display:flex;
+ flex-direction:column;
+ gap:6px;
+}
+.synergyLabel{
+ font:800 11px ui-monospace,"Noto Sans JP",monospace;
+ color:#a7e9d9;
+ letter-spacing:1px;
+}
+.synergyEntry{
+ border-left:3px solid #a7d98f;
+ padding:5px 7px;
+ background:#1a3342;
+ display:flex;
+ flex-direction:column;
+ gap:3px;
+}
+.synergyEntry strong{
+ color:#ecf7c5;
+ font-size:12px;
+}
+.synergyEntry small,.synergySummary>small{
+ color:#bad5d6;
+ font-size:11px;
+ line-height:1.45;
+}
+.compareStats{
+ display:flex;
+ flex-wrap:wrap;
+ gap:3px 6px;
+ margin-top:9px;
+}
+.compareStat{
+ display:inline-block;
+ font-size:10px;
+ padding:3px 5px;
+ border:1px solid #566879;
+ background:#1a2a3b;
+ white-space:nowrap;
+}
+.compareStat.good{
+ color:#acefc0;
+ border-color:#527d66;
+}
+.compareStat.bad{
+ color:#ffb3a4;
+ border-color:#8d6064;
+}
+.compareStat.neutral{color:#bfd2dd}
+.compareSynergy,.compareLoss{
+ font-size:10px;
+ line-height:1.5;
+ margin-top:6px;
+ word-break:break-word;
+}
+.compareSynergy{
+ color:#adf2c6;
+ border-left:3px solid #78ba8d;
+ padding-left:6px;
+}
+.compareLoss{
+ color:#ffd2a2;
+ border-left:3px solid #af8957;
+ padding-left:6px;
+}
+.lootCard{
+ min-height:122px;
+}
+.lootCard .detail{line-height:1.5}
+.shopItem{
+ min-height:95px;
+}
+.shopItem .compareStats{margin-top:8px}
+.arenaFrame canvas{
+ image-rendering:pixelated;
+ image-rendering:crisp-edges;
+}
+@media(max-width:560px){
+ .lootCard{min-height:144px}
+ .compareStat{font-size:9px;padding:2px 4px}
+ .synergyEntry strong{font-size:11px}
+ .synergyEntry small{font-size:10px}
+}
