@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080d1c">
+<title>ロボ・サルベージ | MiniGame1GO #003</title>
+<!-- @inline-css -->
+</head>
+<body>
+<div class="shell overlayOpen">
+<button id="menuBtn" class="menuToggle" type="button" aria-label="装備メニューを開く" aria-controls="sidePanel" aria-expanded="false">☰</button>
+<div id="menuShade" class="menuShade" aria-hidden="true"></div>
+<header class="top">
+ <div class="identity"><div class="mark">#03</div><div>
+ <div class="eyebrow">MINIGAME 1GO / PROTOTYPE</div>
+ <div class="brandtitle">ロボ・サルベージ</div>
+ <div class="subbrand">倒して、奪って、強くなる。1対1のローグライト戦闘。</div></div></div>
+ <div class="topright"><span class="tag">ROUND <strong id="topWave">01</strong></span><span class="tag">BEST <strong id="best">00</strong></span></div>
+</header>
+<div class="layout">
+ <section class="arenaColumn">
+  <div class="arenaFrame" id="arenaFrame">
+   <canvas id="game" width="1000" height="590" aria-label="ロボットの対戦アリーナ"></canvas>
+   <div class="arenaOverlay show" id="overlay" role="dialog" aria-modal="true">
+    <div class="dialog" id="dialog">
+     <p class="flag">ARENA / SALVAGE PROTOCOL</p>
+     <h2>倒した敵から<br><span class="highlight">パーツを1つ奪え。</span></h2>
+     <p>全10マスの分岐ルートを進み、最終ボスへ。敵の装備は毎回ランダム。倒した敵から1パーツを奪うか、売却してゴールドに換えるか選び、ショップや休憩を活用して進もう。</p>
+     <div class="statline"><div class="statpill">10 NODES + BOSS</div><div class="statpill">3 ROUTES / TURN</div><div class="statpill">SALVAGE PARTS</div></div>
+     <button class="primary" id="startBtn">出撃する ▶</button>
+     <div class="mini">PC：WASD移動 / マウス長押しで射撃 / Spaceで自動照準射撃 / Shiftでダッシュ<br>スマホ：左スティック移動 / FIREで自動照準射撃 / DASHで回避</div>
+    </div>
+   </div>
+  </div>
+  <div class="mobilePad">
+   <div class="joy" id="joystick" aria-label="移動スティック"><div class="stick" id="stick"></div></div>
+   <div class="touchGroup"><button class="touchbtn" id="dashTouch">DASH</button><button class="touchbtn" id="fireTouch">FIRE</button></div>
+  </div>
+  <div class="controls"><div class="controlCopy"><strong>PC</strong> WASD / 矢印：移動　 ·　 マウス長押し / Space：射撃　 ·　 Shift：ダッシュ<br><strong>スマホ</strong> 左スティックで移動。FIREは敵へ自動照準。装備は毎勝利1つだけ交換。</div><div class="buttons"><button class="touchbtn" id="dashDesk">DASH</button><button class="touchbtn" id="fireDesk">FIRE</button></div></div>
+  <div class="progress"><span>試作版：1対1 → 勝利 → <b>1パーツ強奪</b> → 次の敵</span><span>完全オリジナルのキャラクター・パーツ構成</span></div>
+ </section>
+ <aside class="side" id="sidePanel" aria-label="装備メニュー" aria-hidden="true">
+  <div class="drawerTop"><b>装備・ステータス</b><div class="drawerTools"><button id="soundBtn" class="smallbtn" aria-label="サウンド切替">音 ON</button><button id="menuClose" class="drawerClose" type="button" aria-label="メニューを閉じる">×</button></div></div>
+  <section class="panel">
+   <div class="panelTitle"><h3>YOUR ROBOT / 自機</h3><em id="playerModel">SALVAGER-01</em></div>
+   <div class="health"><div id="playerHpBar"></div></div><div class="healthNumbers"><span id="playerHpText">120 / 120 HP</span><span id="playerPower">POWER 1.0</span></div>
+   <div class="partList" id="playerParts"></div>
+  </section>
+  <section class="panel">
+   <div class="panelTitle"><h3>HOSTILE / 敵機体</h3><em id="enemyModel">SCANNING</em></div>
+   <div class="health enemy"><div id="enemyHpBar"></div></div><div class="healthNumbers"><span id="enemyHpText">-- / -- HP</span><span id="enemyPower">THREAT 1</span></div>
+   <div class="partList" id="enemyParts"></div>
+  </section>
+  <div class="panel"><h3>探索状況</h3><div class="healthNumbers"><span>進行 <b id="depthText">0 / 10</b></span><span>所持金 <b id="goldText">0 G</b></span></div><div class="statusLabel">ボスは10マス通過後に登場</div></div>
+  <div class="sideFoot">敵の装備は毎戦ランダム。勝利画面に表示される4部位の中から、<strong>持ち帰れるのは必ず1個だけ</strong>です。パーツは入れ替え式なので、組み合わせを考えて進みましょう。</div>
+ </aside>
+</div>
+</div>
+<!-- @inline-js -->
+</body></html>
