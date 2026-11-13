@@ -74,6 +74,12 @@ def test(browser,url,label,size,mobile=False):
     check(label+" player HP doubled",start["player"]["maxHp"]>=240,
           start["player"]["maxHp"])
     check(label+" 15 available arena layouts",start["arenaLayoutCount"]==15)
+    check(label+" expanded 28 distinct collectible parts",
+          all(start["partCounts"].get(slot)==7 for slot in ("weapon","armor","legs","core")),
+          start["partCounts"])
+    check(label+" six tactical enemy roles available",
+          set(start["roles"])=={"skirmisher","charger","sniper","flanker","guardian","boss"},
+          start["roles"])
     check(label+" each layout differs",len(set(hook("sampleLayouts")))==15)
     shapes=hook("sampleLayoutShapes")
     check(label+" new arenas use significantly different topology",
@@ -114,6 +120,9 @@ def test(browser,url,label,size,mobile=False):
           fight["enemy"]["maxHp"])
     check(label+" enemy random four-part loadout",
           set(fight["enemy"]["load"])=={"weapon","armor","legs","core"})
+    check(label+" enemy has distinct tactical behaviour",
+          fight["enemy"]["role"] in ("skirmisher","charger","sniper","flanker"),
+          fight["enemy"]["role"])
     check(label+" combat screen lacks text HUD",page.locator(".controls").is_hidden())
     before=fight["shotsFired"]
     if mobile:
@@ -249,6 +258,8 @@ def test(browser,url,label,size,mobile=False):
     check(label+" boss is the only final choice",page.locator('[data-route="boss"]').count()==1)
     page.locator('[data-route="boss"]').click()
     check(label+" boss encounter started",get()["currentNode"]=="boss" and get()["state"]=="fight")
+    check(label+" boss has unique tactical profile",
+          get()["enemy"]["role"]=="boss")
     hook("defeatEnemy")
     check(label+" boss victory finishes run",get()["state"]=="victory" and get()["bossCleared"])
     check(label+" final screen can start again",page.locator("#newRun").is_visible())
