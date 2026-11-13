@@ -1095,9 +1095,51 @@ $('startBtn').addEventListener('click',beginRun);
 // Read-only telemetry for browser QA; it cannot mutate combat state.
 // Test-only integration hook, available to browser automation but not ordinary players.
 if(navigator.webdriver)window.__roboQATest={
- defeatEnemy:()=>enemy&&state==='fight'&&damage(enemy,enemy.hp/(1-enemy.stats.guard)+200),
+ defeatEnemy:()=>{if(!enemy||state!=='fight')return;enemy.shieldCooldown=9999;enemy.status.burn=0;damage(enemy,enemy.hp/(1-enemy.stats.guard)+500)},
  setHealth:value=>{if(player){player.hp=clamp(value,1,player.maxHp);updatePanels(false)}},
  setGold:value=>{gold=Math.max(0,Math.floor(value));updatePanels(true)},
+ testWeaponTrait:kind=>{
+  if(state!=='fight'||!enemy||!WEAPON_TRAITS[kind])return null;
+  enemy.status={burn:0,stun:0,slow:0,sunder:0};
+  const a={kind,source:player,color:'#ffffff'};
+  applyWeaponImpact(a,enemy);
+  return {...enemy.status};
+ },
+ testHazard:kind=>{
+  if(state!=='fight'||!HAZARD_KIN.includes(kind))return null;
+  const before=player.hp,old=hazards,st={...player.status};
+  player.hp=player.maxHp*.5;player.status={burn:0,stun:0,slow:0,sunder:0};
+  hazards=[{kind,x:player.x,y:player.y,r:75,phase:.6,cooldown:0}];
+  const start=player.hp;updateHazards(.20);
+  const answer={hpDelta:player.hp-start,slow:player.status.slow};
+  hazards=old;player.hp=before;player.status=st;updatePanels(false);
+  return answer;
+ },
+ testEnemyDodge:()=>{
+  if(state!=='fight')return null;
+  const previousRole=enemy.role,prev=enemy.aiDodgeCooldown;
+  enemy.role='flanker';enemy.aiDodgeCooldown=0;
+  const ox=enemy.x,oy=enemy.y;
+  const fake={source:player,x:enemy.x-100,y:enemy.y,vx:600,vy:0,spd:600};
+  bullets.push(fake);
+  const triggered=enemyDodgeStep(.16);bullets.pop();
+  const distance=Math.hypot(enemy.x-ox,enemy.y-oy);
+  enemy.role=previousRole;enemy.aiDodgeCooldown=prev;
+  return {triggered,distance};
+ },
+ testBossPattern:kind=>{
+  if(state!=='fight'||currentNode!=='boss'||!['fan','ring','beam','salvo'].includes(kind))return null;
+  const count=bossAttackCount,bulletsBefore=bullets.length;
+  bossAttack={kind,windup:.001,angle:Math.atan2(player.y-enemy.y,player.x-enemy.x)};
+  updateBossPatterns(.01);
+  return {fired:bossAttackCount-count,bulletsAdded:bullets.length-bulletsBefore,phase:enemy.hp/enemy.maxHp<.5?2:1};
+ },
+ sampleHazardKinds:()=>{
+  const saved=depth,types=new Set();
+  for(let i=0;i<15;i++){depth=i;for(const h of makeHazards())types.add(h.kind)}
+  depth=saved;return [...types];
+ },
+ setBossHpRatio:ratio=>{if(enemy&&currentNode==='boss'){enemy.hp=enemy.maxHp*clamp(ratio,.01,1);updatePanels(false)}},
  selectNode:type=>{if(state==='route'){routeCandidates=[{lane:currentLane,type}];routeOptions=[type];enterNode(type,currentLane)}},
  jumpToBoss:()=>{if(state==='route'){depth=10;wave=11;showRoute()}},
  sampleLayouts:()=>{const saved=depth,seen=[];for(let i=0;i<15;i++){depth=i;seen.push(makeCover().map(b=>Math.round(b.x/10)+','+Math.round(b.y/10)).join(';'))}depth=saved;return seen},
