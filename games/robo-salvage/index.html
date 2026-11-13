@@ -735,7 +735,9 @@ function makeCover(){
  const add=(x,y,w,h,material='wall')=>{
   if(x-w/2<248||x+w/2>760||y-h/2<40||y+h/2>550)
    return;
-  out.push({x,y,w,h,material,idx:out.length});
+  const durability={rubble:76,pillar:126,wall:190,tower:260,core:340};
+  const hp=durability[material]||durability.wall;
+  out.push({x,y,w,h,material,idx:out.length,hp,maxHp:hp});
  };
  const row=(xs,y,w,h,kind)=>xs.forEach(x=>add(x,y,w,h,kind));
  const col=(x,ys,w,h,kind)=>ys.forEach(y=>add(x,y,w,h,kind));
@@ -1242,6 +1244,21 @@ function hitRect(x,y,r,b){
  const cx=clamp(x,b.x-b.w/2,b.x+b.w/2),cy=clamp(y,b.y-b.h/2,b.y+b.h/2);
  return (x-cx)*(x-cx)+(y-cy)*(y-cy)<r*r;
 }
+// Finite cover durability creates tactical passages during longer firefights.
+function damageCover(b,damage,x=b.x,y=b.y){
+ if(!b||!blocks.includes(b))return false;
+ b.hp=Math.max(0,b.hp-Math.max(0,damage));
+ if(b.hp>0){
+  if(Math.random()<.25)particle(x,y,'#9bb9c0',2,.25);
+  return false;
+ }
+ const i=blocks.indexOf(b);
+ if(i>=0)blocks.splice(i,1);
+ particle(b.x,b.y,b.material==='rubble'?'#e6a7a0':'#a0c8d4',18,.7);
+ ring(b.x,b.y,'#e9c889',Math.max(15,Math.min(b.w,b.h)*.55));
+ screenShake=Math.min(8,screenShake+2);
+ return true;
+}
 function moveRobot(o,dx,dy){
  let nx=clamp(o.x+dx,38,W-38),ny=clamp(o.y+dy,39,H-39);
  if(!arenaAllowed(nx,o.y,o.r))nx=o.x;
@@ -1484,10 +1501,15 @@ function update(dt){
   b.px=b.x;b.py=b.y;b.x+=b.vx*dt;b.y+=b.vy*dt;
   b.trail.push({x:b.x,y:b.y});if(b.trail.length>7)b.trail.shift();
   if(b.x<-20||b.x>W+20||b.y<-20||b.y>H+20){bullets.splice(i,1);continue}
-  if(!b.pierce&&blocks.some(o=>hitRect(b.x,b.y,b.r,o))){
-   if(b.kind==='missile')blastMissileOnWall(b);
-   else particle(b.x,b.y,'#88a5b5',8,.55);
-   bullets.splice(i,1);continue;
+  if(!b.pierce){
+   const cover=blocks.find(o=>hitRect(b.x,b.y,b.r,o));
+   if(cover){
+    const coverDamage=b.damage*(b.kind==='slug'?1.3:b.kind==='shot'?.72:1);
+    damageCover(cover,coverDamage,b.x,b.y);
+    if(b.kind==='missile')blastMissileOnWall(b);
+    else particle(b.x,b.y,'#88a5b5',5,.45);
+    bullets.splice(i,1);continue;
+   }
   }
   const tgt=b.source.enemy?player:enemy;
   if(tgt&&!tgt.dead&&Math.hypot(b.x-tgt.x,b.y-tgt.y)<b.r+tgt.r){
@@ -1564,6 +1586,19 @@ function drawCover(){
   ctx.moveTo(b.x+b.w/2-11,b.y-b.h/2+11);ctx.lineTo(b.x-b.w/2+11,b.y+b.h/2-11);ctx.stroke();
   ctx.fillStyle=m==='tower'?'#ffd0a7':m==='pillar'?'#b5f0c7':'#7febdd';
   ctx.fillRect(b.x-b.w/2+3,b.y-b.h/2+3,8,8);
+  const wear=b.hp/b.maxHp;
+  if(wear<.80){
+   ctx.strokeStyle='#212c3f';ctx.lineWidth=3;
+   ctx.beginPath();
+   ctx.moveTo(b.x-5,b.y-b.h*.35);
+   ctx.lineTo(b.x+4,b.y+3);
+   ctx.lineTo(b.x-3,b.y+b.h*.36);
+   if(wear<.40){ctx.moveTo(b.x+4,b.y+3);ctx.lineTo(b.x+b.w*.27,b.y-b.h*.22)}
+   ctx.stroke();
+   ctx.fillStyle='#0c1726';ctx.fillRect(b.x-b.w/2,b.y-b.h/2-9,b.w,4);
+   ctx.fillStyle=wear>.35?'#f0c37c':'#ef7e87';
+   ctx.fillRect(b.x-b.w/2,b.y-b.h/2-9,b.w*wear,4);
+  }
   if(m==='core'&&b.w>60&&b.h>60){
     ctx.strokeStyle='#ffce8b';ctx.lineWidth=3;
     ctx.strokeRect(b.x-b.w/2+19,b.y-b.h/2+19,b.w-38,b.h-38);
@@ -1962,6 +1997,13 @@ if(navigator.webdriver)window.__roboQATest={
   damage(player,player.hp/(Math.max(.01,1-player.stats.guard)*.86)+500);
   return state==='dead';
  },
+ testBreakCover:()=>{
+  if(state!=='fight'||!blocks.length)return null;
+  const cover=blocks[0],before=blocks.length;
+  const removed=damageCover(cover,cover.maxHp+10);
+  const oldX=cover.x,oldY=cover.y;
+  return {removed,before,after:blocks.length,unblocked:!blocks.some(b=>hitRect(oldX,oldY,3,b))};
+ },
  testWeaponTrait:kind=>{
   if(state!=='fight'||!enemy||!WEAPON_TRAITS[kind])return null;
   enemy.status={burn:0,stun:0,slow:0,sunder:0};
@@ -2039,7 +2081,7 @@ window.__roboQA=()=>({
  enemySynergies:enemy?.stats.synergies.map(rule=>rule.id)||[],
  pixelMode:PIXEL_RENDER_MODE.enabled,pixelBuffer:{width:MECH_PIXELS.width,height:MECH_PIXELS.height},
  roles:Object.keys(ENEMY_ROLES),
- coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),
+ coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),coverDurability:blocks.map(b=>({material:b.material,hp:b.hp,maxHp:b.maxHp})),
  hazards:hazards.map(h=>({kind:h.kind,x:h.x,y:h.y,r:h.r,phase:h.phase})),hazardKinds:HAZARD_KINDS.slice(),
  bossPattern:bossAttack?.kind||null,bossAttackCount,bossPhase:enemy&&currentNode==='boss'?(enemy.hp/enemy.maxHp<.5?2:1):0,
  player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
