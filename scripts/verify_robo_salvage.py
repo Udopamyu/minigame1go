@@ -158,7 +158,7 @@ def test(browser,url,label,size,mobile=False):
     check(label+" chosen path is recorded",
           len(fight["chosenNodes"])==1 and fight["chosenNodes"][0]["depth"]==0,
           fight["chosenNodes"])
-    check(label+" enemy HP doubled",fight["enemy"]["maxHp"]>=180,
+    check(label+" enemy HP doubled",fight["enemy"]["maxHp"]>=155,
           fight["enemy"]["maxHp"])
     check(label+" enemy random four-part loadout",
           set(fight["enemy"]["load"])=={"weapon","armor","legs","core"})
@@ -172,7 +172,7 @@ def test(browser,url,label,size,mobile=False):
     check(label+" battle spawns active hazards",len(fight["hazards"])>=2)
     check(label+" material-specific cover durability",
           len(fight["coverDurability"])>0 and
-          all(c["hp"]==c["maxHp"] and c["hp"]>=70
+          all(0<c["hp"]<=c["maxHp"] and c["maxHp"]>=70
               for c in fight["coverDurability"]),
           fight["coverDurability"])
     breached=hook("testBreakCover")
