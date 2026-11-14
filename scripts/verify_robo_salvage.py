@@ -102,6 +102,20 @@ def test(browser,url,label,size,mobile=False):
     check(label+" player HP doubled",start["player"]["maxHp"]>=240,
           start["player"]["maxHp"])
     check(label+" 15 available arena layouts",start["arenaLayoutCount"]==15)
+    expected_magazines={"pulse":(12,1.6),"shot":(5,2.35),"rail":(3,3.2),
+        "missile":(4,2.75),"micro":(30,2.15),"burst":(9,2.35),"slug":(3,2.9)}
+    check(label+" distinct capacity and reload duration for all seven weapons",
+          all(start["magazineSpecs"][name]["mag"]==capacity and
+                  abs(start["magazineSpecs"][name]["reload"]-seconds)<.01
+                  for name,(capacity,seconds) in expected_magazines.items()),
+          start["magazineSpecs"])
+    check(label+" reload speed varies by weapon",
+          len({x["reload"] for x in start["magazineSpecs"].values()})>=5)
+    check(label+" weapon ranges are not universally melee",
+          min(x["idealRange"] for x in start["magazineSpecs"].values())>=175 and
+          max(x["idealRange"] for x in start["magazineSpecs"].values())>=450)
+    check(label+" manual reload button is present",
+          page.locator("#reloadTouch").count()==1 and page.locator("#reloadDesk").count()==1)
     check(label+" twenty synergies available",
           start["synergyCount"]==20,start["synergyCount"])
     check(label+" sixteen tactical enemy archetypes available",
@@ -253,6 +267,41 @@ def test(browser,url,label,size,mobile=False):
         check("desktop WASD moves robot",get()["player"]["x"]>fight["player"]["x"]+5)
         page.keyboard.down("Space");page.wait_for_timeout(400);page.keyboard.up("Space")
     check(label+" firing works",get()["shotsFired"]>before)
+    firing=get()
+    check(label+" firing consumes one round per trigger pull",
+          0<firing["playerAmmo"]["ammo"]<firing["playerAmmo"]["mag"],firing["playerAmmo"])
+    if mobile:
+        check(label+" touch reload button visible",page.locator("#reloadTouch").is_visible())
+        page.locator("#reloadTouch").tap()
+    else:
+        check(label+" desktop reload button visible",page.locator("#reloadDesk").is_visible())
+        page.keyboard.press("KeyR")
+    page.wait_for_timeout(110)
+    partial=get()["playerAmmo"]
+    check(label+" partial magazine can be manually reloaded",
+          partial["reloadLeft"]>0 and partial["reloadCount"]>=1,partial)
+    check(label+" reloading blocks repeat reload",
+          page.locator("#reloadTouch").is_disabled() and
+          page.locator("#reloadDesk").is_disabled())
+    page.wait_for_timeout(1750)
+    check(label+" manual reload refills magazine",
+          get()["playerAmmo"]["ammo"]==get()["playerAmmo"]["mag"]
+          and get()["playerAmmo"]["reloadLeft"]==0)
+    check(label+" full magazine cannot reload",
+          page.locator("#reloadTouch").is_disabled())
+    hook("setAmmo",1)
+    page.keyboard.down("Space")
+    page.wait_for_timeout(470)
+    page.keyboard.up("Space")
+    automatic=get()["playerAmmo"]
+    check(label+" empty magazine automatically starts reload",
+          automatic["ammo"]==0 and automatic["reloadLeft"]>0 and
+          automatic["reloadCount"]>=2,automatic)
+    page.wait_for_timeout(1750)
+    check(label+" automatic reload refills magazine",
+          get()["playerAmmo"]["ammo"]==get()["playerAmmo"]["mag"])
+    check(label+" enemy also maintains an ammunition magazine",
+          get()["enemyAmmo"]["mag"] in [5,12,3,4,30,9])
     page.screenshot(path=str(OUT/(label+"-fight.png")),full_page=True)
 
     # Heal 30% of MAX HP on winning, then obtain exactly one part.

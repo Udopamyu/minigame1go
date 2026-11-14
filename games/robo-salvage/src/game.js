@@ -6,13 +6,13 @@ const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v))
 const SLOT={weapon:'WEAPON / 武器',armor:'ARMOR / 装甲',legs:'LEGS / 脚部',core:'CORE / コア'};
 const DEF={
  weapon:[
-  {id:'pulse',name:'パルスガン',detail:'連射に優れる標準銃',damage:14,cool:.32,velocity:810,count:1,spread:0,color:'#63eff3'},
-  {id:'shot',name:'スプレッド砲',detail:'近距離で強烈な散弾',damage:8,cool:.78,velocity:740,count:5,spread:.19,color:'#ffce78'},
-  {id:'rail',name:'レールランサー',detail:'壁を貫くが低火力・遅い連射',damage:18,cool:1.35,velocity:1160,count:1,spread:0,color:'#c1acff',pierce:true},
-  {id:'missile',name:'ホーミング弾',detail:'追尾する低速ミサイル',damage:25,cool:1.02,velocity:425,count:1,spread:0,color:'#ff867d',homing:true},
-  {id:'micro',name:'ニードルガン',detail:'低威力・高速連射',damage:7,cool:.19,velocity:960,count:1,spread:.015,color:'#82f5bb'},
-  {id:'burst',name:'バーストライフル',detail:'3発同時射撃の中距離型',damage:8,cool:.62,velocity:920,count:3,spread:.072,color:'#8ab5fa'},
-  {id:'slug',name:'グラビティスラグ',detail:'遅い連射の一撃重視型',damage:49,cool:1.5,velocity:950,count:1,spread:0,color:'#e5bcff'}
+  {id:'pulse',name:'パルスガン',detail:'連射に優れる標準銃',damage:14,cool:.32,velocity:810,count:1,spread:0,mag:12,reload:1.6,idealRange:345,color:'#63eff3'},
+  {id:'shot',name:'スプレッド砲',detail:'近距離で強烈な散弾',damage:8,cool:.78,velocity:740,count:5,spread:.19,mag:5,reload:2.35,idealRange:190,color:'#ffce78'},
+  {id:'rail',name:'レールランサー',detail:'壁を貫くが低火力・遅い連射',damage:18,cool:1.35,velocity:1160,count:1,spread:0,mag:3,reload:3.2,idealRange:485,color:'#c1acff',pierce:true},
+  {id:'missile',name:'ホーミング弾',detail:'追尾する低速ミサイル',damage:25,cool:1.02,velocity:425,count:1,spread:0,mag:4,reload:2.75,idealRange:400,color:'#ff867d',homing:true},
+  {id:'micro',name:'ニードルガン',detail:'低威力・高速連射',damage:7,cool:.19,velocity:960,count:1,spread:.015,mag:30,reload:2.15,idealRange:295,color:'#82f5bb'},
+  {id:'burst',name:'バーストライフル',detail:'3発同時射撃の中距離型',damage:8,cool:.62,velocity:920,count:3,spread:.072,mag:9,reload:2.35,idealRange:345,color:'#8ab5fa'},
+  {id:'slug',name:'グラビティスラグ',detail:'遅い連射の一撃重視型',damage:49,cool:1.5,velocity:950,count:1,spread:0,mag:3,reload:2.9,idealRange:375,color:'#e5bcff'}
  ],
  armor:[
   {id:'mesh',name:'メッシュ装甲',detail:'軽量で基本的な防御',hp:125,guard:.025,color:'#65e1e9'},
@@ -267,7 +267,7 @@ function showPhaseCard(label,next,phase){
 function createRobot(load,x,y,isEnemy=false){
  const s=specs(load,!isEnemy);
  return {x,y,vx:0,vy:0,angle:isEnemy?Math.PI:0,r:22,load,stats:s,hp:s.hp,maxHp:s.hp,
-  cd:.25,dashLeft:0,dashCooldown:0,hitFlash:0,dead:false,enemy:isEnemy,aiPhase:rand(0,TAU),aiStrafe:Math.random()<.5?-1:1,
+  cd:.25,ammo:s.weapon.mag,reloadLeft:0,reloadTotal:s.weapon.reload,reloadCount:0,shots:0,dashLeft:0,dashCooldown:0,hitFlash:0,dead:false,enemy:isEnemy,aiPhase:rand(0,TAU),aiStrafe:Math.random()<.5?-1:1,
   status:{burn:0,stun:0,slow:0,sunder:0},burnTimer:0,shieldCooldown:0,aiDodgeCooldown:0,aiRetreat:false,aiStuckFor:0,aiReplan:0,aiPath:[],aiEscapeFor:0,aiMode:'seek',
   role:isEnemy?'skirmisher':'player',name:isEnemy?pick(enemyNames):'SALVAGER-01'};
 }
@@ -546,7 +546,11 @@ function enterNode(type,lane){
 function restoreVitalsFromLoad(){
  if(!player)return;
  const previous=player.maxHp,missing=Math.max(0,previous-player.hp);
+ const previousGun=player.stats.weapon.id;
  player.stats=specs(player.load,true);player.maxHp=player.stats.hp;
+ if(previousGun!==player.stats.weapon.id){
+  player.ammo=player.stats.weapon.mag;player.reloadLeft=0;player.reloadTotal=player.stats.weapon.reload;
+ }
  player.hp=clamp(player.maxHp-missing,0,player.maxHp);
  updatePanels(true);
 }
@@ -585,6 +589,7 @@ function startWave(){
  // Healing happens only after combat, not on entering a new fight.
  player.stats=specs(player.load,true);player.maxHp=player.stats.hp;player.hp=Math.min(player.hp,player.maxHp);
  player.dashCooldown=0;player.dashLeft=0;player.status={burn:0,stun:0,slow:0,sunder:0};player.shieldCooldown=0;
+ player.ammo=player.stats.weapon.mag;player.reloadLeft=0;player.reloadTotal=player.stats.weapon.reload;
  updatePanels(true);setMusicMode('silent');
  showPhaseCard('戦闘準備',()=>{state='fight';closeOverlay();setMusicMode(currentNode==='boss'?'boss':'combat');beep(520,.12,.04)},'ready');
 }
@@ -718,6 +723,15 @@ function updatePanels(forceParts){
   $('playerHpBar').style.width=(100*clamp(player.hp/player.maxHp,0,1))+'%';
   $('playerHpText').textContent=Math.ceil(Math.max(0,player.hp))+' / '+player.maxHp+' HP';
   $('playerPower').textContent='DASH '+Math.max(0,player.dashCooldown).toFixed(1)+'s';
+ const reloading=player.reloadLeft>0,capacity=player.stats.weapon.mag;
+ $('ammoHud').classList.toggle('active',state==='fight');
+ $('ammoCount').textContent=player.ammo+' / '+capacity;
+ $('ammoLabel').textContent=reloading?'RELOADING '+player.reloadLeft.toFixed(1)+'s':player.stats.weapon.name;
+ $('ammoBar').style.width=(100*(reloading?1-player.reloadLeft/player.reloadTotal:player.ammo/capacity))+'%';
+ $('ammoBar').classList.toggle('reloading',reloading);
+ $('reloadDesk').disabled=state!=='fight'||reloading||player.ammo>=capacity;
+ $('reloadTouch').disabled=state!=='fight'||reloading||player.ammo>=capacity;
+ $('reloadTouch').textContent=reloading?player.reloadLeft.toFixed(1)+'s':'RELOAD';
  }
  if(enemy){
   $('enemyHpBar').style.width=(100*clamp(enemy.hp/enemy.maxHp,0,1))+'%';
@@ -971,8 +985,29 @@ function lineOfSight(a,b){
  }
  return true;
 }
+
+/* A magazine contains trigger pulls, not pellets: a spread-shot costs one round.
+   Manual reload works with a partially full magazine; empty auto-reloads.
+   Both player and hostile robots use the same ammo rules. */
+function startReload(o){
+ if(!o||o.dead||state!=='fight'||o.reloadLeft>0||o.ammo>=o.stats.weapon.mag)return false;
+ o.reloadTotal=o.stats.weapon.reload;
+ o.reloadLeft=o.reloadTotal;
+ o.reloadCount++;
+ if(o===player)beep(290,.08,.016,'square');
+ return true;
+}
+function updateReload(o,dt){
+ if(!o||o.dead||o.reloadLeft<=0)return;
+ o.reloadLeft=Math.max(0,o.reloadLeft-dt);
+ if(o.reloadLeft===0){
+  o.ammo=o.stats.weapon.mag;
+  if(o===player)beep(780,.09,.018,'triangle');
+ }
+}
 function shoot(o,target,angleOverride){
- if(o.cd>0||o.dead||state!=='fight')return;
+ if(o.cd>0||o.dead||state!=='fight'||o.reloadLeft>0)return;
+ if(o.ammo<=0){startReload(o);return;}
  let s=o.stats,w=s.weapon,dx=target.x-o.x,dy=target.y-o.y;
  let baseAngle=typeof angleOverride==='number'?angleOverride:Math.atan2(dy,dx);
  o.angle=baseAngle;
@@ -986,7 +1021,8 @@ function shoot(o,target,angleOverride){
    damage:bulletDamage,source:o,kind:w.id,color:w.color,pierce:w.pierce,
    trail:[],homing:w.homing});
  }
- o.cd=s.fireCooldown*(o.enemy?1.12:1);shotsFired++;
+ o.ammo--;o.shots++;o.cd=s.fireCooldown*(o.enemy?1.12:1);shotsFired++;
+ if(o.ammo<=0)startReload(o);
  ring(o.x+Math.cos(baseAngle)*26,o.y+Math.sin(baseAngle)*26,w.color,11);
  beep(w.id==='rail'?670:w.id==='shot'?240:w.id==='missile'?330:450,.045,.012,w.id==='missile'?'sawtooth':'triangle');
 }
@@ -1114,37 +1150,49 @@ function findEnemyPath(sx,sy,tx,ty){
  for(let k=end;k!==start&&k!==-1;k=parents[k])path.push(cells[k]);
  return path.reverse();
 }
+
 function moveEnemyTactically(dt,dx,dy,d,tactics){
- const preferred=tactics.distance+(enemy.stats.weapon.id==='shot'?-45:enemy.stats.weapon.id==='rail'?80:0);
- let approach=clamp((d-preferred)/125,-.85,1);
- if(enemy.hp/enemy.maxHp<.33&&['sniper','guardian','flanker'].includes(enemy.role))approach=Math.min(approach,-.35);
- const strafe=Math.sin(clock*.9+enemy.aiPhase)*enemy.aiStrafe*.65*tactics.strafe;
+ // Combat range depends on weapon identity rather than forcing every enemy to close.
+ const gun=enemy.stats.weapon;
+ const baseRange=gun.idealRange+(tactics.distance-265)*.35;
+ const reloading=enemy.reloadLeft>0;
+ const needsCover=(!lineOfSight(enemy,player)&&gun.id!=='rail'&&gun.id!=='missile');
+ const preferred=clamp(baseRange+(reloading?145:0)-(player.reloadLeft>0?35:0),175,535);
+ let approach=clamp((d-preferred)/95,-1.08,.9);
+ // Reloading or badly injured enemies prefer disengagement and lateral cover.
+ if(reloading&&d<preferred+65)approach=-1.08;
+ if(enemy.hp/enemy.maxHp<.36&&['sniper','guardian','flanker'].includes(enemy.role))
+  approach=Math.min(approach,-.65);
+ const strafe=Math.sin(clock*.95+enemy.aiPhase)*enemy.aiStrafe*(reloading?.96:.58)*tactics.strafe;
  let vx=dx/d*approach-dy/d*strafe,vy=dy/d*approach+dx/d*strafe;
  enemy.aiReplan=Math.max(0,enemy.aiReplan-dt);
  enemy.aiEscapeFor=Math.max(0,enemy.aiEscapeFor-dt);
- const needsPath=(!lineOfSight(enemy,player)&&d>Math.max(90,preferred*.65))||enemy.aiStuckFor>.36;
+ const needsPath=(needsCover&&d>145)||enemy.aiStuckFor>.36;
  if(needsPath&&enemy.aiReplan<=0){
-  enemy.aiPath=findEnemyPath(enemy.x,enemy.y,player.x,player.y);enemy.aiReplan=.65;
+  enemy.aiPath=findEnemyPath(enemy.x,enemy.y,player.x,player.y);
+  enemy.aiReplan=.72;
  }
- enemy.aiMode='seek';
- if(needsPath&&enemy.aiPath.length){
-  while(enemy.aiPath.length&&Math.hypot(enemy.aiPath[0].x-enemy.x,enemy.aiPath[0].y-enemy.y)<24)enemy.aiPath.shift();
+ enemy.aiMode=reloading?'reload-retreat':approach<-.30?'hold-range':'seek';
+ if(needsPath&&enemy.aiPath.length&&!reloading){
+  while(enemy.aiPath.length&&Math.hypot(enemy.aiPath[0].x-enemy.x,enemy.aiPath[0].y-enemy.y)<25)
+   enemy.aiPath.shift();
   if(enemy.aiPath.length){
    const node=enemy.aiPath[0],dist=Math.max(1,Math.hypot(node.x-enemy.x,node.y-enemy.y));
-   vx=(node.x-enemy.x)/dist;vy=(node.y-enemy.y)/dist;enemy.aiMode='path';
+   vx=(node.x-enemy.x)/dist;vy=(node.y-enemy.y)/dist;
+   enemy.aiMode='path';
   }
- }else enemy.aiPath=[];
+ }else if(!needsPath)enemy.aiPath=[];
  if(enemy.aiStuckFor>.72){
-  enemy.aiStuckFor=0;enemy.aiEscapeFor=.6;enemy.aiReplan=0;
+  enemy.aiStuckFor=0;enemy.aiEscapeFor=.68;enemy.aiReplan=0;
   enemy.aiPath=[];enemy.aiStrafe*=-1;
  }
  if(enemy.aiEscapeFor>0){
   const a=Math.atan2(dy,dx)+enemy.aiStrafe*Math.PI/2;
-  vx=.85*Math.cos(a)-.35*dx/d;vy=.85*Math.sin(a)-.35*dy/d;
+  vx=.88*Math.cos(a)-.45*dx/d;vy=.88*Math.sin(a)-.45*dy/d;
   enemy.aiMode='escape';
  }
  const mag=Math.max(1,Math.hypot(vx,vy));
- const step=enemy.status.stun>0?0:enemy.stats.speed*.59*tactics.speed*(enemy.status.slow>0?.66:1)*dt;
+ const step=enemy.status.stun>0?0:enemy.stats.speed*(reloading?.76:.62)*tactics.speed*(enemy.status.slow>0?.66:1)*dt;
  const ox=enemy.x,oy=enemy.y;
  const dodged=enemyDodgeStep(dt);
  if(!dodged)moveRobot(enemy,vx/mag*step,vy/mag*step);
@@ -1152,7 +1200,6 @@ function moveEnemyTactically(dt,dx,dy,d,tactics){
  else enemy.aiStuckFor=Math.max(0,enemy.aiStuckFor-dt*1.7);
  if(dodged)enemy.aiMode='dodge';
 }
-
 function update(dt){
  if(menuOpen)return; // Opening the equipment drawer pauses combat.
  clock+=dt;
@@ -1161,6 +1208,7 @@ function update(dt){
  screenShake=Math.max(0,screenShake-17*dt);
  if(state!=='fight'||!player||!enemy)return;
  player.cd=Math.max(0,player.cd-dt);enemy.cd=Math.max(0,enemy.cd-dt);
+ updateReload(player,dt);updateReload(enemy,dt);
  player.hitFlash=Math.max(0,player.hitFlash-dt);enemy.hitFlash=Math.max(0,enemy.hitFlash-dt);
  updateStatus(player,dt);updateStatus(enemy,dt);
  if(state!=='fight')return;
@@ -1183,6 +1231,11 @@ function update(dt){
   const dx=player.x-enemy.x,dy=player.y-enemy.y,d=Math.max(.001,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
   enemy.angle=a;
   const tactics=ENEMY_ROLES[enemy.role]||ENEMY_ROLES.skirmisher;
+  // Skilled enemies can top off when the player is far away or behind cover.
+  if(enemy.ammo<enemy.stats.weapon.mag&&enemy.reloadLeft<=0&&
+      (enemy.ammo<=0||(enemy.ammo<=Math.max(1,Math.floor(enemy.stats.weapon.mag*.28))&&
+      (d>enemy.stats.weapon.idealRange+70||!lineOfSight(enemy,player)))))
+   startReload(enemy);
   moveEnemyTactically(dt,dx,dy,d,tactics);
   enemy.cd=Math.max(0,enemy.cd-dt);
   if(d<tactics.attackRange&&(lineOfSight(enemy,player)||enemy.stats.weapon.id==='rail'||enemy.stats.weapon.id==='missile'))
@@ -1402,10 +1455,11 @@ canvas.addEventListener('pointercancel',()=>fireMouse=false);
 window.addEventListener('keydown',e=>{
  if(e.code==='Escape'&&menuOpen){e.preventDefault();closeMenu();return}
  if(menuOpen)return;
- const controls=['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'];
+ const controls=['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','KeyR'];
  if(controls.includes(e.code)&&!e.target.closest('button,input,textarea,select'))e.preventDefault();
  keys[e.code]=true;
  if((e.code==='ShiftLeft'||e.code==='ShiftRight')&&!e.repeat)wantsDash=true;
+ if(e.code==='KeyR'&&!e.repeat)startReload(player);
  if(e.code==='Enter'&&state==='menu')beginRun();
  if(e.code==='Enter'&&state==='dead')beginRun();
 });
@@ -1434,6 +1488,10 @@ for(const id of ['fireTouch','fireDesk']){
  b.addEventListener('lostpointercapture',()=>{fireTouch=false});
 }
 for(const id of ['dashTouch','dashDesk']){$(id).addEventListener('pointerdown',e=>{e.preventDefault();wantsDash=true})}
+for(const id of ['reloadTouch','reloadDesk']){
+ $(id).addEventListener('pointerdown',e=>{e.preventDefault();startReload(player)});
+ $(id).addEventListener('click',()=>startReload(player));
+}
 
 function closeMenu(){
  menuOpen=false;keys={};wantsDash=false;
@@ -1464,6 +1522,10 @@ if(navigator.webdriver)window.__roboQATest={
  setHealth:value=>{if(player){player.hp=clamp(value,1,player.maxHp);updatePanels(false)}},
  setGold:value=>{gold=Math.max(0,Math.floor(value));updatePanels(true)},
  grantMetaPoints:value=>{if(state!=='menu')return false;metaState.points+=Math.max(0,Math.floor(value));saveMeta();renderHangar();return true},
+ // Integration-only: force a one-round magazine to validate auto reload.
+ setAmmo:value=>{if(!player||state!=='fight')return false;
+  player.reloadLeft=0;player.ammo=clamp(Math.floor(value),0,player.stats.weapon.mag);return true},
+
 
  enemyBuilds:()=>ENEMY_ARCHETYPES.map(profile=>({id:profile.id,role:profile.role,parts:profile.parts,
   combinations:findBuildSynergies({...initial(),...Object.fromEntries(Object.entries(profile.parts).map(([slot,id])=>[slot,part(slot,id)]))}).map(x=>x.id)})),
@@ -1583,7 +1645,11 @@ window.__roboQA=()=>({
   dashCooldown:player.dashCooldown,status:{...player.status},load:player.load}:null,
  enemy:enemy?{x:enemy.x,y:enemy.y,hp:enemy.hp,maxHp:enemy.maxHp,
   role:enemy.role,status:{...enemy.status},load:enemy.load}:null,
- bullets:bullets.length,lootCards:document.querySelectorAll('[data-loot]').length
+ bullets:bullets.length,lootCards:document.querySelectorAll('[data-loot]').length,
+ magazineSpecs:Object.fromEntries(DEF.weapon.map(w=>[w.id,{mag:w.mag,reload:w.reload,idealRange:w.idealRange}])),
+ enemyDistance:player&&enemy?Math.hypot(player.x-enemy.x,player.y-enemy.y):null,
+ playerAmmo:player?{ammo:player.ammo,mag:player.stats.weapon.mag,reloadLeft:player.reloadLeft,reloadCount:player.reloadCount,shots:player.shots}:null,
+ enemyAmmo:enemy?{ammo:enemy.ammo,mag:enemy.stats.weapon.mag,reloadLeft:enemy.reloadLeft,reloadCount:enemy.reloadCount,shots:enemy.shots,aiMode:enemy.aiMode}:null
 });
 const previewLoad=initial();
 player=createRobot(previewLoad,240,295);

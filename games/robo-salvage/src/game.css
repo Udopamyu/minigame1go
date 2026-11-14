@@ -334,3 +334,36 @@ h2,.brandtitle,.partRow .name,.lootCard .partname{letter-spacing:.05em}
  .metaSummary b{font-size:16px}
  .metaHint{font-size:11px}
 }
+
+
+/* Magazine/reload state is visible in combat independently of the equipment drawer. */
+.ammoHud{display:none;position:fixed;z-index:8;top:max(14px,env(safe-area-inset-top));
+ right:max(14px,env(safe-area-inset-right));min-width:210px;max-width:260px;
+ padding:10px 11px;background:#061626e9;border:2px solid #5e8798;box-shadow:5px 5px 0 #02061095;
+ font-family:"Courier New","MS Gothic",monospace;color:#c6f8e6}
+.ammoHud.active{display:block}
+.ammoLine{display:flex;align-items:center;justify-content:space-between;gap:14px;font-size:11px;white-space:nowrap}
+.ammoLine span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ammoLine strong{font-size:20px;color:#f5e2a5}
+.ammoTrack{width:100%;height:9px;border:1px solid #658396;margin-top:7px;background:#13263a}
+.ammoTrack>div{height:100%;width:100%;background:#8de7ca;transition:width .12s linear}
+.ammoTrack>div.reloading{background:#f3b275}
+.reloadDesk{width:100%;margin-top:8px;padding:7px 10px;border:1px solid #9ee1d6;
+ background:#1b4b55;color:#eafff8;cursor:pointer;font:800 13px "Courier New",monospace}
+.reloadDesk:disabled{opacity:.38;cursor:default}
+.touchGroup #reloadTouch{background:#315456dd;border:2px solid #8fe2ca;color:#eafff4}
+.touchGroup #reloadTouch:disabled{opacity:.4}
+@media(max-width:560px){
+ .ammoHud{top:max(10px,env(safe-area-inset-top));right:max(9px,env(safe-area-inset-right));
+  min-width:147px;max-width:190px;padding:7px}
+ .ammoLine{gap:6px;font-size:9px}.ammoLine strong{font-size:17px}
+ .ammoTrack{height:7px;margin-top:5px}
+ .reloadDesk{display:none}
+ .touchGroup{gap:clamp(4px,1.7vw,8px)}
+ .touchGroup .touchbtn{width:clamp(54px,14.4vw,67px);height:clamp(54px,14.4vw,67px);
+  font-size:clamp(8px,2.1vw,11px);padding:0}
+}
+@media(pointer:coarse) and (min-width:561px){
+ .reloadDesk{display:none}
+ .touchGroup .touchbtn{width:clamp(68px,9vw,83px);height:clamp(68px,9vw,83px);font-size:11px}
+}

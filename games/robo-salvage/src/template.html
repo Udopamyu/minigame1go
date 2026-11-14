@@ -22,6 +22,11 @@
  <section class="arenaColumn">
   <div class="arenaFrame" id="arenaFrame">
    <canvas id="game" width="1000" height="590" aria-label="ロボットの対戦アリーナ"></canvas>
+   <div id="ammoHud" class="ammoHud" role="status" aria-live="off">
+    <div class="ammoLine"><span id="ammoLabel">WEAPON</span><strong id="ammoCount">0 / 0</strong></div>
+    <div class="ammoTrack"><div id="ammoBar"></div></div>
+    <button id="reloadDesk" class="reloadDesk" type="button" aria-label="手動リロード（Rキー）">R / RELOAD</button>
+   </div>
    <div class="arenaOverlay show" id="overlay" role="dialog" aria-modal="true">
     <div class="dialog" id="dialog">
      <p class="flag">ARENA / SALVAGE PROTOCOL</p>
@@ -29,15 +34,15 @@
      <p>10マスの分岐を戦い抜き、装備を集めよう。敗北時はGOLD・装備を失うが、研究ポイントで永久強化できる。</p>
      <div class="statline"><div class="statpill">10 NODES + BOSS</div><div class="statpill">3 ROUTES / TURN</div><div class="statpill">SALVAGE PARTS</div></div>
      <button class="primary" id="startBtn">出撃する ▶</button>
-     <div class="mini">PC：WASD移動 / マウス長押しで射撃 / Spaceで自動照準射撃 / Shiftでダッシュ<br>スマホ：左スティック移動 / FIREで自動照準射撃 / DASHで回避</div>
+     <div class="mini">PC：WASD移動 / マウス長押し・Spaceで射撃 / Shiftでダッシュ / Rでリロード<br>スマホ：左スティック移動 / FIREで射撃 / DASHで回避 / RELOADで任意リロード</div>
     </div>
    </div>
   </div>
   <div class="mobilePad">
    <div class="joy" id="joystick" aria-label="移動スティック"><div class="stick" id="stick"></div></div>
-   <div class="touchGroup"><button class="touchbtn" id="dashTouch">DASH</button><button class="touchbtn" id="fireTouch">FIRE</button></div>
+   <div class="touchGroup"><button class="touchbtn" id="reloadTouch" type="button" aria-label="リロード">RELOAD</button><button class="touchbtn" id="dashTouch">DASH</button><button class="touchbtn" id="fireTouch">FIRE</button></div>
   </div>
-  <div class="controls"><div class="controlCopy"><strong>PC</strong> WASD / 矢印：移動　 ·　 マウス長押し / Space：射撃　 ·　 Shift：ダッシュ<br><strong>スマホ</strong> 左スティックで移動。FIREは敵へ自動照準。装備は毎勝利1つだけ交換。</div><div class="buttons"><button class="touchbtn" id="dashDesk">DASH</button><button class="touchbtn" id="fireDesk">FIRE</button></div></div>
+  <div class="controls"><div class="controlCopy"><strong>PC</strong> WASD / 矢印：移動　 ·　 マウス長押し / Space：射撃　 ·　 Shift：ダッシュ　 ·　 R：リロード<br><strong>スマホ</strong> 左スティックで移動。FIREは敵へ自動照準。装備は毎勝利1つだけ交換。</div><div class="buttons"><button class="touchbtn" id="dashDesk">DASH</button><button class="touchbtn" id="fireDesk">FIRE</button></div></div>
   <div class="progress"><span>試作版：1対1 → 勝利 → <b>1パーツ強奪</b> → 次の敵</span><span>完全オリジナルのキャラクター・パーツ構成</span></div>
  </section>
  <aside class="side" id="sidePanel" aria-label="装備メニュー" aria-hidden="true">
