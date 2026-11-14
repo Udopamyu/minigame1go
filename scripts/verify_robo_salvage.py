@@ -31,9 +31,19 @@ def test(browser,url,label,size,mobile=False):
     page.goto(url,wait_until="domcontentloaded")
     page.wait_for_function("()=>!!window.__roboQA",timeout=10000)
     get=lambda:page.evaluate("()=>window.__roboQA()")
-    hook=lambda name,*args:page.evaluate(
-        "({name,args}) => window.__roboQATest[name](...args)",
-        {"name":name,"args":list(args)})
+    def hook(name,*args):
+        outcome=page.evaluate(
+            "({name,args}) => window.__roboQATest[name](...args)",
+            {"name":name,"args":list(args)})
+        if name=="defeatEnemy":
+            check(label+" WIN card appears",get()["state"]=="winCard"
+                  and page.locator("#phaseLetters").get_attribute("aria-label")=="WIN")
+        if name=="defeatPlayer":
+            check(label+" LOSE card appears",get()["state"]=="loseCard"
+                  and page.locator("#phaseLetters").get_attribute("aria-label")=="LOSE")
+        if page.locator("#phaseContinue").count() and page.locator("#phaseContinue").is_visible():
+            page.locator("#phaseContinue").click()
+        return outcome
     check(label+" page title","ロボ・サルベージ" in page.title())
     check(label+" initial modal",page.locator("#overlay").is_visible())
     check(label+" four player parts",page.locator("#playerParts .partRow").count()==4)
@@ -47,6 +57,7 @@ def test(browser,url,label,size,mobile=False):
     page.wait_for_timeout(200)
     start=get()
     check(label+" game starts on a three-way route",start["state"]=="route",start["state"])
+    check(label+" exploration BGM selected",start["bgmMode"]=="route",start["bgmMode"])
     if mobile:
         check(label+" joystick hidden behind route-selection modal",
               page.locator("#joystick").is_hidden())
@@ -152,9 +163,15 @@ def test(browser,url,label,size,mobile=False):
 
     page.screenshot(path=str(OUT/(label+"-route.png")),full_page=True)
     page.locator('[data-route="fight"]').click()
+    check(label+" preparing battle is a pixel-only interstitial",
+          get()["state"]=="ready" and
+          page.locator("#phaseLetters").get_attribute("aria-label")=="戦闘準備"
+          and page.locator("#phaseContinue").is_visible())
+    page.locator("#phaseContinue").click()
     page.wait_for_timeout(350)
     fight=get()
     check(label+" selected battle started",fight["state"]=="fight")
+    check(label+" combat BGM selected",fight["bgmMode"]=="combat",fight["bgmMode"])
     check(label+" chosen path is recorded",
           len(fight["chosenNodes"])==1 and fight["chosenNodes"][0]["depth"]==0,
           fight["chosenNodes"])
@@ -252,6 +269,7 @@ def test(browser,url,label,size,mobile=False):
 
     # Second battle: salvage rather than equip; gets additional gold.
     page.locator('[data-route="fight"]').click()
+    page.locator("#phaseContinue").click()
     hook("defeatEnemy")
     page.wait_for_timeout(130)
     gold_before_skip=get()["gold"]
@@ -318,6 +336,7 @@ def test(browser,url,label,size,mobile=False):
         before=get()
         remaining_layouts.append(before["arenaLayout"])
         page.locator('[data-route="fight"]').click()
+        page.locator("#phaseContinue").click()
         check(label+f" node {step+1}: actual fight started",get()["state"]=="fight")
         hook("defeatEnemy")
         check(label+f" node {step+1}: victory offers loot",get()["state"]=="loot")
@@ -330,6 +349,7 @@ def test(browser,url,label,size,mobile=False):
           get()["depth"]==10 and get()["routeOptions"]==["boss"])
     check(label+" boss is the only final choice",page.locator('[data-route="boss"]').count()==1)
     page.locator('[data-route="boss"]').click()
+    page.locator("#phaseContinue").click()
     check(label+" boss encounter started",get()["currentNode"]=="boss" and get()["state"]=="fight")
     check(label+" boss has unique tactical profile",
           get()["enemy"]["role"]=="boss")
@@ -403,6 +423,8 @@ def test(browser,url,label,size,mobile=False):
     check(label+" low HP still has safe option",get()["state"]=="nodeResult")
     page.locator("#nodeContinue").click()
 
+    check(label+" pixelated canvas uses a reduced native framebuffer",
+          page.locator("#game").evaluate("(c) => c.width < c.clientWidth*.8"))
     check(label+" no JavaScript errors",not errors,errors)
     check(label+" no horizontal overflow",
           page.evaluate("()=>document.documentElement.scrollWidth<=innerWidth+2"))
