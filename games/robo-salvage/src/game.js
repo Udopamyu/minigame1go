@@ -8,7 +8,7 @@ const DEF={
  weapon:[
   {id:'pulse',name:'パルスガン',detail:'連射に優れる標準銃',damage:14,cool:.32,velocity:810,count:1,spread:0,color:'#63eff3'},
   {id:'shot',name:'スプレッド砲',detail:'近距離で強烈な散弾',damage:8,cool:.78,velocity:740,count:5,spread:.19,color:'#ffce78'},
-  {id:'rail',name:'レールランサー',detail:'障害物を貫く高威力弾',damage:33,cool:1.06,velocity:1160,count:1,spread:0,color:'#c1acff',pierce:true},
+  {id:'rail',name:'レールランサー',detail:'壁を貫くが低火力・遅い連射',damage:18,cool:1.35,velocity:1160,count:1,spread:0,color:'#c1acff',pierce:true},
   {id:'missile',name:'ホーミング弾',detail:'追尾する低速ミサイル',damage:25,cool:1.02,velocity:425,count:1,spread:0,color:'#ff867d',homing:true},
   {id:'micro',name:'ニードルガン',detail:'低威力・高速連射',damage:7,cool:.19,velocity:960,count:1,spread:.015,color:'#82f5bb'},
   {id:'burst',name:'バーストライフル',detail:'3発同時射撃の中距離型',damage:8,cool:.62,velocity:920,count:3,spread:.072,color:'#8ab5fa'},
@@ -45,7 +45,7 @@ const DEF={
 const WEAPON_TRAITS={
  pulse:{name:'感電',stun:.14,slow:.45},
  shot:{name:'吹き飛ばし',push:30},
- rail:{name:'装甲破砕',sunder:2.2},
+ rail:{name:'装甲破砕',sunder:1.5},
  missile:{name:'爆風',splash:68},
  micro:{name:'装甲削り',sunder:1.25},
  burst:{name:'炎上',burn:1.65},
@@ -104,24 +104,60 @@ function makeEnemyLoadout(wave){
  return obj;
 }
 /* @include-synergies */
-function specs(load){
+function specs(load,forPlayer=false){
  const a=find(load.armor),l=find(load.legs),c=find(load.core),w=find(load.weapon);
  const af=1+.095*(load.armor.lv-1)+.12*(load.armor.tier-1);
  const lf=1+.053*(load.legs.lv-1)+.055*(load.legs.tier-1);
  const cf=1+.06*(load.core.lv-1)+.08*(load.core.tier-1);
  const wf=1+.095*(load.weapon.lv-1)+.15*(load.weapon.tier-1);
  const synergy=resolveBuildSynergies(load),m=synergy.modifiers;
+ const permanent=forPlayer?metaState.upgrades:{hull:0,power:0,drive:0,recovery:0};
  return {
-  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)*m.hp),
+  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)*m.hp*(1+permanent.hull*.05)),
   guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1)+(c.guardBonus||0)+m.guard,0,.38),
-  speed:l.speed*lf*m.speed,dashCooldown:Math.max(1.08,l.dash/Math.sqrt(lf)*m.dashCooldown),
-  dmg:w.damage*wf*c.damage*cf*m.damage,fireCooldown:Math.max(.125,w.cool/(c.rate*cf)*m.fireCooldown),
-  weapon:w,armor:a,legs:l,core:c,repair:clamp(c.heal*cf+m.repair,0,.65),
+  speed:l.speed*lf*m.speed*(1+permanent.drive*.03),dashCooldown:Math.max(1.08,l.dash/Math.sqrt(lf)*m.dashCooldown*(1-permanent.drive*.03)),
+  dmg:w.damage*wf*c.damage*cf*m.damage*(1+permanent.power*.04),fireCooldown:Math.max(.125,w.cool/(c.rate*cf)*m.fireCooldown),
+  weapon:w,armor:a,legs:l,core:c,repair:clamp(c.heal*cf+m.repair+permanent.recovery*.04,0,.65),
   synergies:synergy.active,modifiers:m
  };
 }
+// Persistent research points survive a wipe; run GOLD and looted parts do not.
+const META_KEY='roboSalvageMetaV1';
+const META_COSTS=[30,45,70]; // Four three-level lines cost 580 SP.
+const META_UPGRADES={
+ hull:{name:'強化フレーム',effect:'最大HP +5% / Lv.'},
+ power:{name:'高出力回路',effect:'攻撃力 +4% / Lv.'},
+ drive:{name:'駆動制御',effect:'移動 +3%、ダッシュ待機 -3% / Lv.'},
+ recovery:{name:'自己補修',effect:'戦闘勝利後回復 +4% / Lv.'}
+};
+function loadMeta(){
+ const fallback={points:0,runs:0,earned:0,starter:'pulse',upgrades:{hull:0,power:0,drive:0,recovery:0}};
+ try{
+  const saved=JSON.parse(localStorage.getItem(META_KEY)||'null');
+  if(!saved||typeof saved!=='object')return fallback;
+  const safeInt=(v,max)=>Number.isFinite(v)?clamp(Math.floor(v),0,max):0;
+  return {
+   points:safeInt(saved.points,1000000),runs:safeInt(saved.runs,100000),earned:safeInt(saved.earned,10000000),
+   starter:DEF.weapon.some(w=>w.id===saved.starter)?saved.starter:'pulse',
+   upgrades:Object.fromEntries(Object.keys(META_UPGRADES).map(k=>[k,safeInt(saved.upgrades?.[k],3)]))
+  };
+ }catch(_e){return fallback}
+}
+let metaState=loadMeta(),runSettled=true;
+function saveMeta(){try{localStorage.setItem(META_KEY,JSON.stringify(metaState))}catch(_e){}}
+function earnedPointsForRun(completed=false){
+ // Average five-node run with three victories = 104 SP. Six = 624 SP.
+ return 45+depth*7+encountersWon*8+(completed?60:0);
+}
+function settleRun(completed=false){
+ if(runSettled)return 0;
+ runSettled=true;
+ const award=earnedPointsForRun(completed);
+ metaState.points+=award;metaState.earned+=award;metaState.runs++;
+ saveMeta();return award;
+}
 const initial=()=>({
- weapon:part('weapon','pulse'),armor:part('armor','mesh'),
+ weapon:part('weapon',metaState.starter),armor:part('armor','mesh'),
  legs:part('legs','wheel'),core:part('core','spark')
 });
 let state='menu',wave=1,best=Number(localStorage.getItem('roboSalvageBest')||0);
@@ -229,7 +265,7 @@ function showPhaseCard(label,next,phase){
 }
 
 function createRobot(load,x,y,isEnemy=false){
- const s=specs(load);
+ const s=specs(load,!isEnemy);
  return {x,y,vx:0,vy:0,angle:isEnemy?Math.PI:0,r:22,load,stats:s,hp:s.hp,maxHp:s.hp,
   cd:.25,dashLeft:0,dashCooldown:0,hitFlash:0,dead:false,enemy:isEnemy,aiPhase:rand(0,TAU),aiStrafe:Math.random()<.5?-1:1,
   status:{burn:0,stun:0,slow:0,sunder:0},burnTimer:0,shieldCooldown:0,aiDodgeCooldown:0,aiRetreat:false,aiStuckFor:0,aiReplan:0,aiPath:[],aiEscapeFor:0,aiMode:'seek',
@@ -396,7 +432,7 @@ function shuffled(arr){
  return a;
 }
 function beginRun(){
- wave=1;depth=0;gold=0;encountersWon=0;runSeed=Math.floor(rand(0,15));
+ wave=1;depth=0;gold=0;encountersWon=0;runSettled=false;runSeed=Math.floor(rand(0,15));
  bossCleared=false;mapHistory=[];currentNode='fight';routeOptions=[];shopOffers=[];
  forcedEventVariant=null;activeEventVariant=null;
  currentLane=2;chosenNodes=[];routeCandidates=[];routeGraph=buildRouteGraph();
@@ -510,7 +546,7 @@ function enterNode(type,lane){
 function restoreVitalsFromLoad(){
  if(!player)return;
  const previous=player.maxHp,missing=Math.max(0,previous-player.hp);
- player.stats=specs(player.load);player.maxHp=player.stats.hp;
+ player.stats=specs(player.load,true);player.maxHp=player.stats.hp;
  player.hp=clamp(player.maxHp-missing,0,player.maxHp);
  updatePanels(true);
 }
@@ -547,7 +583,7 @@ function startWave(){
  enemySeed=Math.random()*10;
  player.x=165;player.y=295;player.vx=0;player.vy=0;player.cd=0;player.hitFlash=0;
  // Healing happens only after combat, not on entering a new fight.
- player.stats=specs(player.load);player.maxHp=player.stats.hp;player.hp=Math.min(player.hp,player.maxHp);
+ player.stats=specs(player.load,true);player.maxHp=player.stats.hp;player.hp=Math.min(player.hp,player.maxHp);
  player.dashCooldown=0;player.dashLeft=0;player.status={burn:0,stun:0,slow:0,sunder:0};player.shieldCooldown=0;
  updatePanels(true);setMusicMode('silent');
  showPhaseCard('戦闘準備',()=>{state='fight';closeOverlay();setMusicMode(currentNode==='boss'?'boss':'combat');beep(520,.12,.04)},'ready');
@@ -675,6 +711,7 @@ function renderShop(){
 function updatePanels(forceParts){
  $('topWave').textContent=String(wave).padStart(2,'0');
  $('goldText').textContent=gold+' G';$('depthText').textContent=depth+' / 10';
+ if($('metaPoints'))$('metaPoints').textContent=metaState.points+' SP';
  $('playerModel').textContent='SALVAGER-01';
  $('enemyModel').textContent=enemy?enemy.name:'SCANNING';
  if(player){
@@ -723,6 +760,44 @@ function partsPanel(id,load){
 }
 function showOverlay(html){$('dialog').className='dialog';$('dialog').innerHTML=html;$('overlay').classList.add('show');document.querySelector('.shell').classList.add('overlayOpen')}
 function closeOverlay(){$('overlay').classList.remove('show');document.querySelector('.shell').classList.remove('overlayOpen')}
+
+function renderHangar(){
+ state='menu';fireMouse=false;fireTouch=false;keys={};wantsDash=false;closeMenu();
+ player=createRobot(initial(),240,295,false);enemy=createRobot(makeEnemyLoadout(1),760,295,true);
+ updatePanels(true);
+ const levels=Object.values(metaState.upgrades).reduce((a,b)=>a+b,0);
+ let html='<p class="flag">HANGAR / 永続強化</p><h2>機体整備・初期装備</h2>'
+  +'<div class="metaSummary"><span>研究ポイント <b id="metaBalance">'+metaState.points+' SP</b></span>'
+  +'<span>強化 '+levels+' / 12</span><span>周回 '+metaState.runs+'</span></div>'
+  +'<div class="metaHint">装備とGOLDは敗北で失うが、SPと永久強化は引き継ぐ。中盤まで約6周で全強化できる設計（必要合計580 SP）。</div>'
+  +'<h3 class="hangarTitle">STARTER WEAPON / 初期武器</h3><div class="starterGrid">';
+ for(const w of DEF.weapon){
+  const selected=metaState.starter===w.id;
+  html+='<button type="button" class="starterOption'+(selected?' selected':'')+'" data-starter="'+w.id+'" aria-pressed="'+selected+'">'
+   +'<span class="starterGlyph" style="color:'+w.color+'">'+({pulse:'⌁',shot:'▥',rail:'═',missile:'▣',micro:'⋮',burst:'≡',slug:'▰'}[w.id])+'</span>'
+   +'<strong>'+w.name+'</strong><small>'+w.detail+'</small></button>';
+ }
+ html+='</div><h3 class="hangarTitle">PERMANENT RESEARCH / 永続強化</h3><div class="metaUpgradeGrid">';
+ for(const [id,item] of Object.entries(META_UPGRADES)){
+  const level=metaState.upgrades[id],price=level>=3?0:META_COSTS[level];
+  html+='<button type="button" class="metaUpgrade" data-meta="'+id+'" '+(level===3||metaState.points<price?'disabled':'')+'>'
+   +'<span><strong>'+item.name+'</strong><small>'+item.effect+'</small></span>'
+   +'<span class="metaPrice">'+(level>=3?'MAX':'Lv.'+level+'/3 · '+price+' SP')+'</span></button>';
+ }
+ html+='</div><button type="button" class="primary hangarStart" id="startBtn">この装備で出撃 ▶</button>';
+ showOverlay(html);$('dialog').classList.add('hangarDialog');
+ document.querySelectorAll('[data-starter]').forEach(b=>b.addEventListener('click',()=>{
+  if(state!=='menu')return;metaState.starter=b.dataset.starter;saveMeta();renderHangar();
+ }));
+ document.querySelectorAll('[data-meta]').forEach(b=>b.addEventListener('click',()=>{
+  if(state!=='menu'||b.disabled)return;
+  const id=b.dataset.meta,lv=metaState.upgrades[id],price=META_COSTS[lv];
+  if(lv>=3||metaState.points<price)return;
+  metaState.points-=price;metaState.upgrades[id]++;saveMeta();renderHangar();beep(620,.10,.023);
+ }));
+ $('startBtn').addEventListener('click',beginRun);
+}
+
 function win(){
  if(state!=='fight')return;
  fireMouse=false;fireTouch=false;keys={};encountersWon++;
@@ -731,13 +806,15 @@ function win(){
  best=Math.max(best,depth+1);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
  if(currentNode==='boss'){
   bossCleared=true;state='victory';mapHistory.push('boss');
+  const earned=settleRun(true);
   showPhaseCard('WIN',()=>{state='victory';setMusicMode('result');showOverlay('<p class="flag">ROUTE CLEAR / BOSS DEFEATED</p><h2>全エリア踏破！</h2>'
    +'<p>10マスの分岐を生き抜き、最終ボスを撃破しました。</p>'
    +'<div class="statline"><div class="statpill">通過 '+depth+' マス</div>'
    +'<div class="statpill">撃破 '+encountersWon+' 機</div>'
    +'<div class="statpill">GOLD '+gold+'</div></div>'
-   +'<button id="newRun" class="primary">新しい探索を始める ▶</button>');
-  $('newRun').addEventListener('click',beginRun);beep(860,.27,.05)},'winCard');return;
+   +'<p class="metaReward">研究ポイント +'+earned+' SP ／ 所持 '+metaState.points+' SP（永久保存）</p>'
+   +'<button id="newRun" class="primary">格納庫で強化・次の周回へ ▶</button>');
+  $('newRun').addEventListener('click',renderHangar);beep(860,.27,.05)},'winCard');return;
  }
  lootTaken=false;
  const bonus=40+depth*9;
@@ -746,9 +823,9 @@ function win(){
  text+='<p>敵機 <strong>'+enemy.name+'</strong> のパーツを1個奪うか、交換を見送って追加ゴールドを得るか選択。</p>';
  text+='<div class="lootGrid">';
  const descriptions={
- weapon:p=>'攻撃 '+Math.round(specs({...player.load,weapon:p}).dmg)+' / '+find(p).detail,
- armor:p=>'最大HP '+specs({...player.load,armor:p}).hp+' / '+find(p).detail,
- legs:p=>'速度 '+Math.round(specs({...player.load,legs:p}).speed)+' / '+find(p).detail,
+ weapon:p=>'攻撃 '+Math.round(specs({...player.load,weapon:p},true).dmg)+' / '+find(p).detail,
+ armor:p=>'最大HP '+specs({...player.load,armor:p},true).hp+' / '+find(p).detail,
+ legs:p=>'速度 '+Math.round(specs({...player.load,legs:p},true).speed)+' / '+find(p).detail,
  core:p=>find(p).detail
  };
  for(const slot of Object.keys(SLOT)){
@@ -780,15 +857,22 @@ function skipLoot(){
 
 function lost(){
  if(state!=='fight')return;
- const lostGold=gold;
- // Permadeath is immediate: no equipped part or gold survives this run.
- // Only the best depth counter persists in localStorage.
- gold=0;player.load=initial();player.stats=specs(player.load);
+ const lostGold=gold,earned=settleRun(false);
+ // Run loot and GOLD are lost; research SP survives.
+ gold=0;player.load=initial();player.stats=specs(player.load,true);
  fireMouse=false;fireTouch=false;
  best=Math.max(best,depth);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
- showPhaseCard('LOSE',()=>{state='dead';setMusicMode('dead');showOverlay('<p class="flag">SIGNAL LOST / RUN ENDED</p><h2>機体、戦闘不能。</h2><p>到達地点 <strong>'+(depth+1)+'</strong> ／ 今回撃破 <strong>'+encountersWon+'</strong>機。装備と所持金 '+lostGold+' Gをすべて失いました。</p><div class="statline"><div class="statpill">撃破 '+encountersWon+'</div><div class="statpill">BEST '+best+'</div></div><button class="primary" id="againBtn">もう一度出撃 ▶</button><div class="mini">毎回、敵の武器・装甲・脚部・コアがランダムで変わります。</div>');
- updatePanels(true);$('againBtn').addEventListener('click',beginRun);
- beep(140,.36,.055,'sawtooth')},'loseCard');
+ showPhaseCard('LOSE',()=>{
+  state='dead';setMusicMode('dead');
+  showOverlay('<p class="flag">SIGNAL LOST / RUN ENDED</p><h2>機体、戦闘不能。</h2>'
+   +'<p>到達地点 <strong>'+(depth+1)+'</strong> ／ 今回撃破 <strong>'+encountersWon+'</strong>機。装備と所持金 '+lostGold+' Gはすべて失いました。</p>'
+   +'<p class="metaReward">研究ポイント +'+earned+' SP ／ 所持 '+metaState.points+' SP（永久保存）</p>'
+   +'<div class="statline"><div class="statpill">撃破 '+encountersWon+'</div><div class="statpill">BEST '+best+'</div></div>'
+   +'<button class="primary" id="againBtn">格納庫で強化・再出撃 ▶</button>'
+   +'<div class="mini">SPで永久強化が可能。次の周回では初期武器も変更できます。</div>');
+  updatePanels(true);$('againBtn').addEventListener('click',renderHangar);
+  beep(140,.36,.055,'sawtooth');
+ },'loseCard');
 }
 function setInputVector(){
  let x=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+joy.x;
@@ -1372,13 +1456,15 @@ $('soundBtn').addEventListener('click',()=>{
  if(!soundOn){if(musicBus&&audio){musicBus.gain.cancelScheduledValues(audio.currentTime);musicBus.gain.setTargetAtTime(0,audio.currentTime,.12)}musicPlaying='silent'}
  else{musicPlaying='silent';setMusicMode(musicMode)}
 });
-$('startBtn').addEventListener('click',beginRun);
+// Start button is dynamically bound by renderHangar.
 // Read-only telemetry for browser QA; it cannot mutate combat state.
 // Test-only integration hook, available to browser automation but not ordinary players.
 if(navigator.webdriver)window.__roboQATest={
  defeatEnemy:()=>{if(!enemy||state!=='fight')return;enemy.shieldCooldown=9999;enemy.status.burn=0;damage(enemy,enemy.hp/(1-enemy.stats.guard)+500)},
  setHealth:value=>{if(player){player.hp=clamp(value,1,player.maxHp);updatePanels(false)}},
  setGold:value=>{gold=Math.max(0,Math.floor(value));updatePanels(true)},
+ grantMetaPoints:value=>{if(state!=='menu')return false;metaState.points+=Math.max(0,Math.floor(value));saveMeta();renderHangar();return true},
+
  enemyBuilds:()=>ENEMY_ARCHETYPES.map(profile=>({id:profile.id,role:profile.role,parts:profile.parts,
   combinations:findBuildSynergies({...initial(),...Object.fromEntries(Object.entries(profile.parts).map(([slot,id])=>[slot,part(slot,id)]))}).map(x=>x.id)})),
  inspectBuild:parts=>{
@@ -1480,6 +1566,9 @@ if(navigator.webdriver)window.__roboQATest={
 };
 window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
+ meta:{points:metaState.points,runs:metaState.runs,earned:metaState.earned,starter:metaState.starter,upgrades:{...metaState.upgrades},settled:runSettled,totalCost:META_COSTS.reduce((a,b)=>a+b,0)*Object.keys(META_UPGRADES).length,midRunAward:45+5*7+3*8},
+ rail:{damage:DEF.weapon.find(w=>w.id==='rail').damage,cooldown:DEF.weapon.find(w=>w.id==='rail').cool,penetratesCover:true},
+ spriteSilhouettes:Object.fromEntries(Object.entries(SPRITE_SILHOUETTES).map(([slot,parts])=>[slot,Object.values(parts)])),
  depth,gold,encountersWon,currentNode,eventVariant:activeEventVariant,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
  partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
  synergyCount:SYNERGY_RULES.length,playerSynergies:player?.stats.synergies.map(rule=>rule.id)||[],
@@ -1499,6 +1588,6 @@ window.__roboQA=()=>({
 const previewLoad=initial();
 player=createRobot(previewLoad,240,295);
 enemy=createRobot(makeEnemyLoadout(1),760,295,true);
-blocks=makeCover();updatePanels(true);
+blocks=makeCover();updatePanels(true);renderHangar();
 requestAnimationFrame(loop);
 })();

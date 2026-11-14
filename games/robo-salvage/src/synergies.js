@@ -193,8 +193,8 @@ function resolveBuildSynergies(load){
 }
 
 function buildComparison(previous,candidate){
- const oldStats=specs(previous);
- const newStats=specs(candidate);
+ const oldStats=specs(previous,true);
+ const newStats=specs(candidate,true);
  const pairs=[
   {name:'最大HP',old:oldStats.hp,next:newStats.hp,digits:0,higher:true},
   {name:'攻撃威力',old:oldStats.dmg,next:newStats.dmg,digits:0,higher:true},

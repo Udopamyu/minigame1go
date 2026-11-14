@@ -46,6 +46,23 @@ def test(browser,url,label,size,mobile=False):
         return outcome
     check(label+" page title","ロボ・サルベージ" in page.title())
     check(label+" initial modal",page.locator("#overlay").is_visible())
+    check(label+" seven free selectable starting weapons",
+          page.locator("[data-starter]").count()==7)
+    check(label+" four permanent research branches",
+          page.locator("[data-meta]").count()==4)
+    check(label+" default starter is pulse",get()["meta"]["starter"]=="pulse")
+    check(label+" total permanent upgrade cost is 580 SP",
+          get()["meta"]["totalCost"]==580)
+    check(label+" approximately six typical mid-game runs complete research",
+          get()["meta"]["midRunAward"]*6 >= get()["meta"]["totalCost"])
+    page.locator('[data-starter="shot"]').click()
+    check(label+" selected starter changes",get()["meta"]["starter"]=="shot")
+    page.reload(wait_until="domcontentloaded")
+    page.wait_for_function("()=>!!window.__roboQA",timeout=10000)
+    check(label+" chosen starter survives page reload",get()["meta"]["starter"]=="shot")
+    page.locator('[data-starter="pulse"]').click()
+    check(label+" player preview updates to starter",
+          get()["player"]["load"]["weapon"]["id"]=="pulse")
     check(label+" four player parts",page.locator("#playerParts .partRow").count()==4)
     check(label+" four enemy parts",page.locator("#enemyParts .partRow").count()==4)
     check(label+" start button",page.locator("#startBtn").is_visible())
@@ -96,6 +113,12 @@ def test(browser,url,label,size,mobile=False):
     check(label+" starting pulse+spark build activates synergy",
           "plasma-loop" in start["playerSynergies"],start["playerSynergies"])
     check(label+" pixel mode is active",start["pixelMode"] is True,start["pixelMode"])
+    check(label+" all 28 equipment categories have distinct silhouettes",
+          all(len(v)==7 and len(set(v))==7 for v in start["spriteSilhouettes"].values()),
+          start["spriteSilhouettes"])
+    check(label+" rail damage sharply reduced and cover piercing retained",
+          start["rail"]["damage"]==18 and start["rail"]["cooldown"]>=1.3
+          and start["rail"]["penetratesCover"])
     check(label+" fullscreen is rasterized to a smaller pixel grid",
           start["pixelBuffer"]["width"]>0
           and start["pixelBuffer"]["width"]<frame["width"]*.8,
@@ -368,7 +391,14 @@ def test(browser,url,label,size,mobile=False):
     check(label+" final screen can start again",page.locator("#newRun").is_visible())
 
     # Every run is ironman: losing clears equipped parts and all gold.
+    points_after_victory=get()["meta"]["points"]
+    check(label+" final boss grants permanent research points",
+          points_after_victory>0 and get()["meta"]["runs"]==1)
     page.locator("#newRun").click()
+    check(label+" after boss victory returns to hangar",get()["state"]=="menu")
+    check(label+" research points are visible in hangar",
+          page.locator("#metaBalance").is_visible())
+    page.locator("#startBtn").click()
     hook("selectNode","fight")
     check(label+" next run enters battle",get()["state"]=="fight")
     hook("setGold",430)
@@ -387,7 +417,12 @@ def test(browser,url,label,size,mobile=False):
           and after_death["player"]["load"]["weapon"]["id"]=="pulse")
     check(label+" death result states all gold and equipment lost",
           "すべて失いました" in page.locator("#dialog").inner_text())
+    check(label+" losing grants SP without losing prior SP",
+          get()["meta"]["points"]>points_after_victory
+          and get()["meta"]["runs"]==2)
     page.locator("#againBtn").click()
+    check(label+" after defeat returns to hangar",get()["state"]=="menu")
+    page.locator("#startBtn").click()
     check(label+" restarting after death begins new zero-gold run",
           get()["gold"]==0 and get()["depth"]==0 and get()["state"]=="route")
 
@@ -423,6 +458,41 @@ def test(browser,url,label,size,mobile=False):
     check(label+" low HP still has safe option",get()["state"]=="nodeResult")
     page.locator("#nodeContinue").click()
 
+    # Verify the persistent tech tree independently of in-run GOLD/loot.
+    page.reload(wait_until="domcontentloaded")
+    page.wait_for_function("()=>!!window.__roboQA",timeout=10000)
+    old_meta=get()["meta"]
+    check(label+" persistent SP survives reload after combat",
+          old_meta["runs"]==2 and old_meta["points"]>0,old_meta)
+    hook("grantMetaPoints",580)
+    before_sp=get()["meta"]["points"]
+    for branch in ("hull","power","drive","recovery"):
+        for step in range(3):
+            target=page.locator('[data-meta="'+branch+'"]')
+            check(label+" affordable "+branch+" "+str(step+1),target.is_enabled())
+            target.click()
+    full=get()["meta"]
+    check(label+" all 12 permanent improvements purchased",
+          set(full["upgrades"].values())=={3})
+    check(label+" maxed research spent precisely 580 SP",
+          full["points"]==before_sp-580,(full["points"],before_sp))
+    check(label+" all research buttons now show MAX",
+          page.locator(".metaUpgrade:disabled").count()==4 and
+          "MAX" in page.locator('[data-meta="hull"]').inner_text())
+    page.reload(wait_until="domcontentloaded")
+    page.wait_for_function("()=>!!window.__roboQA",timeout=10000)
+    check(label+" max level research persists after reload",
+          set(get()["meta"]["upgrades"].values())=={3})
+    page.locator('[data-starter="rail"]').click()
+    check(label+" can choose nerfed rail as starting weapon",
+          get()["meta"]["starter"]=="rail")
+    page.locator("#startBtn").click()
+    check(label+" selected starting weapon actually equips",
+          get()["player"]["load"]["weapon"]["id"]=="rail")
+    check(label+" permanent HP improves run-start durability",
+          get()["player"]["maxHp"]>start["player"]["maxHp"])
+    check(label+" run starts with zero GOLD even when SP persists",
+          get()["gold"]==0 and get()["meta"]["points"]==before_sp-580)
     check(label+" pixelated canvas uses a reduced native framebuffer",
           page.locator("#game").evaluate("(c) => c.width < c.clientWidth*.8"))
     check(label+" no JavaScript errors",not errors,errors)
