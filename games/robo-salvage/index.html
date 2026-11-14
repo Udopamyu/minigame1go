@@ -285,6 +285,15 @@ body{background:#0b1724}
  .synergyEntry strong{font-size:11px}
  .synergyEntry small{font-size:10px}
 }
+
+/* Stage entrance and outcome screens: no explanatory text, only pixel glyphs. */
+.phaseDialog{width:min(610px,94vw);min-height:220px;display:grid;place-items:center;background:#07121f;border:4px solid #6daea9;box-shadow:9px 9px 0 #03070d;padding:24px}
+.phaseCard{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:29px}
+.phaseCard canvas{width:min(100%,520px);height:auto;image-rendering:pixelated;image-rendering:crisp-edges}
+.phaseCard .primary{min-width:140px;border:3px solid #d5f8e6;box-shadow:5px 5px 0 #051116;background:#337d82;color:#f0ffef;font:900 20px "Courier New",monospace;letter-spacing:5px;border-radius:0}
+body,.dialog,.side,.lootCard,.routeChoice,.shopItem,.primary,.secondary,.touchbtn,.panel{font-family:"Courier New","MS Gothic","Noto Sans Mono CJK JP",monospace}
+h2,.brandtitle,.partRow .name,.lootCard .partname{letter-spacing:.05em}
+:where(.primary,.secondary,.smallbtn,.touchbtn,.lootCard,.shopItem){border-radius:0;box-shadow:4px 4px 0 #030912}
 </style>
 </head>
 <body>
@@ -321,7 +330,7 @@ body{background:#0b1724}
   <div class="progress"><span>試作版：1対1 → 勝利 → <b>1パーツ強奪</b> → 次の敵</span><span>完全オリジナルのキャラクター・パーツ構成</span></div>
  </section>
  <aside class="side" id="sidePanel" aria-label="装備メニュー" aria-hidden="true">
-  <div class="drawerTop"><b>装備・ステータス</b><div class="drawerTools"><button id="soundBtn" class="smallbtn" aria-label="サウンド切替">音 ON</button><button id="menuClose" class="drawerClose" type="button" aria-label="メニューを閉じる">×</button></div></div>
+  <div class="drawerTop"><b>装備・ステータス</b><div class="drawerTools"><button id="soundBtn" class="smallbtn" aria-label="サウンド切替">BGM ON</button><button id="menuClose" class="drawerClose" type="button" aria-label="メニューを閉じる">×</button></div></div>
   <section class="panel">
    <div class="panelTitle"><h3>YOUR ROBOT / 自機</h3><em id="playerModel">SALVAGER-01</em></div>
    <div class="health"><div id="playerHpBar"></div></div><div class="healthNumbers"><span id="playerHpText">120 / 120 HP</span><span id="playerPower">POWER 1.0</span></div>
@@ -720,6 +729,93 @@ function beep(hz,dur=0.07,vol=.025,type='triangle'){
   o.connect(g);g.connect(audio.destination);o.start(t);o.stop(t+dur+.012)
  }catch(e){}
 }
+
+/* Original synthesized chiptune: no network, samples, or copyright dependencies. */
+const CHIP_SCORES={
+ route:[220,0,330,392,294,0,330,262,220,0,294,349,262,0,330,196],
+ combat:[330,392,440,0,523,440,392,294,330,392,587,523,440,0,392,294],
+ boss:[196,233,262,196,311,262,233,175,196,233,349,311,262,233,175,147],
+ result:[392,494,587,784,0,587,784,988],
+ dead:[330,294,262,220,196,175,147,0]
+};
+let musicMode='silent',musicPlaying='silent',musicBus=null,musicBeat=0,musicNext=0,musicSwitchAt=0;
+function initMusic(){
+ if(!soundOn)return false;
+ try{
+  if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();
+  if(audio.state==='suspended')audio.resume();
+  if(!musicBus){musicBus=audio.createGain();musicBus.gain.value=0;musicBus.connect(audio.destination)}
+  return true;
+ }catch(_e){return false}
+}
+function setMusicMode(mode){
+ musicMode=mode;
+ if(!initMusic())return;
+ musicBus.gain.cancelScheduledValues(audio.currentTime);
+ musicBus.gain.setTargetAtTime(0,audio.currentTime,.13);
+ musicSwitchAt=audio.currentTime+.30;
+}
+function chipNote(hz,t,duration,vol,type){
+ if(!hz||!audio||!musicBus)return;
+ const osc=audio.createOscillator(),amp=audio.createGain();
+ osc.type=type;osc.frequency.setValueAtTime(hz,t);
+ amp.gain.setValueAtTime(.0001,t);
+ amp.gain.linearRampToValueAtTime(vol,t+.008);
+ amp.gain.exponentialRampToValueAtTime(.0001,t+duration);
+ osc.connect(amp);amp.connect(musicBus);osc.start(t);osc.stop(t+duration+.012);
+}
+function musicTick(){
+ if(!soundOn||!audio||!musicBus)return;
+ if(musicMode!==musicPlaying){
+  if(audio.currentTime<musicSwitchAt)return;
+  musicPlaying=musicMode;musicBeat=0;musicNext=audio.currentTime+.035;
+  musicBus.gain.setTargetAtTime(musicPlaying==='silent'?0:1,audio.currentTime,.17);
+ }
+ const notes=CHIP_SCORES[musicPlaying];if(!notes)return;
+ const beat=musicPlaying==='combat'?.165:musicPlaying==='boss'?.19:.24;
+ let count=0;
+ while(musicNext<audio.currentTime+.095&&count++<3){
+  const hz=notes[musicBeat%notes.length];
+  chipNote(hz,musicNext,beat*.75,.018,'square');
+  if(musicBeat%4===0)chipNote(hz?hz/2:110,musicNext,beat*1.65,.012,'triangle');
+  musicBeat++;musicNext+=beat;
+ }
+}
+const PHASE_LETTERS={
+ W:['10001','10001','10001','10101','10101','11011','10001'],
+ I:['11111','00100','00100','00100','00100','00100','11111'],
+ N:['10001','11001','10101','10101','10011','10001','10001'],
+ L:['10000','10000','10000','10000','10000','10000','11111'],
+ O:['01110','10001','10001','10001','10001','10001','01110'],
+ S:['01111','10000','10000','01110','00001','00001','11110'],
+ E:['11111','10000','10000','11110','10000','10000','11111']
+};
+function drawPhaseLetters(label){
+ const c=$('phaseLetters'),g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);
+ g.imageSmoothingEnabled=false;
+ if(PHASE_LETTERS[label[0]]){
+  const unit=5,start=Math.round((c.width-(label.length*6-1)*unit)/2);
+  for(let k=0;k<label.length;k++)for(let y=0;y<7;y++)for(let x=0;x<5;x++){
+   if(PHASE_LETTERS[label[k]][y][x]==='1'){
+    g.fillStyle=y===0?'#f2f5d2':label==='LOSE'?'#e88d8f':'#91f3de';
+    g.fillRect(start+(k*6+x)*unit,13+y*unit,unit,unit);
+   }
+  }
+ }else{
+  const small=document.createElement('canvas');small.width=176;small.height=35;
+  const s=small.getContext('2d');
+  s.font='bold 24px "MS Gothic","Noto Sans JP",sans-serif';
+  s.textAlign='center';s.fillStyle='#91f3de';s.fillText(label,88,27);
+  g.drawImage(small,12,4,216,56);
+ }
+}
+function showPhaseCard(label,next,phase){
+ state=phase;fireMouse=false;fireTouch=false;keys={};
+ showOverlay('<div class="phaseCard"><canvas id="phaseLetters" width="240" height="70" role="img" aria-label="'+label+'"></canvas><button id="phaseContinue" class="primary" type="button">OK</button></div>');
+ $('dialog').classList.add('phaseDialog');drawPhaseLetters(label);
+ $('phaseContinue').addEventListener('click',next,{once:true});
+}
+
 function createRobot(load,x,y,isEnemy=false){
  const s=specs(load);
  return {x,y,vx:0,vy:0,angle:isEnemy?Math.PI:0,r:22,load,stats:s,hp:s.hp,maxHp:s.hp,
@@ -956,7 +1052,7 @@ function renderRouteMap(){
   +'<g>'+lines+'</g><g>'+nodes+'</g></svg>';
 }
 function showRoute(){
- state='route';updatePanels(true);
+ state='route';setMusicMode('route');updatePanels(true);
  if(depth>=10){
   routeCandidates=[{lane:2,type:'boss'}];routeOptions=['boss'];
  }else{
@@ -1024,7 +1120,7 @@ function showNodeResult(title,details){
  $('nodeContinue').addEventListener('click',completeNode);
 }
 function startWave(){
- state='fight';lootTaken=false;bullets=[];effects=[];rings=[];
+ state='ready';lootTaken=false;bullets=[];effects=[];rings=[];
  blocks=makeCover();hazards=makeHazards();bossAttack=null;bossCooldown=4;bossPattern=0;bossAttackCount=0;
  const load=makeEnemyLoadout(wave);
  enemy=createRobot(load,840,295,true);
@@ -1041,7 +1137,8 @@ function startWave(){
  // Healing happens only after combat, not on entering a new fight.
  player.stats=specs(player.load);player.maxHp=player.stats.hp;player.hp=Math.min(player.hp,player.maxHp);
  player.dashCooldown=0;player.dashLeft=0;player.status={burn:0,stun:0,slow:0,sunder:0};player.shieldCooldown=0;
- updatePanels(true);closeOverlay();beep(520,.12,.04);
+ updatePanels(true);setMusicMode('silent');
+ showPhaseCard('戦闘準備',()=>{state='fight';closeOverlay();setMusicMode(currentNode==='boss'?'boss':'combat');beep(520,.12,.04)},'ready');
 }
 // Three node families provide different survival, salvage, and resource trade-offs.
 const EVENT_VARIANTS=[
@@ -1222,15 +1319,15 @@ function win(){
  best=Math.max(best,depth+1);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
  if(currentNode==='boss'){
   bossCleared=true;state='victory';mapHistory.push('boss');
-  showOverlay('<p class="flag">ROUTE CLEAR / BOSS DEFEATED</p><h2>全エリア踏破！</h2>'
+  showPhaseCard('WIN',()=>{state='victory';setMusicMode('result');showOverlay('<p class="flag">ROUTE CLEAR / BOSS DEFEATED</p><h2>全エリア踏破！</h2>'
    +'<p>10マスの分岐を生き抜き、最終ボスを撃破しました。</p>'
    +'<div class="statline"><div class="statpill">通過 '+depth+' マス</div>'
    +'<div class="statpill">撃破 '+encountersWon+' 機</div>'
    +'<div class="statpill">GOLD '+gold+'</div></div>'
    +'<button id="newRun" class="primary">新しい探索を始める ▶</button>');
-  $('newRun').addEventListener('click',beginRun);beep(860,.27,.05);return;
+  $('newRun').addEventListener('click',beginRun);beep(860,.27,.05)},'winCard');return;
  }
- state='loot';lootTaken=false;
+ lootTaken=false;
  const bonus=40+depth*9;
  let text='<p class="flag">TARGET DESTROYED / SALVAGE COMPLETE</p><h2>撃破成功！</h2>';
  text+='<div class="resourceLine"><span>獲得 +'+reward+' G</span><span>戦闘後 HP +30%</span><span>所持 '+gold+' G</span></div>';
@@ -1252,10 +1349,12 @@ function win(){
  }
  text+='</div><button id="skipLoot" class="secondary" style="margin-top:13px;width:100%">奪わずに解体する（+'+bonus+' G）</button>';
  text+='<div class="lootHelp">※ 部品は最大1個。スキップでも次の分岐へ進みます。</div>';
- showOverlay(text);updatePanels(true);
- document.querySelectorAll('[data-loot]').forEach(b=>b.addEventListener('click',()=>chooseLoot(b.getAttribute('data-loot'))));
- $('skipLoot').addEventListener('click',skipLoot);
- beep(820,.23,.055,'sine');setTimeout(()=>beep(990,.2,.038),90);
+ showPhaseCard('WIN',()=>{
+  state='loot';setMusicMode('result');showOverlay(text);updatePanels(true);
+  document.querySelectorAll('[data-loot]').forEach(b=>b.addEventListener('click',()=>chooseLoot(b.getAttribute('data-loot'))));
+  $('skipLoot').addEventListener('click',skipLoot);
+  beep(820,.23,.055,'sine');setTimeout(()=>beep(990,.2,.038),90);
+ },'winCard');
 }
 function chooseLoot(slot){
  if(state!=='loot'||lootTaken||!SLOT[slot])return;
@@ -1273,11 +1372,11 @@ function lost(){
  // Permadeath is immediate: no equipped part or gold survives this run.
  // Only the best depth counter persists in localStorage.
  gold=0;player.load=initial();player.stats=specs(player.load);
- state='dead';fireMouse=false;fireTouch=false;
+ fireMouse=false;fireTouch=false;
  best=Math.max(best,depth);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
- showOverlay('<p class="flag">SIGNAL LOST / RUN ENDED</p><h2>機体、戦闘不能。</h2><p>到達地点 <strong>'+(depth+1)+'</strong> ／ 今回撃破 <strong>'+encountersWon+'</strong>機。装備と所持金 '+lostGold+' Gをすべて失いました。</p><div class="statline"><div class="statpill">撃破 '+encountersWon+'</div><div class="statpill">BEST '+best+'</div></div><button class="primary" id="againBtn">もう一度出撃 ▶</button><div class="mini">毎回、敵の武器・装甲・脚部・コアがランダムで変わります。</div>');
+ showPhaseCard('LOSE',()=>{state='dead';setMusicMode('dead');showOverlay('<p class="flag">SIGNAL LOST / RUN ENDED</p><h2>機体、戦闘不能。</h2><p>到達地点 <strong>'+(depth+1)+'</strong> ／ 今回撃破 <strong>'+encountersWon+'</strong>機。装備と所持金 '+lostGold+' Gをすべて失いました。</p><div class="statline"><div class="statpill">撃破 '+encountersWon+'</div><div class="statpill">BEST '+best+'</div></div><button class="primary" id="againBtn">もう一度出撃 ▶</button><div class="mini">毎回、敵の武器・装甲・脚部・コアがランダムで変わります。</div>');
  updatePanels(true);$('againBtn').addEventListener('click',beginRun);
- beep(140,.36,.055,'sawtooth');
+ beep(140,.36,.055,'sawtooth')},'loseCard');
 }
 function setInputVector(){
  let x=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+joy.x;
@@ -2000,7 +2099,7 @@ function render(){
  ctx.restore();
  renderPixelFrame();
 }
-function loop(t){let dt=Math.min(.033,(t-(loop.last||t))/1000||0);loop.last=t;update(dt);render();requestAnimationFrame(loop)}
+function loop(t){let dt=Math.min(.033,(t-(loop.last||t))/1000||0);loop.last=t;update(dt);musicTick();render();requestAnimationFrame(loop)}
 function mousePos(e){
  const r=canvas.getBoundingClientRect(),portrait=isPortraitArena();
  const scale=portrait?Math.max(r.width/H,r.height/W):Math.max(r.width/W,r.height/H);
@@ -2069,7 +2168,11 @@ function openMenu(){
 $('menuBtn').addEventListener('click',()=>menuOpen?closeMenu():openMenu());
 $('menuClose').addEventListener('click',closeMenu);
 $('menuShade').addEventListener('click',closeMenu);
-$('soundBtn').addEventListener('click',()=>{soundOn=!soundOn;$('soundBtn').textContent=soundOn?'音 ON':'音 OFF'});
+$('soundBtn').addEventListener('click',()=>{
+ soundOn=!soundOn;$('soundBtn').textContent=soundOn?'BGM ON':'BGM OFF';
+ if(!soundOn){if(musicBus&&audio){musicBus.gain.cancelScheduledValues(audio.currentTime);musicBus.gain.setTargetAtTime(0,audio.currentTime,.12)}musicPlaying='silent'}
+ else{musicPlaying='silent';setMusicMode(musicMode)}
+});
 $('startBtn').addEventListener('click',beginRun);
 // Read-only telemetry for browser QA; it cannot mutate combat state.
 // Test-only integration hook, available to browser automation but not ordinary players.
@@ -2098,7 +2201,7 @@ if(navigator.webdriver)window.__roboQATest={
   if(!player||state!=='fight')return false;
   player.dashLeft=0;player.shieldCooldown=9999;
   damage(player,player.hp/(Math.max(.01,1-player.stats.guard)*.86)+500);
-  return state==='dead';
+  return state==='loseCard';
  },
  testBreakCover:()=>{
   if(state!=='fight'||!blocks.length)return null;
@@ -2183,7 +2286,7 @@ window.__roboQA=()=>({
  synergyCount:SYNERGY_RULES.length,playerSynergies:player?.stats.synergies.map(rule=>rule.id)||[],
  enemyArchetype:chosenEnemyArchetype?.id||null,enemyArchetypeCount:ENEMY_ARCHETYPES.length,
  enemySynergies:enemy?.stats.synergies.map(rule=>rule.id)||[],
- pixelMode:PIXEL_RENDER_MODE.enabled,pixelBuffer:{width:MECH_PIXELS.width,height:MECH_PIXELS.height},
+ bgmMode:musicMode,pixelMode:PIXEL_RENDER_MODE.enabled,pixelBuffer:{width:MECH_PIXELS.width,height:MECH_PIXELS.height},
  roles:Object.keys(ENEMY_ROLES),
  coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),coverDurability:blocks.map(b=>({material:b.material,hp:b.hp,maxHp:b.maxHp})),
  hazards:hazards.map(h=>({kind:h.kind,x:h.x,y:h.y,r:h.r,phase:h.phase})),hazardKinds:HAZARD_KINDS.slice(),
