@@ -249,11 +249,15 @@ def run_attempt(page, number, max_seconds=125):
         "stages":stages,
         "combat_samples":fight_intervals,
         "reload_samples":reloads[::max(1,len(reloads)//60)],
-        "observed_min_distance":round(closest_distance,1) if closest_distance < 10000 else None
+        "observed_min_distance":round(closest_distance,1) if closest_distance < 10000 else None,
+        "average_combat_distance":round(sum(x["distance"] for x in fight_intervals)/len(fight_intervals),1) if fight_intervals else None,
+        "reload_retreat_samples":sum(x["enemyMode"]=="reload-retreat" for x in fight_intervals),
+        "sampled_combat_intervals":len(fight_intervals)
     }
     page.screenshot(path=str(OUT/f"autoplay-run-{number+1}.png"),full_page=True)
     print("AUTOPLAY "+json.dumps({k:v for k,v in result.items()
         if k not in ("combat_samples","reload_samples","stages")},ensure_ascii=False),flush=True)
+    print("AUTOPLAY ROUTE "+json.dumps({"attempt":number+1,"stages":stages},ensure_ascii=False),flush=True)
     return result
 
 
@@ -284,7 +288,7 @@ def main():
                             # Timeout runs are incomplete and never receive free SP.
                             page.reload(wait_until="domcontentloaded")
                             page.wait_for_function("()=>!!window.__roboQA")
-                    results.append(run_attempt(page,i,max_seconds=125))
+                    results.append(run_attempt(page,i,max_seconds=410 if i==2 else 90))
                 context.close()
             finally: browser.close()
     finally:
