@@ -724,7 +724,7 @@ function createRobot(load,x,y,isEnemy=false){
  const s=specs(load);
  return {x,y,vx:0,vy:0,angle:isEnemy?Math.PI:0,r:22,load,stats:s,hp:s.hp,maxHp:s.hp,
   cd:.25,dashLeft:0,dashCooldown:0,hitFlash:0,dead:false,enemy:isEnemy,aiPhase:rand(0,TAU),aiStrafe:Math.random()<.5?-1:1,
-  status:{burn:0,stun:0,slow:0,sunder:0},burnTimer:0,shieldCooldown:0,aiDodgeCooldown:0,aiRetreat:false,
+  status:{burn:0,stun:0,slow:0,sunder:0},burnTimer:0,shieldCooldown:0,aiDodgeCooldown:0,aiRetreat:false,aiStuckFor:0,aiReplan:0,aiPath:[],aiEscapeFor:0,aiMode:'seek',
   role:isEnemy?'skirmisher':'player',name:isEnemy?pick(enemyNames):'SALVAGER-01'};
 }
 function arenaIndex(){return (depth*7+runSeed)%15}
@@ -1485,6 +1485,79 @@ function drawBossTelegraph(){
  }
  ctx.restore();
 }
+
+/* Stable navigation against solid cover, using the existing collision map. */
+function findEnemyPath(sx,sy,tx,ty){
+ const gap=32,nx=30,ny=17,cells=[],parents=new Int16Array(nx*ny);
+ parents.fill(-2);
+ for(let y=0;y<ny;y++)for(let x=0;x<nx;x++){
+  const px=35+x*gap,py=39+y*gap;
+  cells.push({x:px,y:py,ok:arenaAllowed(px,py,enemy.r)&&!blocks.some(b=>hitRect(px,py,enemy.r,b))});
+ }
+ const closest=(x,y)=>{
+  let idx=-1,dmin=Infinity;
+  for(let i=0;i<cells.length;i++)if(cells[i].ok){
+   const d=(cells[i].x-x)**2+(cells[i].y-y)**2;
+   if(d<dmin){dmin=d;idx=i}
+  }return idx;
+ };
+ const start=closest(sx,sy),end=closest(tx,ty);
+ if(start<0||end<0||start===end)return [];
+ const q=[start];parents[start]=-1;let front=0;
+ while(front<q.length){
+  const n=q[front++];if(n===end)break;
+  const x=n%nx,y=Math.floor(n/nx);
+  for(const [xx,yy] of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]]){
+   if(xx<0||xx>=nx||yy<0||yy>=ny)continue;
+   const k=yy*nx+xx;
+   if(!cells[k].ok||parents[k]!==-2)continue;
+   parents[k]=n;q.push(k);
+  }
+ }
+ if(parents[end]===-2)return [];
+ const path=[];
+ for(let k=end;k!==start&&k!==-1;k=parents[k])path.push(cells[k]);
+ return path.reverse();
+}
+function moveEnemyTactically(dt,dx,dy,d,tactics){
+ const preferred=tactics.distance+(enemy.stats.weapon.id==='shot'?-45:enemy.stats.weapon.id==='rail'?80:0);
+ let approach=clamp((d-preferred)/125,-.85,1);
+ if(enemy.hp/enemy.maxHp<.33&&['sniper','guardian','flanker'].includes(enemy.role))approach=Math.min(approach,-.35);
+ const strafe=Math.sin(clock*.9+enemy.aiPhase)*enemy.aiStrafe*.65*tactics.strafe;
+ let vx=dx/d*approach-dy/d*strafe,vy=dy/d*approach+dx/d*strafe;
+ enemy.aiReplan=Math.max(0,enemy.aiReplan-dt);
+ enemy.aiEscapeFor=Math.max(0,enemy.aiEscapeFor-dt);
+ const needsPath=(!lineOfSight(enemy,player)&&d>Math.max(90,preferred*.65))||enemy.aiStuckFor>.36;
+ if(needsPath&&enemy.aiReplan<=0){
+  enemy.aiPath=findEnemyPath(enemy.x,enemy.y,player.x,player.y);enemy.aiReplan=.65;
+ }
+ enemy.aiMode='seek';
+ if(needsPath&&enemy.aiPath.length){
+  while(enemy.aiPath.length&&Math.hypot(enemy.aiPath[0].x-enemy.x,enemy.aiPath[0].y-enemy.y)<24)enemy.aiPath.shift();
+  if(enemy.aiPath.length){
+   const node=enemy.aiPath[0],dist=Math.max(1,Math.hypot(node.x-enemy.x,node.y-enemy.y));
+   vx=(node.x-enemy.x)/dist;vy=(node.y-enemy.y)/dist;enemy.aiMode='path';
+  }
+ }else enemy.aiPath=[];
+ if(enemy.aiStuckFor>.72){
+  enemy.aiStuckFor=0;enemy.aiEscapeFor=.6;enemy.aiReplan=0;
+  enemy.aiPath=[];enemy.aiStrafe*=-1;
+ }
+ if(enemy.aiEscapeFor>0){
+  const a=Math.atan2(dy,dx)+enemy.aiStrafe*Math.PI/2;
+  vx=.85*Math.cos(a)-.35*dx/d;vy=.85*Math.sin(a)-.35*dy/d;
+  enemy.aiMode='escape';
+ }
+ const mag=Math.max(1,Math.hypot(vx,vy));
+ const step=enemy.status.stun>0?0:enemy.stats.speed*.59*tactics.speed*(enemy.status.slow>0?.66:1)*dt;
+ const ox=enemy.x,oy=enemy.y;
+ const dodged=enemyDodgeStep(dt);
+ if(!dodged)moveRobot(enemy,vx/mag*step,vy/mag*step);
+ if(step>1&&Math.hypot(enemy.x-ox,enemy.y-oy)<step*.17)enemy.aiStuckFor+=dt;
+ else enemy.aiStuckFor=Math.max(0,enemy.aiStuckFor-dt*1.7);
+ if(dodged)enemy.aiMode='dodge';
+}
+
 function update(dt){
  if(menuOpen)return; // Opening the equipment drawer pauses combat.
  clock+=dt;
@@ -1515,22 +1588,7 @@ function update(dt){
   const dx=player.x-enemy.x,dy=player.y-enemy.y,d=Math.max(.001,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
   enemy.angle=a;
   const tactics=ENEMY_ROLES[enemy.role]||ENEMY_ROLES.skirmisher;
-  const preferred=tactics.distance+(enemy.stats.weapon.id==='shot'?-45:enemy.stats.weapon.id==='rail'?80:0);
-  let approach=clamp((d-preferred)/125,-.85,1);
-  if(enemy.hp/enemy.maxHp<.33&&['sniper','guardian','flanker'].includes(enemy.role))approach=Math.min(approach,-.35);
-  const strafe=Math.sin(clock*.9+enemy.aiPhase)*enemy.aiStrafe*.65*tactics.strafe;
-  let vx=(dx/d)*approach+(-dy/d)*strafe,vy=(dy/d)*approach+(dx/d)*strafe;
-  let m=Math.max(1,Math.hypot(vx,vy)),step=enemy.stats.speed*.59*tactics.speed*(enemy.status.slow>0?.66:1)*dt;
-  if(enemy.status.stun>0)step=0;
-  const ex=enemy.x,ey=enemy.y;
-  const dodged=enemyDodgeStep(dt);
-  if(!dodged)moveRobot(enemy,vx/m*step,vy/m*step);
-  if(!dodged&&Math.hypot(enemy.x-ex,enemy.y-ey)<step*.16){
-   // Follow collision edges instead of staying trapped behind new large structures.
-   const side=enemy.aiStrafe;
-   moveRobot(enemy,(-dy/d)*side*step*1.35,(dx/d)*side*step*1.35);
-   if(Math.hypot(enemy.x-ex,enemy.y-ey)<step*.13)enemy.aiStrafe*=-1;
-  }
+  moveEnemyTactically(dt,dx,dy,d,tactics);
   enemy.cd=Math.max(0,enemy.cd-dt);
   if(d<tactics.attackRange&&(lineOfSight(enemy,player)||enemy.stats.weapon.id==='rail'||enemy.stats.weapon.id==='missile'))
     if(enemy.status.stun<=0)shoot(enemy,player,a+Math.sin(clock*1.4+enemySeed)*(.10+Math.min(.12,wave*.006))*tactics.accuracy);
