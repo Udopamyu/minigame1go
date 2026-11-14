@@ -287,3 +287,12 @@ body{background:#0b1724}
 body,.dialog,.side,.lootCard,.routeChoice,.shopItem,.primary,.secondary,.touchbtn,.panel{font-family:"Courier New","MS Gothic","Noto Sans Mono CJK JP",monospace}
 h2,.brandtitle,.partRow .name,.lootCard .partname{letter-spacing:.05em}
 :where(.primary,.secondary,.smallbtn,.touchbtn,.lootCard,.shopItem){border-radius:0;box-shadow:4px 4px 0 #030912}
+
+/* Sprite-native scene: nearest-neighbor stretch, no full-frame mosaic effects. */
+.arenaFrame canvas{image-rendering:pixelated!important;image-rendering:crisp-edges!important}
+.mapBoard .map-node text,.mapBoard .map-caption,.mapLegend{
+ font-family:"Courier New","MS Gothic",monospace;
+}
+.dialog,.panel,.side,.mapWrap,.lootCard,.shopItem,.menuToggle{
+ backdrop-filter:none;border-radius:0;
+}

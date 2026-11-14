@@ -1165,57 +1165,81 @@ function arenaOutline(){
  return p;
 }
 function drawArena(){
- const palette=[
- ['#0d2338','#101f32','#1a223c'],['#183944','#15333e','#1b2b40'],
- ['#3a293f','#2d2d42','#1e2b3c'],['#193c38','#183334','#1c2e42'],
- ['#3e2d3d','#302b44','#1c2e45']][Math.floor(arenaIndex()/3)];
- let grad=ctx.createLinearGradient(0,0,W,H);
- grad.addColorStop(0,palette[0]);grad.addColorStop(.6,palette[1]);grad.addColorStop(1,palette[2]);
- ctx.fillStyle='#060e1b';ctx.fillRect(0,0,W,H);
- const outline=arenaOutline();ctx.fillStyle=grad;ctx.fill(outline);
+ const palettes=[
+  ['#132333','#1e3445','#345267','#65909b'],
+  ['#142d36','#1c4045','#37686a','#78b0a8'],
+  ['#2d2539','#43314c','#67516c','#b994b0'],
+  ['#172e2d','#275043','#3d7664','#87bea1'],
+  ['#30283a','#4d3548','#785466','#d4a09e']
+ ];
+ const p=palettes[Math.floor(arenaIndex()/3)];
+ ctx.fillStyle='#050d18';ctx.fillRect(0,0,W,H);
+ const outline=arenaOutline();
  ctx.save();ctx.clip(outline);
- ctx.strokeStyle='#3c6a8140';ctx.lineWidth=1;for(let x=30;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
- for(let y=30;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
- ctx.strokeStyle='#4a8daa85';ctx.lineWidth=3;ctx.strokeRect(28,28,W-56,H-56);
- ctx.strokeStyle='#76dfe92d';ctx.strokeRect(35,35,W-70,H-70);
- for(let x=67;x<W-35;x+=145)for(let y=67;y<H-35;y+=130){ctx.fillStyle='#8bdde821';ctx.fillRect(x,y,5,5)}
- ctx.fillStyle='#6ae7ed15';ctx.beginPath();ctx.arc(188,285,130,0,TAU);ctx.fill();
- ctx.fillStyle='#ff8e7510';ctx.beginPath();ctx.arc(800,290,130,0,TAU);ctx.fill();
- // subtle moving hazard lines
- ctx.strokeStyle='#8bcdcc13';ctx.lineWidth=3;
- for(let j=0;j<4;j++){let x=((clock*11+j*280)%1400)-200;ctx.beginPath();ctx.moveTo(x,-20);ctx.lineTo(x+240,H+20);ctx.stroke()}
+ ctx.fillStyle=p[0];ctx.fillRect(0,0,W,H);
+ // Layered floor tiles, in distinct per-biome palettes.
+ for(let y=30,iy=0;y<H-24;y+=28,iy++)for(let x=28,ix=0;x<W-20;x+=28,ix++){
+  const seed=(ix*11+iy*17+arenaIndex()*23)%19;
+  mechTile(x,y,27,27,seed%7===0?p[2]:seed%3===0?p[1]:p[0]);
+  mechTile(x+2,y+2,23,2,'#ffffff0b');
+  mechTile(x+2,y+24,23,2,'#00000044');
+  if(seed===3||seed===12){
+   mechTile(x+8,y+8,12,4,p[3]);mechTile(x+8,y+13,12,4,p[3]);
+  }else if(seed===7){
+   for(let t=0;t<3;t++)mechTile(x+7+t*5,y+9,3,11,'#071726');
+  }else if(seed===14){
+   mechTile(x+7,y+7,14,14,'#0e2130');
+   mechTile(x+11,y+11,6,6,p[3]);
+  }else{
+   mechTile(x+2,y+2,3,3,'#758d9a55');
+   mechTile(x+23,y+22,3,3,'#758d9a55');
+  }
+ }
+ // Steel rails and hazard-striping replace blurred vector illumination.
+ for(let x=62;x<970;x+=164){
+  mechTile(x,45,6,510,p[2]);
+  for(let y=57;y<545;y+=24)mechTile(x,y,6,10,p[0]);
+ }
+ for(let x=48;x<W-48;x+=16){
+  mechTile(x,38,8,5,x%32===0?'#c7b377':p[3]);
+  mechTile(x,H-44,8,5,x%32===0?'#c7b377':p[3]);
+ }
+ for(const x of [165,826]){
+  mechTile(x-46,268,92,3,p[3]);mechTile(x-46,320,92,3,p[3]);
+  for(let k=0;k<6;k++)mechTile(x-44+k*16,271,7,48,'#0a1b2980');
+ }
  ctx.restore();
- ctx.strokeStyle='#87dddb8d';ctx.lineWidth=4;ctx.stroke(outline);
+ ctx.strokeStyle=p[3];ctx.lineWidth=5;ctx.stroke(outline);
 }
 function drawCover(){
  for(const b of blocks){
-  ctx.fillStyle='#060d19bb';ctx.fillRect(b.x-b.w/2+9,b.y-b.h/2+9,b.w,b.h);
-  const m=b.material||'wall';
-  const tone=m==='core'?['#394965','#637b99']:m==='pillar'?['#335b5a','#6b9991']:
-    m==='tower'?['#51495e','#847d98']:m==='rubble'?['#61495b','#926e7c']:['#273b53','#465a70'];
-  roundRect(b.x-b.w/2,b.y-b.h/2,b.w,b.h,7,tone[0]);
-  roundRect(b.x-b.w/2+7,b.y-b.h/2+7,b.w-14,b.h-14,4,tone[1]);
-  ctx.strokeStyle='#7891a46a';ctx.lineWidth=3;ctx.strokeRect(b.x-b.w/2+8,b.y-b.h/2+8,b.w-16,b.h-16);
-  ctx.strokeStyle='#1c2c42';ctx.beginPath();ctx.moveTo(b.x-b.w/2+11,b.y-b.h/2+11);ctx.lineTo(b.x+b.w/2-11,b.y+b.h/2-11);
-  ctx.moveTo(b.x+b.w/2-11,b.y-b.h/2+11);ctx.lineTo(b.x-b.w/2+11,b.y+b.h/2-11);ctx.stroke();
-  ctx.fillStyle=m==='tower'?'#ffd0a7':m==='pillar'?'#b5f0c7':'#7febdd';
-  ctx.fillRect(b.x-b.w/2+3,b.y-b.h/2+3,8,8);
-  const wear=b.hp/b.maxHp;
-  if(wear<.80){
-   ctx.strokeStyle='#212c3f';ctx.lineWidth=3;
-   ctx.beginPath();
-   ctx.moveTo(b.x-5,b.y-b.h*.35);
-   ctx.lineTo(b.x+4,b.y+3);
-   ctx.lineTo(b.x-3,b.y+b.h*.36);
-   if(wear<.40){ctx.moveTo(b.x+4,b.y+3);ctx.lineTo(b.x+b.w*.27,b.y-b.h*.22)}
-   ctx.stroke();
-   ctx.fillStyle='#0c1726';ctx.fillRect(b.x-b.w/2,b.y-b.h/2-9,b.w,4);
-   ctx.fillStyle=wear>.35?'#f0c37c':'#ef7e87';
-   ctx.fillRect(b.x-b.w/2,b.y-b.h/2-9,b.w*wear,4);
+  const x=Math.round(b.x-b.w/2),y=Math.round(b.y-b.h/2),w=Math.round(b.w),h=Math.round(b.h);
+  const tone=b.material==='core'?['#344557','#718396']:
+   b.material==='pillar'?['#264c51','#65a29e']:
+   b.material==='tower'?['#4c3e5a','#93809d']:
+   b.material==='rubble'?['#5b4051','#aa737a']:['#25384b','#536d7f'];
+  mechTile(x+7,y+9,w,h,'#020813a0');
+  mechTile(x,y,w,h,'#081927');
+  mechTile(x+4,y+4,w-8,h-8,tone[0]);
+  mechTile(x+8,y+8,w-16,h-16,tone[1]);
+  // Separate modular armor panels, hatches and visible damage.
+  for(let xx=x+10;xx<x+w-10;xx+=24){
+   mechTile(xx,y+7,9,4,'#c1ced2');
+   mechTile(xx,y+h-11,9,4,'#152a3a');
   }
-  if(m==='core'&&b.w>60&&b.h>60){
-    ctx.strokeStyle='#ffce8b';ctx.lineWidth=3;
-    ctx.strokeRect(b.x-b.w/2+19,b.y-b.h/2+19,b.w-38,b.h-38);
+  for(let yy=y+10;yy<y+h-10;yy+=22){
+   mechTile(x+8,yy,5,6,'#b7d0c5');
+   mechTile(x+w-13,yy,5,6,'#183143');
+  }
+  const health=clamp(b.hp/b.maxHp,0,1);
+  if(health<.8){
+   mechTile(x+w*.25,y+h*.23,6,h*.4,'#112131');
+   mechTile(x+w*.5,y+h*.45,Math.max(8,w*.25),6,'#112131');
+   mechTile(x,y-8,w*health,4,health>.35?'#f2cd85':'#ef7e87');
+  }
+  if(b.material==='core'&&w>60&&h>60){
+   mechTile(x+w*.35,y+h*.35,w*.3,h*.3,'#1e3c4a');
+   mechTile(x+w*.4,y+h*.4,w*.2,h*.2,'#f1d18c');
   }
  }
 }
@@ -1250,8 +1274,9 @@ function drawHUD(){
 }
 function isPortraitArena(){return canvas.clientHeight>canvas.clientWidth*1.14}
 function render(){
- const rect=canvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);
- const cw=Math.max(1,Math.round(rect.width*dpr)),ch=Math.max(1,Math.round(rect.height*dpr));
+ const rect=canvas.getBoundingClientRect();
+ // Native low-resolution framebuffer: geometry and sprites are authored in pixels.
+ const cw=Math.max(1,Math.round(rect.width/2.5)),ch=Math.max(1,Math.round(rect.height/2.5));
  if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch}
  ctx.setTransform(1,0,0,1,0,0);
  const backdrop=ctx.createLinearGradient(0,0,cw,ch);
