@@ -153,6 +153,25 @@ const SYNERGY_RULES=[
  }
 ];
 
+/* Numeric combo descriptions use the actual combat modifiers. */
+const SYNERGY_METRIC_LABELS={
+ hp:'最大HP',damage:'攻撃力',speed:'移動速度',fireCooldown:'射撃間隔',
+ dashCooldown:'ダッシュ待機',guard:'防御率',repair:'戦闘後回復率',
+ stun:'スタン時間',slow:'減速時間',sunder:'装甲破砕時間',
+ burn:'炎上時間',push:'吹き飛ばし距離',splash:'爆風範囲',
+ reactive:'反応装甲の被ダメージ'
+};
+function synergyPercent(value){return Number((value*100).toFixed(1)).toString();}
+function synergyEffectText(rule){
+ return Object.entries(rule.modifiers).map(([key,value])=>{
+  const name=SYNERGY_METRIC_LABELS[key]||key;
+  if(key==='guard'||key==='repair')return name+(value>=0?'+':'')+synergyPercent(value)+'pt';
+  const change=Number(((value-1)*100).toFixed(1));
+  return name+(change>0?'+':'')+change+'%';
+ }).join('・');
+}
+function synergyConditionText(rule){return rule.description.split('：')[0];}
+
 const SYNERGY_DEFAULT={
  hp:1,damage:1,speed:1,fireCooldown:1,dashCooldown:1,
  guard:0,repair:0,stun:1,slow:1,sunder:1,burn:1,
@@ -233,8 +252,8 @@ function buildComparisonMarkup(previous,candidate){
  if(!main.length)html+='<span class="compareStat neutral">基礎性能は同等</span>';
  html+='</div>';
  if(result.gains.length)
-  html+='<div class="compareSynergy">新コンボ：'
-   +result.gains.map(x=>x.name).join('、')+'</div>';
+  html+='<div class="compareSynergy">コンボ発動：'
+   +result.gains.map(x=>x.name+'【'+synergyEffectText(x)+'】').join('／')+'</div>';
  if(result.losses.length)
   html+='<div class="compareLoss">失うコンボ：'
    +result.losses.map(x=>x.name).join('、')+'</div>';

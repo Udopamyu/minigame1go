@@ -141,6 +141,15 @@ def test(browser,url,label,size,mobile=False):
           page.locator("#reloadTouch").count()==1 and page.locator("#reloadDesk").count()==1)
     check(label+" twenty synergies available",
           start["synergyCount"]==20,start["synergyCount"])
+    descriptions=start["synergyDescriptions"]
+    check(label+" every combo derives numeric effects from actual modifiers",
+          len(descriptions)==20 and all("%" in x["effect"] or "pt" in x["effect"] for x in descriptions),
+          descriptions)
+    by_id={x["id"]:x["effect"] for x in descriptions}
+    check(label+" moving fortress has exact 22 percent HP bonus and 12 percent speed penalty",
+          "最大HP+22%" in by_id["moving-fortress"] and "移動速度-12%" in by_id["moving-fortress"])
+    check(label+" siege rail lists actual attack and speed adjustments",
+          "攻撃力+19%" in by_id["siege-rail"] and "移動速度-9%" in by_id["siege-rail"])
     check(label+" sixteen tactical enemy archetypes available",
           start["enemyArchetypeCount"]==16,start["enemyArchetypeCount"])
     builds=hook("enemyBuilds")
@@ -233,10 +242,30 @@ def test(browser,url,label,size,mobile=False):
     page.locator("#menuBtn").click()
     page.wait_for_timeout(270)
     check(label+" drawer opens",page.locator("#sidePanel").is_visible())
+    radar=page.locator("#playerStatPanel .statRadar")
+    check(label+" equipped-stat radar chart renders in menu",
+          radar.count()==1 and radar.is_visible()
+          and page.locator("#playerStatPanel .radarFill").count()==1
+          and page.locator("#playerStatPanel .radarRing").count()==4)
+    check(label+" current status has all six numeric axes",
+          sorted(page.locator("#playerStatPanel [data-stat]").evaluate_all(
+            "(els)=>els.map(e=>e.dataset.stat)"))==sorted(["HP","ATK","SPD","DEF","RATE","MAG"]))
+    stats=get()["playerStats"]
+    check(label+" ATK and SPD readouts match real equipped stats",
+          abs(float(page.locator('[data-stat="ATK"] strong').inner_text())-stats["atk"])<.11
+          and abs(int(page.locator('[data-stat="SPD"] strong').inner_text())-stats["spd"])<.6,
+          stats)
+    check(label+" chart includes dynamic upgrade and dash information",
+          "DASH " in page.locator("#playerStatPanel").inner_text()
+          and "研究 HP " in page.locator("#playerStatPanel").inner_text())
+    page.screenshot(path=str(OUT/(label+"-status-radar.png")),full_page=True)
     check(label+" active synergies shown in equipment menu",
           page.locator("#playerParts .synergyEntry").count()>=1)
     check(label+" synergy descriptions are readable",
           "プラズマ" in page.locator("#playerParts .synergySummary").inner_text())
+    check(label+" combo descriptions show exact numeric effects",
+          "射撃間隔-12%" in page.locator("#playerParts .synergySummary").inner_text()
+          and "スタン時間+35%" in page.locator("#playerParts .synergySummary").inner_text())
     check(label+" synergy names and benefits now use large fonts",
           page.locator("#playerParts .synergyEntry strong").first.evaluate(
               "(e)=>parseFloat(getComputedStyle(e).fontSize)")>=15
@@ -248,6 +277,9 @@ def test(browser,url,label,size,mobile=False):
     page.locator("#menuClose").click()
     check(label+" drawer closes",page.locator("#sidePanel").is_hidden())
 
+    check(label+" route title is brief and old hint was removed",
+          page.locator("#dialog h2").inner_text()=="ルート選択"
+          and page.locator(".mapHint").count()==0)
     page.screenshot(path=str(OUT/(label+"-route.png")),full_page=True)
     page.locator('[data-route="fight"]').click()
     check(label+" preparing battle is a pixel-only interstitial",
@@ -385,6 +417,10 @@ def test(browser,url,label,size,mobile=False):
     hook("defeatEnemy")
     page.wait_for_timeout(130)
     result=get()
+    check(label+" victory loot only displays enemy-name victory heading",
+          page.locator("#dialog h2").inner_text().endswith("撃破！")
+          and "敵機" not in page.locator("#dialog h2").inner_text()
+          and page.locator(".lootHelp").count()==0)
     expected=min(hurt["player"]["maxHp"],
                  hurt["player"]["hp"]+__import__("math").ceil(hurt["player"]["maxHp"]*.30))
     check(label+" win enters loot",result["state"]=="loot",result["state"])
@@ -555,6 +591,10 @@ def test(browser,url,label,size,mobile=False):
         check(label+" "+variant+" family displayed",get()["state"]=="event" and
               get()["eventVariant"]==variant)
         check(label+" "+variant+" has three decisions",page.locator('[data-event]').count()==3)
+        check(label+" "+variant+" is framed by short atmospheric flavor text",
+              page.locator(".eventFlavor").count()==1
+              and "次の3つから" not in page.locator("#dialog").inner_text()
+              and (variant!="vault" or "怪しげな倉庫" in page.locator(".eventFlavor").inner_text()))
         check(label+" "+variant+" preserves upgrade option",page.locator('[data-event="upgrade"]').count()==1)
         check(label+" "+variant+" selection enabled",page.locator(f'[data-event="{option}"]').is_enabled())
         page.locator(f'[data-event="{option}"]').click()

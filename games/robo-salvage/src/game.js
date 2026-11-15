@@ -516,11 +516,11 @@ function showRoute(){
  }
  const final=depth>=10;
  let html='<p class="flag">'+(final?'ALL PATHS CONVERGE':'BRANCHING ROUTE / NODE '+(depth+1)+' OF 10')+'</p>'
-  +'<h2>'+(final?'最終ボスへ':'進む道を選ぶ')+'</h2>'
+  +'<h2>'+(final?'最終決戦':'ルート選択')+'</h2>'
   +'<div class="resourceLine"><span>GOLD '+gold+'</span><span>HP '+Math.ceil(player.hp)+' / '+player.maxHp+'</span></div>'
   +'<div class="mapWrap" id="mapScroll">'+renderRouteMap()+'</div>'
   +'<div class="mapLegend"><span><span class="statusDot"></span><b>光るマス</b>が次の選択肢</span><span>進行 '+depth+' / 10 → ★</span></div>'
-  +'<div class="mapHint">'+(final?'10マスを踏破。マップ最上部のボスを選択。':'道は先へ枝分かれし、最後はボスへ集まります。光る3マスから1つタップしてください。')+'</div>';
+  ;
  showOverlay(html);
  $('dialog').classList.add('routeDialog');
  document.querySelectorAll('#mapScroll [data-route]').forEach(el=>{
@@ -541,10 +541,10 @@ function enterNode(type,lane){
  currentNode=type;wave=depth+1;
  if(type==='fight'||type==='fight2'||type==='elite'||type==='boss'){startWave();return}
  if(type==='shop'){openShopNode();return}
- if(type==='rest'){healPlayer(.45);showNodeResult('整備休憩','最大HPの45%を回復した。');return}
+ if(type==='rest'){healPlayer(.45);showNodeResult('整備完了','HP +45%');return}
  if(type==='cache'){
   const amount=55+depth*13+Math.floor(rand(0,36));gold+=amount;updatePanels(true);
-  showNodeResult('資材庫を発見',amount+' Gを獲得した。');return;
+  showNodeResult('資材回収','+'+amount+' G');return;
  }
  if(type==='event'){openEvent();return}
 }
@@ -576,9 +576,9 @@ function completeNode(){
 }
 function showNodeResult(title,details){
  state='nodeResult';updatePanels(true);
- showOverlay('<p class="flag">NODE COMPLETE</p><h2>'+title+'</h2><p>'+details+'</p>'
+ showOverlay('<p class="flag">NODE CLEAR</p><h2>'+title+'</h2><p class="nodeReward">'+details+'</p>'
    +'<div class="resourceLine">GOLD '+gold+'　HP '+Math.ceil(player.hp)+' / '+player.maxHp+'</div>'
-   +'<button class="primary" id="nodeContinue">進路を選ぶ ▶</button>');
+   +'<button class="primary" id="nodeContinue">ルート選択 ▶</button>');
  $('nodeContinue').addEventListener('click',completeNode);
 }
 function startWave(){
@@ -605,9 +605,9 @@ function startWave(){
 }
 // Three node families provide different survival, salvage, and resource trade-offs.
 const EVENT_VARIANTS=[
- {id:'depot',title:'放棄された補給庫',description:'残された資材を1つ回収する。',choices:['supply','heal','upgrade']},
- {id:'forge',title:'無人の鍛造工場',description:'未知の武装に換装するか、堅実に整備するか。',choices:['reforge','heal','upgrade']},
- {id:'vault',title:'汚染された金庫',description:'機体の耐久力を代償に大量の資金を得られる。',choices:['supply','overload','upgrade']}
+ {id:'depot',title:'放棄された補給庫',description:'閉鎖された搬入口。埃の奥に補給箱が眠っている。',choices:['supply','heal','upgrade']},
+ {id:'forge',title:'無人の鍛造工場',description:'無人の炉が赤く瞬く。作業台には謎の設計図。',choices:['reforge','heal','upgrade']},
+ {id:'vault',title:'汚染された金庫',description:'怪しげな倉庫に足を踏み入れた。封印された金庫から警告音が響く。',choices:['supply','overload','upgrade']}
 ];
 let forcedEventVariant=null,activeEventVariant=null;
 function eventOptions(boostSlot){
@@ -629,7 +629,7 @@ function openEvent(){
  const boostSlot=Object.keys(SLOT).reduce((a,b)=>player.load[a].lv<=player.load[b].lv?a:b);
  const options=eventOptions(boostSlot);
  let html='<p class="flag">UNKNOWN SIGNAL / '+variant.id.toUpperCase()+'</p><h2>'+variant.title+'</h2>'
-  +'<p>'+variant.description+' 次の3つから1つだけ選択。</p><div class="routeChoices">';
+  +'<p class="eventFlavor">'+variant.description+'</p><div class="routeChoices">';
  for(const id of variant.choices){
   const item=options[id];
   html+='<button class="routeChoice'+(id==='heal'?' rest':'')+'" data-event="'+id+'"'
@@ -664,7 +664,7 @@ function openEvent(){
    player.hp-=cost;gold+=reward;updatePanels(true);
    detail='HP '+cost+'を消費して'+reward+' G獲得';
   }else return;
-  showNodeResult('イベント完了',detail);
+  showNodeResult('回収完了',detail);
  }));
 }
 function shopCost(kind,slot){
@@ -749,10 +749,50 @@ function updatePanels(forceParts){
   $('enemyPower').textContent='THREAT '+wave;
  }
  if(forceParts){
-  if(player)partsPanel('playerParts',player.load);
+  if(player){partsPanel('playerParts',player.load);renderStatRadar();}
   if(enemy)partsPanel('enemyParts',enemy.load);
  }
 }
+
+/* Six-axis real-time equipment status. Numeric labels are actual combat stats;
+ * the radar uses per-axis reference scales to keep unlike units comparable. */
+function renderStatRadar(){
+ const root=$('playerStatPanel');
+ if(!root||!player)return;
+ const stats=player.stats,rate=1/stats.fireCooldown;
+ const metrics=[
+  {key:'HP',value:stats.hp,scale:620,display:String(stats.hp)},
+  {key:'ATK',value:stats.dmg,scale:100,display:Number(stats.dmg.toFixed(1)).toString()},
+  {key:'SPD',value:stats.speed,scale:420,display:String(Math.round(stats.speed))},
+  {key:'DEF',value:stats.guard*100,scale:38,display:Number((stats.guard*100).toFixed(1)).toString()+'%'},
+  {key:'RATE',value:rate,scale:9,display:rate.toFixed(2)+'/s'},
+  {key:'MAG',value:stats.mag,scale:50,display:String(stats.mag)}
+ ];
+ const cx=164,cy=132,radius=84,count=metrics.length;
+ const xy=(index,scale)=>{
+  const angle=-Math.PI/2+index*2*Math.PI/count;
+  return [cx+Math.cos(angle)*scale,cy+Math.sin(angle)*scale];
+ };
+ const pointText=arr=>arr.map(([x,y])=>x.toFixed(1)+','+y.toFixed(1)).join(' ');
+ const grid=[.25,.5,.75,1].map(frac=>'<polygon points="'+pointText(metrics.map((_,i)=>xy(i,radius*frac)))+'" class="radarRing"/>').join('');
+ const spokes=metrics.map((_,i)=>{const [x,y]=xy(i,radius);return '<line x1="'+cx+'" y1="'+cy+'" x2="'+x.toFixed(1)+'" y2="'+y.toFixed(1)+'" class="radarSpoke"/>'}).join('');
+ const data=metrics.map((m,i)=>xy(i,radius*Math.max(.04,Math.min(1,m.value/m.scale))));
+ const poly='<polygon points="'+pointText(data)+'" class="radarFill"/>';
+ const dots=data.map(([x,y])=>'<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="3" class="radarPoint"/>').join('');
+ const axes=metrics.map((m,i)=>{
+  const [x,y]=xy(i,radius+21),anchor=x<cx-13?'end':x>cx+13?'start':'middle';
+  return '<text x="'+x.toFixed(1)+'" y="'+(y+4).toFixed(1)+'" text-anchor="'+anchor+'" class="radarAxisText">'+m.key+'</text>';
+ }).join('');
+ const numbers=metrics.map(m=>'<div class="radarStat" data-stat="'+m.key+'"><span>'+m.key+'</span><strong>'+m.display+'</strong></div>').join('');
+ const u=metaState.upgrades;
+ root.innerHTML='<div class="statPanelTitle">CURRENT STATS</div>'
+  +'<svg class="statRadar" viewBox="0 0 328 265" role="img" aria-label="機体性能レーダーチャート：'+metrics.map(m=>m.key+' '+m.display).join('、')+'">'
+  +grid+spokes+poly+dots+axes+'</svg>'
+  +'<div class="radarReadout">'+numbers+'</div>'
+  +'<div class="radarDetails"><span>DASH '+stats.dashCooldown.toFixed(1)+'s</span><span>RELOAD '+stats.reloadTime.toFixed(2)+'s</span></div>'
+  +'<div class="radarResearch">研究 HP '+u.hull+' / ATK '+u.power+' / SPD '+u.drive+' / REC '+u.recovery+'</div>';
+}
+
 function partsPanel(id,load){
  const root=$(id);root.textContent='';
  for(const slot of Object.keys(SLOT)){
@@ -767,17 +807,17 @@ function partsPanel(id,load){
  const active=findBuildSynergies(load);
  const section=document.createElement('div');section.className='synergySummary';
  const label=document.createElement('div');label.className='synergyLabel';
- label.textContent='4部位コンボ '+active.length+' 件';section.append(label);
+ label.textContent='装備コンボ '+active.length+'件';section.append(label);
  if(active.length){
   for(const combo of active){
    const item=document.createElement('div');item.className='synergyEntry';
    const name=document.createElement('strong');name.textContent=combo.name;
-   const detail=document.createElement('small');detail.textContent=combo.description;
+   const detail=document.createElement('small');detail.textContent=synergyConditionText(combo)+'：'+synergyEffectText(combo);
    item.append(name,detail);section.append(item);
   }
  }else{
   const none=document.createElement('small');
-  none.textContent='装備の組み合わせで固有の相乗効果が発動';
+  none.textContent='コンボ未発動';
   section.append(none);
  }
  root.append(section);
@@ -851,9 +891,9 @@ function win(){
  }
  lootTaken=false;
  const bonus=40+depth*9;
- let text='<p class="flag">TARGET DESTROYED / SALVAGE COMPLETE</p><h2>撃破成功！</h2>';
+ let text='<p class="flag">SALVAGE</p><h2>'+enemy.name+'撃破！</h2>';
  text+='<div class="resourceLine"><span>獲得 +'+reward+' G</span><span>戦闘後 HP +30%</span><span>所持 '+gold+' G</span></div>';
- text+='<p>敵機 <strong>'+enemy.name+'</strong> のパーツを1個奪うか、交換を見送って追加ゴールドを得るか選択。</p>';
+
  text+='<div class="lootGrid">';
  const descriptions={
  weapon:p=>'攻撃 '+Math.round(specs({...player.load,weapon:p},true).dmg)+' / '+find(p).detail,
@@ -869,8 +909,8 @@ function win(){
    +'<div class="repl">現在：'+find(own).name+' Lv.'+own.lv+' → 交換</div>'
    +buildComparisonMarkup(player.load,{...player.load,[slot]:p})+'</button>';
  }
- text+='</div><button id="skipLoot" class="secondary" style="margin-top:13px;width:100%">奪わずに解体する（+'+bonus+' G）</button>';
- text+='<div class="lootHelp">※ 部品は最大1個。スキップでも次の分岐へ進みます。</div>';
+ text+='</div><button id="skipLoot" class="secondary" style="margin-top:13px;width:100%">解体して +'+bonus+' G</button>';
+
  showPhaseCard('WIN',()=>{
   state='loot';setMusicMode('result');showOverlay(text);updatePanels(true);
   document.querySelectorAll('[data-loot]').forEach(b=>b.addEventListener('click',()=>chooseLoot(b.getAttribute('data-loot'))));
@@ -1733,6 +1773,7 @@ window.__roboQA=()=>({
  })),
  depth,gold,encountersWon,currentNode,eventVariant:activeEventVariant,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
  partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
+ synergyDescriptions:SYNERGY_RULES.map(rule=>({id:rule.id,condition:synergyConditionText(rule),effect:synergyEffectText(rule)})),
  synergyCount:SYNERGY_RULES.length,playerSynergies:player?.stats.synergies.map(rule=>rule.id)||[],
  enemyArchetype:chosenEnemyArchetype?.id||null,enemyArchetypeCount:ENEMY_ARCHETYPES.length,
  enemySynergies:enemy?.stats.synergies.map(rule=>rule.id)||[],
@@ -1749,6 +1790,7 @@ window.__roboQA=()=>({
  bullets:bullets.length,lootCards:document.querySelectorAll('[data-loot]').length,
  magazineSpecs:Object.fromEntries(DEF.weapon.map(w=>[w.id,{mag:w.mag,reload:w.reload,idealRange:w.idealRange}])),
  enemyDistance:player&&enemy?Math.hypot(player.x-enemy.x,player.y-enemy.y):null,
+ playerStats:player?{hp:player.stats.hp,atk:player.stats.dmg,spd:player.stats.speed,def:player.stats.guard,rate:1/player.stats.fireCooldown,mag:player.stats.mag,dash:player.stats.dashCooldown,reload:player.stats.reloadTime}:null,
  playerAmmo:player?{ammo:player.ammo,mag:player.stats.mag,reloadTime:player.stats.reloadTime,reloadLeft:player.reloadLeft,reloadCount:player.reloadCount,shots:player.shots}:null,
  enemyAmmo:enemy?{ammo:enemy.ammo,mag:enemy.stats.mag,reloadTime:enemy.stats.reloadTime,reloadLeft:enemy.reloadLeft,reloadCount:enemy.reloadCount,shots:enemy.shots,aiMode:enemy.aiMode}:null
 });

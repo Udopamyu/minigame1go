@@ -43,13 +43,14 @@
    <div class="touchGroup"><button class="touchbtn" id="reloadTouch" type="button" aria-label="リロード">RELOAD</button><button class="touchbtn" id="dashTouch">DASH</button><button class="touchbtn" id="fireTouch">FIRE</button></div>
   </div>
   <div class="controls"><div class="controlCopy"><strong>PC</strong> WASD / 矢印：移動　 ·　 マウス長押し / Space：射撃　 ·　 Shift：ダッシュ　 ·　 R：リロード<br><strong>スマホ</strong> 左スティックで移動。FIREは敵へ自動照準。装備は毎勝利1つだけ交換。</div><div class="buttons"><button class="touchbtn" id="dashDesk">DASH</button><button class="touchbtn" id="fireDesk">FIRE</button></div></div>
-  <div class="progress"><span>試作版：1対1 → 勝利 → <b>1パーツ強奪</b> → 次の敵</span><span>完全オリジナルのキャラクター・パーツ構成</span></div>
+  
  </section>
  <aside class="side" id="sidePanel" aria-label="装備メニュー" aria-hidden="true">
   <div class="drawerTop"><b>装備・ステータス</b><div class="drawerTools"><button id="soundBtn" class="smallbtn" aria-label="サウンド切替">BGM ON</button><button id="menuClose" class="drawerClose" type="button" aria-label="メニューを閉じる">×</button></div></div>
   <section class="panel">
    <div class="panelTitle"><h3>YOUR ROBOT / 自機</h3><em id="playerModel">SALVAGER-01</em></div>
    <div class="health"><div id="playerHpBar"></div></div><div class="healthNumbers"><span id="playerHpText">120 / 120 HP</span><span id="playerPower">POWER 1.0</span></div>
+   <div id="playerStatPanel" class="playerStatPanel" aria-label="現在の機体ステータスとレーダーチャート"></div>
    <div class="partList" id="playerParts"></div>
   </section>
   <section class="panel">
@@ -58,7 +59,7 @@
    <div class="partList" id="enemyParts"></div>
   </section>
   <div class="panel"><h3>探索状況</h3><div class="healthNumbers"><span>進行 <b id="depthText">0 / 10</b></span><span>所持金 <b id="goldText">0 G</b></span></div><div class="statusLabel">研究ポイント <b id="metaPoints">0 SP</b> ／ ボスは10マス通過後に登場</div></div>
-  <div class="sideFoot">敵の装備は毎戦ランダム。勝利画面に表示される4部位の中から、<strong>持ち帰れるのは必ず1個だけ</strong>です。パーツは入れ替え式なので、組み合わせを考えて進みましょう。</div>
+  
  </aside>
 </div>
 </div>

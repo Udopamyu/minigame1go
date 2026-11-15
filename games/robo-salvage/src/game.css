@@ -392,3 +392,29 @@ h2,.brandtitle,.partRow .name,.lootCard .partname{letter-spacing:.05em}
  .starterOption{min-height:112px}
  .starterStatus{font-size:10px}
 }
+
+
+/* v0.14 — actual current stats, six-axis radar, direct number readout. */
+.playerStatPanel{margin:13px 0 15px;padding:11px 9px 12px;background:#081e2b;border:2px solid #426977;box-shadow:4px 4px 0 #06101b}
+.statPanelTitle{font:900 14px "Courier New",monospace;color:#bdffeb;letter-spacing:.08em;text-align:center}
+.statRadar{display:block;width:100%;height:auto;max-height:252px;overflow:visible;margin:4px auto -1px}
+.radarRing{fill:none;stroke:#426877;stroke-width:1}
+.radarSpoke{stroke:#3c5e6c;stroke-width:1}
+.radarFill{fill:#5ee5c5;fill-opacity:.30;stroke:#8afbe0;stroke-width:3;stroke-linejoin:round}
+.radarPoint{fill:#fff0a4;stroke:#06313b;stroke-width:1.5}
+.radarAxisText{font:900 12px "Courier New",monospace;fill:#d5f7f2;letter-spacing:.01em}
+.radarReadout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:4px 0 8px}
+.radarStat{display:flex;flex-direction:column;gap:4px;padding:8px 5px;border:1px solid #3f7181;background:#123542;text-align:center;min-width:0}
+.radarStat span{font:800 10px "Courier New",monospace;color:#a7d5dd;letter-spacing:.05em}
+.radarStat strong{font:900 17px "Courier New",monospace;color:#f4f9d8;white-space:nowrap}
+.radarDetails{display:flex;justify-content:space-around;flex-wrap:wrap;gap:6px;font:800 12px "Courier New",monospace;color:#b5f0e6;padding:7px 1px;border-top:1px solid #375867}
+.radarResearch{font:700 10px "Courier New",monospace;color:#95b5c6;line-height:1.5;text-align:center}
+.nodeReward{font-weight:900!important;color:#c9f8d1!important;font-size:17px!important}
+.eventFlavor{font-size:14px;line-height:1.65;color:#bfd4cf}
+.lootCard .compareSynergy{font-size:13px!important;line-height:1.5!important}
+@media(max-width:420px){
+ .statRadar{max-height:235px}
+ .radarStat strong{font-size:16px}
+ .radarAxisText{font-size:12px}
+ .playerStatPanel{padding:8px 6px 10px}
+}
