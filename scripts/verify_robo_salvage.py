@@ -366,8 +366,14 @@ def test(browser,url,label,size,mobile=False):
           bool(automatic) and automatic["started"],automatic)
     check(label+" automatic reload refills magazine",
           bool(automatic) and automatic["refilled"],automatic)
-    check(label+" enemy also maintains an ammunition magazine",
-          get()["enemyAmmo"]["mag"] in [5,12,3,4,30,9])
+    foe=get()
+    gun=foe["enemy"]["load"]["weapon"]["id"]
+    core=foe["enemy"]["load"]["core"]["id"]
+    base_capacity=foe["magazineSpecs"][gun]["mag"]
+    actual_capacity=__import__("math").ceil(base_capacity*(1.5 if core=="tactical" else 1))
+    check(label+" enemy also maintains an equipment-dependent ammunition magazine",
+          foe["enemyAmmo"]["mag"]==actual_capacity,
+          (gun,core,foe["enemyAmmo"]["mag"],actual_capacity))
     page.screenshot(path=str(OUT/(label+"-fight.png")),full_page=True)
 
     # Heal 30% of MAX HP on winning, then obtain exactly one part.
