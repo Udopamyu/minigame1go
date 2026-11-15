@@ -196,6 +196,8 @@ function buildComparison(previous,candidate){
  const oldStats=specs(previous,true);
  const newStats=specs(candidate,true);
  const pairs=[
+  {name:'弾倉',old:oldStats.mag,next:newStats.mag,digits:0,higher:true},
+  {name:'装填時間',old:oldStats.reloadTime,next:newStats.reloadTime,digits:2,higher:false},
   {name:'最大HP',old:oldStats.hp,next:newStats.hp,digits:0,higher:true},
   {name:'攻撃威力',old:oldStats.dmg,next:newStats.dmg,digits:0,higher:true},
   {name:'連射間隔',old:oldStats.fireCooldown,next:newStats.fireCooldown,digits:2,higher:false},

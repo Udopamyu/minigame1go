@@ -1,12 +1,13 @@
 /* Distinct equipment silhouettes, handcrafted pixel mechanics.
-   Nose points right, y is lateral. Each of 28 items changes the shape. */
+   Nose points right, y is lateral. Each of 31 items changes the shape. */
 const PIXEL_RENDER_MODE={enabled:true,cssBlockSize:3};
+const MECH_SCALE=.8;
 const MECH_PIXELS=document.createElement('canvas');
 const SPRITE_SILHOUETTES={
- weapon:{pulse:'thin-coil-barrel',shot:'triple-flared-muzzle',rail:'extra-long-dual-rails',missile:'quad-rocket-pods',micro:'needle-array',burst:'triple-parallel-barrels',slug:'oversized-heavy-cannon'},
+ weapon:{pulse:'thin-coil-barrel',shot:'triple-flared-muzzle',rail:'extra-long-dual-rails',missile:'quad-rocket-pods',micro:'needle-array',burst:'triple-parallel-barrels',slug:'oversized-heavy-cannon',bounce:'forked-ricochet-reflector'},
  armor:{mesh:'exposed-narrow-frame',plated:'stacked-heavy-panels',fortress:'broad-shielded-bastion',reactive:'angular-explosive-tiles',composite:'asymmetric-patchwork',feather:'swept-back-wings',prism:'stepped-diamond-plates'},
  legs:{wheel:'four-independent-wheels',booster:'four-floating-thrusters',tank:'two-caterpillar-belts',spider:'eight-jointed-legs',jet:'swept-wings-and-exhausts',crawler:'two-oversized-crawler-belts',ranger:'long-two-legged-walker'},
- core:{spark:'cross-spark',blaze:'flame-reactor',rapid:'triple-pulse-display',repair:'medical-cross',capacitor:'double-capacitor',aegis:'wide-energy-shield',salvager:'four-way-salvage-rotor'}
+ core:{spark:'cross-spark',blaze:'flame-reactor',rapid:'triple-pulse-display',repair:'medical-cross',capacitor:'double-capacitor',aegis:'wide-energy-shield',salvager:'four-way-salvage-rotor',reloader:'glowing-cycle-rotor',magazine:'twin-feed-ammo-capsules'}
 };
 function mechTile(x,y,w,h,color){
  ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),Math.ceil(w),Math.ceil(h));
@@ -204,6 +205,24 @@ function drawCoreEquipment(id,c,trim){
    mechTile(Math.cos(a)*13-5,Math.sin(a)*13-5,11,11,c);
   }
   metal(-6,-7,12,14,trim);break;
+ case 'reloader':
+  metal(-19,-19,38,38,'#155c69','#0a2730','#c5fff0');
+  for(let i=0;i<4;i++){
+   const a=(i+tick/3)*Math.PI/2;
+   const x=Math.round(Math.cos(a)*19),y=Math.round(Math.sin(a)*19);
+   mechTile(x-5,y-5,10,10,c);
+  }
+  mechTile(-14,-4,28,8,'#e6fffa');
+  mechTile(-4,-14,8,28,'#aef8eb');
+  break;
+ case 'magazine':
+  metal(-14,-17,28,34,'#7a5934','#241e21','#ffde97');
+  for(const x of [-30,13]){
+   metal(x,-24,17,48,c,'#352b2a','#fff1c6');
+   for(let y=-17;y<18;y+=11)mechTile(x+5,y,8,7,'#ffe8a4');
+  }
+  mechTile(-11,-5,22,11,'#ffe2a7');
+  break;
  }
 }
 function drawWeaponEquipment(id,c,trim){
@@ -256,6 +275,16 @@ function drawWeaponEquipment(id,c,trim){
   metal(56,-19,49,38,'#896e9d','#19162a',trim);
   metal(97,-26,22,52,'#51385e','#110f21','#efe8f8');
   mechTile(120,-13,14,26,'#ffe2f1');break;
+ case 'bounce':
+  metal(14,-19,58,38,'#544f36','#222c31',trim);
+  // Wide forked reflectors and a faceted emitter distinguish the weapon.
+  for(const side of [-1,1]){
+   metal(54,side*23-7,54,14,c,'#292c27','#fff0a6');
+   for(let i=0;i<4;i++)mechTile(75+i*8,side*(25+i*3)-4,11,7,'#f7cf58');
+  }
+  pixelDiamond(111,0,19,18,'#fff4ac','#967f3f');
+  mechTile(95,-5,30,10,'#c99737');
+  break;
  }
 }
 function drawMechEquipment(o){
@@ -268,9 +297,10 @@ function drawMechEquipment(o){
  const trim=o.enemy?'#eac0c0':'#b6e9ea';
  const boss=o.enemy&&currentNode==='boss',elite=o.enemy&&currentNode==='elite';
  ctx.save();ctx.translate(Math.round(o.x),Math.round(o.y));
- mechTile(-55,52,118,7,'#02091499');
  ctx.rotate(o.angle);
+ ctx.scale(MECH_SCALE,MECH_SCALE);
  if(boss)ctx.scale(1.19,1.19);
+ mechTile(-55,52,118,7,'#02091499');
  if(o.dashLeft>0)for(let k=0;k<4;k++)mechTile(-73-k*14,-4+k*3,13,6,'#79fcf6');
  drawLegEquipment(load.legs.id,leg,trim);
  if(boss||elite){
@@ -289,8 +319,8 @@ function drawMechEquipment(o){
  }
  ctx.restore();
  if(state==='fight'){
-  mechTile(o.x-45,o.y-90,90,10,'#051120');
-  mechTile(o.x-43,o.y-88,Math.max(0,86*clamp(o.hp/o.maxHp,0,1)),6,
+  mechTile(o.x-36,o.y-73,72,8,'#051120');
+  mechTile(o.x-34,o.y-71,Math.max(0,68*clamp(o.hp/o.maxHp,0,1)),5,
    o.enemy?'#ef9293':'#7ce7d8');
  }
 }

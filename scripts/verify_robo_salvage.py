@@ -46,8 +46,8 @@ def test(browser,url,label,size,mobile=False):
         return outcome
     check(label+" page title","ロボ・サルベージ" in page.title())
     check(label+" initial modal",page.locator("#overlay").is_visible())
-    check(label+" seven free selectable starting weapons",
-          page.locator("[data-starter]").count()==7)
+    check(label+" eight free selectable starting weapons",
+          page.locator("[data-starter]").count()==8)
     check(label+" four permanent research branches",
           page.locator("[data-meta]").count()==4)
     check(label+" default starter is pulse",get()["meta"]["starter"]=="pulse")
@@ -102,9 +102,17 @@ def test(browser,url,label,size,mobile=False):
     check(label+" player HP doubled",start["player"]["maxHp"]>=240,
           start["player"]["maxHp"])
     check(label+" 15 available arena layouts",start["arenaLayoutCount"]==15)
+    check(label+" taller map uses spacious 115px row pitch and scrollable height",
+          start["routeStep"]==115 and start["mapHeight"]==1390 and
+          page.locator("#mapScroll .mapBoard").get_attribute("viewBox")=="0 0 640 1390",
+          (start["routeStep"],start["mapHeight"]))
+    check(label+" robot art is scaled to exactly 80% with matched collision radius",
+          abs(start["mechScale"]-.8)<.0001 and abs(start["player"]["r"]-17.6)<.001,
+          (start["mechScale"],start["player"]["r"]))
     expected_magazines={"pulse":(12,1.6),"shot":(5,2.35),"rail":(3,3.2),
-        "missile":(4,2.75),"micro":(30,2.15),"burst":(9,2.35),"slug":(3,2.9)}
-    check(label+" distinct capacity and reload duration for all seven weapons",
+        "missile":(4,2.75),"micro":(30,2.15),"burst":(9,2.35),"slug":(3,2.9),
+        "bounce":(7,2.15)}
+    check(label+" distinct capacity and reload duration for all eight weapons",
           all(start["magazineSpecs"][name]["mag"]==capacity and
                   abs(start["magazineSpecs"][name]["reload"]-seconds)<.01
                   for name,(capacity,seconds) in expected_magazines.items()),
@@ -127,8 +135,9 @@ def test(browser,url,label,size,mobile=False):
     check(label+" starting pulse+spark build activates synergy",
           "plasma-loop" in start["playerSynergies"],start["playerSynergies"])
     check(label+" pixel mode is active",start["pixelMode"] is True,start["pixelMode"])
-    check(label+" all 28 equipment categories have distinct silhouettes",
-          all(len(v)==7 and len(set(v))==7 for v in start["spriteSilhouettes"].values()),
+    check(label+" all 31 part models have distinct silhouettes",
+          all(len(start["spriteSilhouettes"][slot])==n and len(set(start["spriteSilhouettes"][slot]))==n
+              for slot,n in (("weapon",8),("armor",7),("legs",7),("core",9))),
           start["spriteSilhouettes"])
     check(label+" rail damage sharply reduced and cover piercing retained",
           start["rail"]["damage"]==18 and start["rail"]["cooldown"]>=1.3
@@ -153,15 +162,15 @@ def test(browser,url,label,size,mobile=False):
     check(label+" build synergy actually changes weapon damage",
           offense["damage"]>basic["damage"],
           {"base":basic["damage"],"combo":offense["damage"]})
-    check(label+" all seven weapons have distinct impact traits",
-          set(start["weaponTraits"])=={"pulse","shot","rail","missile","micro","burst","slug"},
+    check(label+" all eight weapons have distinct impact traits",
+          set(start["weaponTraits"])=={"pulse","shot","rail","missile","micro","burst","slug","bounce"},
           start["weaponTraits"])
     check(label+" four interactive arena hazard types",
           set(start["hazardKinds"])=={"shock","frost","repair","rotor"})
     check(label+" all four hazard types appear across stages",
           set(hook("sampleHazardKinds"))=={"shock","frost","repair","rotor"})
-    check(label+" expanded 28 distinct collectible parts",
-          all(start["partCounts"].get(slot)==7 for slot in ("weapon","armor","legs","core")),
+    check(label+" expanded 31 distinct collectible parts",
+          all(start["partCounts"].get(slot)==n for slot,n in (("weapon",8),("armor",7),("legs",7),("core",9))),
           start["partCounts"])
     check(label+" six tactical enemy roles available",
           set(start["roles"])=={"skirmisher","charger","sniper","flanker","guardian","boss"},
@@ -229,13 +238,37 @@ def test(browser,url,label,size,mobile=False):
           all(0<c["hp"]<=c["maxHp"] and c["maxHp"]>=70
               for c in fight["coverDurability"]),
           fight["coverDurability"])
+    rebound=hook("testRicochetCollision")
+    check(label+" ricochet projectile reflects on solid cover",
+          bool(rebound) and rebound["cover"]["reflected"] and
+          rebound["cover"]["bounces"]==1 and rebound["cover"]["damageReduced"],rebound)
+    check(label+" ricochet projectile reflects on arena boundary",
+          bool(rebound) and rebound["boundary"]["reflected"] and
+          rebound["boundary"]["bounces"]==1,rebound)
+    check(label+" ricochet expires after three rebounds",
+          bool(rebound) and rebound["exhausted"],rebound)
+    # The two new core effects change real combat magazine/reload specs.
+    basicAmmo=get()["playerAmmo"]
+    hook("equipTestPart","core","reloader")
+    quick=get()["playerAmmo"]
+    check(label+" fast-reload core reduces actual reload time by 35%",
+          quick["reloadTime"]<basicAmmo["reloadTime"] and
+          abs(quick["reloadTime"]-basicAmmo["reloadTime"]*.65)<.01,quick)
+    hook("equipTestPart","core","magazine")
+    expanded=get()["playerAmmo"]
+    check(label+" extended magazine core increases actual capacity by 50%",
+          expanded["mag"]==__import__("math").ceil(basicAmmo["mag"]*1.5),expanded)
+    hook("equipTestPart","core","spark")
+    hook("equipTestPart","weapon","bounce")
+    check(label+" ricochet weapon can actually equip",get()["player"]["load"]["weapon"]["id"]=="bounce")
+    hook("equipTestPart","weapon","pulse")
     breached=hook("testBreakCover")
     check(label+" shooting cover opens tactical passage",
           bool(breached) and breached["removed"] and
           breached["after"]==breached["before"]-1 and breached["unblocked"],
           breached)
     for name,key in (("pulse","stun"),("rail","sunder"),("micro","sunder"),
-                     ("burst","burn"),("slug","stun"),("shot",None),("missile",None)):
+                     ("burst","burn"),("slug","stun"),("shot",None),("missile",None),("bounce",None)):
         effect=hook("testWeaponTrait",name)
         check(label+" "+name+" weapon impact logic",
               effect is not None and (key is None or effect[key]>0),effect)

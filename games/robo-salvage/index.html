@@ -445,7 +445,8 @@ const DEF={
   {id:'missile',name:'ホーミング弾',detail:'追尾する低速ミサイル',damage:25,cool:1.02,velocity:425,count:1,spread:0,mag:4,reload:2.75,idealRange:400,color:'#ff867d',homing:true},
   {id:'micro',name:'ニードルガン',detail:'低威力・高速連射',damage:7,cool:.19,velocity:960,count:1,spread:.015,mag:30,reload:2.15,idealRange:295,color:'#82f5bb'},
   {id:'burst',name:'バーストライフル',detail:'3発同時射撃の中距離型',damage:8,cool:.62,velocity:920,count:3,spread:.072,mag:9,reload:2.35,idealRange:345,color:'#8ab5fa'},
-  {id:'slug',name:'グラビティスラグ',detail:'遅い連射の一撃重視型',damage:49,cool:1.5,velocity:950,count:1,spread:0,mag:3,reload:2.9,idealRange:375,color:'#e5bcff'}
+  {id:'slug',name:'グラビティスラグ',detail:'遅い連射の一撃重視型',damage:49,cool:1.5,velocity:950,count:1,spread:0,mag:3,reload:2.9,idealRange:375,color:'#e5bcff'},
+  {id:'bounce',name:'リコシェットガン',detail:'障害物と外壁で最大3回反射する弾',damage:17,cool:.66,velocity:740,count:1,spread:0,mag:7,reload:2.15,idealRange:385,color:'#f6d46b',ricochet:3}
  ],
  armor:[
   {id:'mesh',name:'メッシュ装甲',detail:'軽量で基本的な防御',hp:125,guard:.025,color:'#65e1e9'},
@@ -472,7 +473,9 @@ const DEF={
   {id:'repair',name:'リペアコア',detail:'勝利時に追加回復',damage:1,rate:1,heal:.18,color:'#c5a6f8'},
   {id:'capacitor',name:'キャパシタコア',detail:'連射と火力を少し増強',damage:1.08,rate:1.13,heal:0,color:'#a5e2ff'},
   {id:'aegis',name:'イージスコア',detail:'攻撃力を抑えてダメージ軽減',damage:.96,rate:1,heal:0,guardBonus:.055,color:'#b3edb6'},
-  {id:'salvager',name:'サルベージコア',detail:'勝利後の回復をさらに増強',damage:.98,rate:.98,heal:.12,color:'#f4d08d'}
+  {id:'salvager',name:'サルベージコア',detail:'勝利後の回復をさらに増強',damage:.98,rate:.98,heal:.12,color:'#f4d08d'},
+  {id:'reloader',name:'クイックリロードコア',detail:'リロード所要時間を35%短縮',damage:1,rate:1,heal:0,reloadFactor:.65,color:'#7df3e2'},
+  {id:'magazine',name:'拡張マガジンコア',detail:'弾倉を50%増量（切り上げ）',damage:1,rate:1,heal:0,magBonus:1.5,color:'#f5cb89'}
  ]
 };
 const WEAPON_TRAITS={
@@ -482,7 +485,8 @@ const WEAPON_TRAITS={
  missile:{name:'爆風',splash:68},
  micro:{name:'装甲削り',sunder:1.25},
  burst:{name:'炎上',burn:1.65},
- slug:{name:'強制停止',stun:.42,push:64}
+ slug:{name:'強制停止',stun:.42,push:64},
+ bounce:{name:'壁面反射'}
 };
 const RAR=['','STANDARD','ADVANCED','RARE','LEGEND'],RARCOL=['','#a9bbc9','#65dece','#b9a5ff','#ffca7b'];
 const part=(slot,id,lv=1,tier=1)=>({slot,id,lv,tier});
@@ -734,6 +738,8 @@ function buildComparison(previous,candidate){
  const oldStats=specs(previous,true);
  const newStats=specs(candidate,true);
  const pairs=[
+  {name:'弾倉',old:oldStats.mag,next:newStats.mag,digits:0,higher:true},
+  {name:'装填時間',old:oldStats.reloadTime,next:newStats.reloadTime,digits:2,higher:false},
   {name:'最大HP',old:oldStats.hp,next:newStats.hp,digits:0,higher:true},
   {name:'攻撃威力',old:oldStats.dmg,next:newStats.dmg,digits:0,higher:true},
   {name:'連射間隔',old:oldStats.fireCooldown,next:newStats.fireCooldown,digits:2,higher:false},
@@ -790,7 +796,9 @@ function specs(load,forPlayer=false){
   guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1)+(c.guardBonus||0)+m.guard,0,.38),
   speed:l.speed*lf*m.speed*(1+permanent.drive*.03),dashCooldown:Math.max(1.08,l.dash/Math.sqrt(lf)*m.dashCooldown*(1-permanent.drive*.03)),
   dmg:w.damage*wf*c.damage*cf*m.damage*(1+permanent.power*.04),fireCooldown:Math.max(.125,w.cool/(c.rate*cf)*m.fireCooldown),
-  weapon:w,armor:a,legs:l,core:c,repair:clamp(c.heal*cf+m.repair+permanent.recovery*.04,0,.65),
+  weapon:w,armor:a,legs:l,core:c,mag:Math.max(1,Math.ceil(w.mag*(c.magBonus||1))),
+  reloadTime:Math.max(.5,w.reload*(c.reloadFactor||1)),
+  repair:clamp(c.heal*cf+m.repair+permanent.recovery*.04,0,.65),
   synergies:synergy.active,modifiers:m
  };
 }
@@ -939,8 +947,8 @@ function showPhaseCard(label,next,phase){
 
 function createRobot(load,x,y,isEnemy=false){
  const s=specs(load,!isEnemy);
- return {x,y,vx:0,vy:0,angle:isEnemy?Math.PI:0,r:22,load,stats:s,hp:s.hp,maxHp:s.hp,
-  cd:.25,ammo:s.weapon.mag,reloadLeft:0,reloadTotal:s.weapon.reload,reloadCount:0,shots:0,dashLeft:0,dashCooldown:0,hitFlash:0,dead:false,enemy:isEnemy,aiPhase:rand(0,TAU),aiStrafe:Math.random()<.5?-1:1,
+ return {x,y,vx:0,vy:0,angle:isEnemy?Math.PI:0,r:17.6,load,stats:s,hp:s.hp,maxHp:s.hp,
+  cd:.25,ammo:s.mag,reloadLeft:0,reloadTotal:s.reloadTime,reloadCount:0,shots:0,dashLeft:0,dashCooldown:0,hitFlash:0,dead:false,enemy:isEnemy,aiPhase:rand(0,TAU),aiStrafe:Math.random()<.5?-1:1,
   status:{burn:0,stun:0,slow:0,sunder:0},burnTimer:0,shieldCooldown:0,aiDodgeCooldown:0,aiRetreat:false,aiStuckFor:0,aiReplan:0,aiPath:[],aiEscapeFor:0,aiMode:'seek',
   role:isEnemy?'skirmisher':'player',name:isEnemy?pick(enemyNames):'SALVAGER-01'};
 }
@@ -1131,7 +1139,8 @@ function lanesFrom(lane){
  return [lane-1,lane,lane+1];
 }
 function mapX(lane){return 92+114*lane}
-function mapY(row){return 830-row*75}
+const MAP_HEIGHT=1390,MAP_BOSS_Y=60,MAP_START_Y=1334;
+function mapY(row){return 1234-row*115}
 function mapLine(x1,y1,x2,y2,kind=''){
  return '<path class="map-edge '+kind+'" d="M '+x1+' '+y1+' Q '+((x1+x2)/2)+' '+((y1+y2)/2)+' '+x2+' '+y2+'"/>';
 }
@@ -1141,7 +1150,7 @@ function renderRouteMap(){
  for(const lane of lanesFrom(2)) {
   const visited=chosenNodes[0]?.lane===lane;
   const active=depth===0&&routeCandidates.some(n=>n.lane===lane);
-  lines+=mapLine(320,906,mapX(lane),mapY(0)+27,visited?'done':active?'active':'');
+  lines+=mapLine(320,MAP_START_Y,mapX(lane),mapY(0)+27,visited?'done':active?'active':'');
  }
  for(let row=0;row<9;row++)for(let from=0;from<5;from++){
   for(const to of lanesFrom(from)){
@@ -1152,7 +1161,7 @@ function renderRouteMap(){
  }
  for(let lane=0;lane<5;lane++){
   const last=chosenNodes[9]?.lane===lane;
-  lines+=mapLine(mapX(lane),mapY(9)-27,320,81,last?(depth===10?'active':'done'):'');
+  lines+=mapLine(mapX(lane),mapY(9)-27,320,MAP_BOSS_Y+35,last?(depth===10?'active':'done'):'');
  }
  for(let row=0;row<10;row++)for(let lane=0;lane<5;lane++){
   const selected=chosenNodes.some(n=>n.depth===row&&n.lane===lane);
@@ -1165,11 +1174,11 @@ function renderRouteMap(){
     +'<circle r="28"/><text y="-3">'+n.symbol+'</text><text class="small" y="35">'+n.name+'</text></g>';
  }
  const activeBoss=depth>=10;
- nodes+='<g class="map-node boss'+(activeBoss?' current':'')+'" transform="translate(320 60)"'
+ nodes+='<g class="map-node boss'+(activeBoss?' current':'')+'" transform="translate(320 '+MAP_BOSS_Y+')"'
   +(activeBoss?' data-route="boss" data-lane="2" tabindex="0" role="button" aria-label="最終ボスに挑戦"':'')
   +'><circle r="35"/><text y="-2">★</text><text class="small" y="45">FINAL BOSS</text></g>';
- nodes+='<circle class="startNode" cx="320" cy="906" r="25"/><text class="map-caption" x="320" y="911" text-anchor="middle">START</text>';
- return '<svg class="mapBoard" viewBox="0 0 640 945" role="img" aria-label="10階層の分岐と最上部のボスマスを示す全体マップ">'
+ nodes+='<circle class="startNode" cx="320" cy="'+MAP_START_Y+'" r="25"/><text class="map-caption" x="320" y="'+(MAP_START_Y+5)+'" text-anchor="middle">START</text>';
+ return '<svg class="mapBoard" viewBox="0 0 640 '+MAP_HEIGHT+'" role="img" aria-label="10階層の分岐と最上部のボスマスを示す全体マップ">'
   +'<g>'+lines+'</g><g>'+nodes+'</g></svg>';
 }
 function showRoute(){
@@ -1196,8 +1205,8 @@ function showRoute(){
   el.addEventListener('click',enter);
   el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter()}});
  });
- const el=$('mapScroll'),y=final?60:mapY(depth);
- const scrollTarget=y*(el.scrollHeight/945)-el.clientHeight*.58;
+ const el=$('mapScroll'),y=final?MAP_BOSS_Y:mapY(depth);
+ const scrollTarget=y*(el.scrollHeight/MAP_HEIGHT)-el.clientHeight*.58;
  el.scrollTop=Math.max(0,scrollTarget);
 }
 function enterNode(type,lane){
@@ -1219,11 +1228,16 @@ function enterNode(type,lane){
 function restoreVitalsFromLoad(){
  if(!player)return;
  const previous=player.maxHp,missing=Math.max(0,previous-player.hp);
- const previousGun=player.stats.weapon.id;
+ const previousGun=player.stats.weapon.id,previousMag=player.stats.mag;
+ const reloadProgress=player.reloadLeft>0?player.reloadLeft/player.reloadTotal:0;
  player.stats=specs(player.load,true);player.maxHp=player.stats.hp;
  if(previousGun!==player.stats.weapon.id){
-  player.ammo=player.stats.weapon.mag;player.reloadLeft=0;player.reloadTotal=player.stats.weapon.reload;
+  player.ammo=player.stats.mag;player.reloadLeft=0;
+ }else{
+  player.ammo=clamp(player.ammo+player.stats.mag-previousMag,0,player.stats.mag);
+  if(reloadProgress>0)player.reloadLeft=player.stats.reloadTime*reloadProgress;
  }
+ player.reloadTotal=player.stats.reloadTime;
  player.hp=clamp(player.maxHp-missing,0,player.maxHp);
  updatePanels(true);
 }
@@ -1254,7 +1268,7 @@ function startWave(){
  const kind=currentNode;
  const hpScale=kind==='boss'?2.15:kind==='elite'?1.42:1;
  enemy.maxHp=Math.round(enemy.maxHp*warmup*hpScale);enemy.hp=enemy.maxHp;
- if(kind==='boss'){enemy.stats.dmg*=1.22;enemy.r=30;enemy.name='OMEGA GUARDIAN'}
+ if(kind==='boss'){enemy.stats.dmg*=1.22;enemy.r=24;enemy.name='OMEGA GUARDIAN'}
  else if(kind==='elite'){enemy.stats.dmg*=1.1;enemy.name='ELITE '+pick(enemyNames)}
  else enemy.name=ENEMY_ROLES[enemy.role].label+' '+pick(enemyNames);
  enemySeed=Math.random()*10;
@@ -1262,7 +1276,7 @@ function startWave(){
  // Healing happens only after combat, not on entering a new fight.
  player.stats=specs(player.load,true);player.maxHp=player.stats.hp;player.hp=Math.min(player.hp,player.maxHp);
  player.dashCooldown=0;player.dashLeft=0;player.status={burn:0,stun:0,slow:0,sunder:0};player.shieldCooldown=0;
- player.ammo=player.stats.weapon.mag;player.reloadLeft=0;player.reloadTotal=player.stats.weapon.reload;
+ player.ammo=player.stats.mag;player.reloadLeft=0;player.reloadTotal=player.stats.reloadTime;
  updatePanels(true);setMusicMode('silent');
  showPhaseCard('戦闘準備',()=>{state='fight';closeOverlay();setMusicMode(currentNode==='boss'?'boss':'combat');beep(520,.12,.04)},'ready');
 }
@@ -1396,7 +1410,7 @@ function updatePanels(forceParts){
   $('playerHpBar').style.width=(100*clamp(player.hp/player.maxHp,0,1))+'%';
   $('playerHpText').textContent=Math.ceil(Math.max(0,player.hp))+' / '+player.maxHp+' HP';
   $('playerPower').textContent='DASH '+Math.max(0,player.dashCooldown).toFixed(1)+'s';
- const reloading=player.reloadLeft>0,capacity=player.stats.weapon.mag;
+ const reloading=player.reloadLeft>0,capacity=player.stats.mag;
  $('ammoHud').classList.toggle('active',state==='fight');
  $('ammoCount').textContent=player.ammo+' / '+capacity;
  $('ammoLabel').textContent=reloading?'RELOADING '+player.reloadLeft.toFixed(1)+'s':player.stats.weapon.name;
@@ -1461,7 +1475,7 @@ function renderHangar(){
  for(const w of DEF.weapon){
   const selected=metaState.starter===w.id;
   html+='<button type="button" class="starterOption'+(selected?' selected':'')+'" data-starter="'+w.id+'" aria-pressed="'+selected+'">'
-   +'<span class="starterGlyph" style="color:'+w.color+'">'+({pulse:'⌁',shot:'▥',rail:'═',missile:'▣',micro:'⋮',burst:'≡',slug:'▰'}[w.id])+'</span>'
+   +'<span class="starterGlyph" style="color:'+w.color+'">'+({pulse:'⌁',shot:'▥',rail:'═',missile:'▣',micro:'⋮',burst:'≡',slug:'▰',bounce:'⟐'}[w.id])+'</span>'
    +'<strong>'+w.name+'</strong><small>'+w.detail+'</small></button>';
  }
  html+='</div><h3 class="hangarTitle">PERMANENT RESEARCH / 永続強化</h3><div class="metaUpgradeGrid">';
@@ -1663,8 +1677,8 @@ function lineOfSight(a,b){
    Manual reload works with a partially full magazine; empty auto-reloads.
    Both player and hostile robots use the same ammo rules. */
 function startReload(o){
- if(!o||o.dead||state!=='fight'||o.reloadLeft>0||o.ammo>=o.stats.weapon.mag)return false;
- o.reloadTotal=o.stats.weapon.reload;
+ if(!o||o.dead||state!=='fight'||o.reloadLeft>0||o.ammo>=o.stats.mag)return false;
+ o.reloadTotal=o.stats.reloadTime;
  o.reloadLeft=o.reloadTotal;
  o.reloadCount++;
  if(o===player)beep(290,.08,.016,'square');
@@ -1674,7 +1688,7 @@ function updateReload(o,dt){
  if(!o||o.dead||o.reloadLeft<=0)return;
  o.reloadLeft=Math.max(0,o.reloadLeft-dt);
  if(o.reloadLeft===0){
-  o.ammo=o.stats.weapon.mag;
+  o.ammo=o.stats.mag;
   if(o===player)beep(780,.09,.018,'triangle');
  }
 }
@@ -1688,9 +1702,10 @@ function shoot(o,target,angleOverride){
  for(let i=0;i<w.count;i++){
   let angle=baseAngle+(i-(w.count-1)/2)*w.spread+(Math.random()-.5)*.045;
   let v=w.velocity*scale;
-  bullets.push({x:o.x+Math.cos(angle)*25,y:o.y+Math.sin(angle)*25,px:o.x,py:o.y,
+  bullets.push({x:o.x+Math.cos(angle)*(o.r+5),y:o.y+Math.sin(angle)*(o.r+5),px:o.x,py:o.y,
    vx:Math.cos(angle)*v,vy:Math.sin(angle)*v,spd:v,
-   r:w.id==='missile'?8:w.id==='rail'?5:6,life:w.id==='rail'?.8:2.1,
+   r:w.id==='missile'?8:w.id==='rail'?5:6,life:w.ricochet?3.4:w.id==='rail'?.8:2.1,
+   bouncesLeft:w.ricochet||0,bounceCount:0,
    damage:bulletDamage,source:o,kind:w.id,color:w.color,pierce:w.pierce,
    trail:[],homing:w.homing});
  }
@@ -1829,7 +1844,7 @@ function moveEnemyTactically(dt,dx,dy,d,tactics){
  const gun=enemy.stats.weapon;
  const baseRange=gun.idealRange+(tactics.distance-265)*.35;
  const reloading=enemy.reloadLeft>0;
- const needsCover=(!lineOfSight(enemy,player)&&gun.id!=='rail'&&gun.id!=='missile');
+ const needsCover=(!lineOfSight(enemy,player)&&gun.id!=='rail'&&gun.id!=='missile'&&gun.id!=='bounce');
  const preferred=clamp(baseRange+(reloading?145:0)-(player.reloadLeft>0?35:0),175,535);
  let approach=clamp((d-preferred)/95,-1.08,.9);
  // Reloading or badly injured enemies prefer disengagement and lateral cover.
@@ -1873,6 +1888,54 @@ function moveEnemyTactically(dt,dx,dy,d,tactics){
  else enemy.aiStuckFor=Math.max(0,enemy.aiStuckFor-dt*1.7);
  if(dodged)enemy.aiMode='dodge';
 }
+
+function ricochetCoverHit(b){
+ const dx=b.x-b.px,dy=b.y-b.py;let first=null;
+ for(const wall of blocks){
+  const L=wall.x-wall.w/2-b.r,R=wall.x+wall.w/2+b.r,T=wall.y-wall.h/2-b.r,B=wall.y+wall.h/2+b.r;
+  let enter=-Infinity,exit=Infinity,nx=0,ny=0;
+  if(Math.abs(dx)<.000001){if(b.px<L||b.px>R)continue;}
+  else{enter=dx>0?(L-b.px)/dx:(R-b.px)/dx;exit=dx>0?(R-b.px)/dx:(L-b.px)/dx;nx=dx>0?-1:1;}
+  if(Math.abs(dy)<.000001){if(b.py<T||b.py>B)continue;}
+  else{
+   const tin=dy>0?(T-b.py)/dy:(B-b.py)/dy,tout=dy>0?(B-b.py)/dy:(T-b.py)/dy;
+   if(tin>enter){enter=tin;nx=0;ny=dy>0?-1:1;}exit=Math.min(exit,tout);
+  }
+  if(enter>exit||enter<0||enter>1||exit<0)continue;
+  if(!first||enter<first.t)first={t:enter,x:b.px+enter*dx,y:b.py+enter*dy,nx,ny};
+ }
+ return first;
+}
+function reflectShot(b,hit){
+ if(b.bouncesLeft<=0){ring(hit.x,hit.y,b.color,10);return true;}
+ const dot=b.vx*hit.nx+b.vy*hit.ny;
+ b.vx-=2*dot*hit.nx;b.vy-=2*dot*hit.ny;
+ b.x=hit.x+hit.nx*2.5;b.y=hit.y+hit.ny*2.5;
+ b.bouncesLeft--;b.bounceCount++;b.damage*=.93;
+ particle(b.x,b.y,b.color,6,.35);ring(b.x,b.y,b.color,14);
+ return false;
+}
+function ricochetArenaHit(b){
+ if(arenaAllowed(b.x,b.y,b.r))return null;
+ let lo=0,hi=1;
+ for(let k=0;k<12;k++){
+  const mid=(lo+hi)*.5;
+  if(arenaAllowed(b.px+(b.x-b.px)*mid,b.py+(b.y-b.py)*mid,b.r))lo=mid;
+  else hi=mid;
+ }
+ const x=b.px+(b.x-b.px)*lo,y=b.py+(b.y-b.py)*lo,probe=10;
+ let nx=Number(!arenaAllowed(x-probe,y,b.r))-Number(!arenaAllowed(x+probe,y,b.r));
+ let ny=Number(!arenaAllowed(x,y-probe,b.r))-Number(!arenaAllowed(x,y+probe,b.r));
+ let length=Math.hypot(nx,ny);
+ if(length<.0001){nx=500-x;ny=295-y;length=Math.max(1,Math.hypot(nx,ny));}
+ return {x,y,nx:nx/length,ny:ny/length,t:lo};
+}
+function handleRicochet(b){
+ const wall=ricochetCoverHit(b),arena=ricochetArenaHit(b);
+ if(wall&&(!arena||wall.t<=arena.t))return reflectShot(b,wall);
+ if(arena)return reflectShot(b,arena);
+ return false;
+}
 function update(dt){
  if(menuOpen)return; // Opening the equipment drawer pauses combat.
  clock+=dt;
@@ -1905,13 +1968,13 @@ function update(dt){
   enemy.angle=a;
   const tactics=ENEMY_ROLES[enemy.role]||ENEMY_ROLES.skirmisher;
   // Skilled enemies can top off when the player is far away or behind cover.
-  if(enemy.ammo<enemy.stats.weapon.mag&&enemy.reloadLeft<=0&&
-      (enemy.ammo<=0||(enemy.ammo<=Math.max(1,Math.floor(enemy.stats.weapon.mag*.28))&&
+  if(enemy.ammo<enemy.stats.mag&&enemy.reloadLeft<=0&&
+      (enemy.ammo<=0||(enemy.ammo<=Math.max(1,Math.floor(enemy.stats.mag*.28))&&
       (d>enemy.stats.weapon.idealRange+70||!lineOfSight(enemy,player)))))
    startReload(enemy);
   moveEnemyTactically(dt,dx,dy,d,tactics);
   enemy.cd=Math.max(0,enemy.cd-dt);
-  if(d<tactics.attackRange&&(lineOfSight(enemy,player)||enemy.stats.weapon.id==='rail'||enemy.stats.weapon.id==='missile'))
+  if(d<tactics.attackRange&&(lineOfSight(enemy,player)||enemy.stats.weapon.id==='rail'||enemy.stats.weapon.id==='missile'||enemy.stats.weapon.id==='bounce'))
     if(enemy.status.stun<=0)shoot(enemy,player,a+Math.sin(clock*1.4+enemySeed)*(.10+Math.min(.12,wave*.006))*tactics.accuracy);
  }
  updateBossPatterns(dt);
@@ -1925,7 +1988,9 @@ function update(dt){
   b.px=b.x;b.py=b.y;b.x+=b.vx*dt;b.y+=b.vy*dt;
   b.trail.push({x:b.x,y:b.y});if(b.trail.length>7)b.trail.shift();
   if(b.x<-20||b.x>W+20||b.y<-20||b.y>H+20){bullets.splice(i,1);continue}
-  if(!b.pierce){
+  if(b.kind==='bounce'){
+   if(handleRicochet(b)){bullets.splice(i,1);continue;}
+  }else if(!b.pierce){
    const cover=blocks.find(o=>hitRect(b.x,b.y,b.r,o));
    if(cover){
     const coverDamage=b.damage*(b.kind==='slug'?1.3:b.kind==='shot'?.72:1);
@@ -2054,14 +2119,15 @@ function drawCover(){
  }
 }
 /* Distinct equipment silhouettes, handcrafted pixel mechanics.
-   Nose points right, y is lateral. Each of 28 items changes the shape. */
+   Nose points right, y is lateral. Each of 31 items changes the shape. */
 const PIXEL_RENDER_MODE={enabled:true,cssBlockSize:3};
+const MECH_SCALE=.8;
 const MECH_PIXELS=document.createElement('canvas');
 const SPRITE_SILHOUETTES={
- weapon:{pulse:'thin-coil-barrel',shot:'triple-flared-muzzle',rail:'extra-long-dual-rails',missile:'quad-rocket-pods',micro:'needle-array',burst:'triple-parallel-barrels',slug:'oversized-heavy-cannon'},
+ weapon:{pulse:'thin-coil-barrel',shot:'triple-flared-muzzle',rail:'extra-long-dual-rails',missile:'quad-rocket-pods',micro:'needle-array',burst:'triple-parallel-barrels',slug:'oversized-heavy-cannon',bounce:'forked-ricochet-reflector'},
  armor:{mesh:'exposed-narrow-frame',plated:'stacked-heavy-panels',fortress:'broad-shielded-bastion',reactive:'angular-explosive-tiles',composite:'asymmetric-patchwork',feather:'swept-back-wings',prism:'stepped-diamond-plates'},
  legs:{wheel:'four-independent-wheels',booster:'four-floating-thrusters',tank:'two-caterpillar-belts',spider:'eight-jointed-legs',jet:'swept-wings-and-exhausts',crawler:'two-oversized-crawler-belts',ranger:'long-two-legged-walker'},
- core:{spark:'cross-spark',blaze:'flame-reactor',rapid:'triple-pulse-display',repair:'medical-cross',capacitor:'double-capacitor',aegis:'wide-energy-shield',salvager:'four-way-salvage-rotor'}
+ core:{spark:'cross-spark',blaze:'flame-reactor',rapid:'triple-pulse-display',repair:'medical-cross',capacitor:'double-capacitor',aegis:'wide-energy-shield',salvager:'four-way-salvage-rotor',reloader:'glowing-cycle-rotor',magazine:'twin-feed-ammo-capsules'}
 };
 function mechTile(x,y,w,h,color){
  ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),Math.ceil(w),Math.ceil(h));
@@ -2259,6 +2325,24 @@ function drawCoreEquipment(id,c,trim){
    mechTile(Math.cos(a)*13-5,Math.sin(a)*13-5,11,11,c);
   }
   metal(-6,-7,12,14,trim);break;
+ case 'reloader':
+  metal(-19,-19,38,38,'#155c69','#0a2730','#c5fff0');
+  for(let i=0;i<4;i++){
+   const a=(i+tick/3)*Math.PI/2;
+   const x=Math.round(Math.cos(a)*19),y=Math.round(Math.sin(a)*19);
+   mechTile(x-5,y-5,10,10,c);
+  }
+  mechTile(-14,-4,28,8,'#e6fffa');
+  mechTile(-4,-14,8,28,'#aef8eb');
+  break;
+ case 'magazine':
+  metal(-14,-17,28,34,'#7a5934','#241e21','#ffde97');
+  for(const x of [-30,13]){
+   metal(x,-24,17,48,c,'#352b2a','#fff1c6');
+   for(let y=-17;y<18;y+=11)mechTile(x+5,y,8,7,'#ffe8a4');
+  }
+  mechTile(-11,-5,22,11,'#ffe2a7');
+  break;
  }
 }
 function drawWeaponEquipment(id,c,trim){
@@ -2311,6 +2395,16 @@ function drawWeaponEquipment(id,c,trim){
   metal(56,-19,49,38,'#896e9d','#19162a',trim);
   metal(97,-26,22,52,'#51385e','#110f21','#efe8f8');
   mechTile(120,-13,14,26,'#ffe2f1');break;
+ case 'bounce':
+  metal(14,-19,58,38,'#544f36','#222c31',trim);
+  // Wide forked reflectors and a faceted emitter distinguish the weapon.
+  for(const side of [-1,1]){
+   metal(54,side*23-7,54,14,c,'#292c27','#fff0a6');
+   for(let i=0;i<4;i++)mechTile(75+i*8,side*(25+i*3)-4,11,7,'#f7cf58');
+  }
+  pixelDiamond(111,0,19,18,'#fff4ac','#967f3f');
+  mechTile(95,-5,30,10,'#c99737');
+  break;
  }
 }
 function drawMechEquipment(o){
@@ -2323,9 +2417,10 @@ function drawMechEquipment(o){
  const trim=o.enemy?'#eac0c0':'#b6e9ea';
  const boss=o.enemy&&currentNode==='boss',elite=o.enemy&&currentNode==='elite';
  ctx.save();ctx.translate(Math.round(o.x),Math.round(o.y));
- mechTile(-55,52,118,7,'#02091499');
  ctx.rotate(o.angle);
+ ctx.scale(MECH_SCALE,MECH_SCALE);
  if(boss)ctx.scale(1.19,1.19);
+ mechTile(-55,52,118,7,'#02091499');
  if(o.dashLeft>0)for(let k=0;k<4;k++)mechTile(-73-k*14,-4+k*3,13,6,'#79fcf6');
  drawLegEquipment(load.legs.id,leg,trim);
  if(boss||elite){
@@ -2344,8 +2439,8 @@ function drawMechEquipment(o){
  }
  ctx.restore();
  if(state==='fight'){
-  mechTile(o.x-45,o.y-90,90,10,'#051120');
-  mechTile(o.x-43,o.y-88,Math.max(0,86*clamp(o.hp/o.maxHp,0,1)),6,
+  mechTile(o.x-36,o.y-73,72,8,'#051120');
+  mechTile(o.x-34,o.y-71,Math.max(0,68*clamp(o.hp/o.maxHp,0,1)),5,
    o.enemy?'#ef9293':'#7ce7d8');
  }
 }
@@ -2526,6 +2621,20 @@ if(navigator.webdriver)window.__roboQATest={
   damage(player,player.hp/(Math.max(.01,1-player.stats.guard)*.86)+500);
   return state==='loseCard';
  },
+ testRicochetCollision:()=>{
+  if(state!=='fight'||!blocks.length)return null;
+  const wall=blocks[0],startX=wall.x-wall.w/2-40,y=wall.y;
+  const cover={kind:'bounce',px:startX,py:y,x:startX+70,y,
+    vx:700,vy:0,r:5,color:'#ffee88',damage:12,bouncesLeft:3,bounceCount:0};
+  const absorbed=handleRicochet(cover);
+  const coverResult={absorbed,bounces:cover.bounceCount,reflected:cover.vx<0,damageReduced:cover.damage<12};
+  const outer={kind:'bounce',px:80,py:295,x:-25,y:295,
+    vx:-700,vy:0,r:5,color:'#ffee88',damage:12,bouncesLeft:3,bounceCount:0};
+  const outerAbsorbed=handleRicochet(outer);
+  const boundary={absorbed:outerAbsorbed,bounces:outer.bounceCount,reflected:outer.vx>0};
+  const spent={...cover,px:startX,py:y,x:startX+70,y,vx:700,vy:0,bouncesLeft:0,bounceCount:3};
+  return {cover:coverResult,boundary,exhausted:handleRicochet(spent)};
+ },
  testBreakCover:()=>{
   if(state!=='fight'||!blocks.length)return null;
   const cover=blocks[0],before=blocks.length;
@@ -2612,20 +2721,21 @@ window.__roboQA=()=>({
  synergyCount:SYNERGY_RULES.length,playerSynergies:player?.stats.synergies.map(rule=>rule.id)||[],
  enemyArchetype:chosenEnemyArchetype?.id||null,enemyArchetypeCount:ENEMY_ARCHETYPES.length,
  enemySynergies:enemy?.stats.synergies.map(rule=>rule.id)||[],
+ mechScale:MECH_SCALE,routeStep:mapY(0)-mapY(1),mapHeight:MAP_HEIGHT,
  bgmMode:musicMode,pixelMode:PIXEL_RENDER_MODE.enabled,pixelBuffer:{width:MECH_PIXELS.width,height:MECH_PIXELS.height},
  roles:Object.keys(ENEMY_ROLES),
  coverCount:blocks.length,coverArea:Math.round(blocks.reduce((a,b)=>a+b.w*b.h,0)),coverDurability:blocks.map(b=>({material:b.material,hp:b.hp,maxHp:b.maxHp})),
  hazards:hazards.map(h=>({kind:h.kind,x:h.x,y:h.y,r:h.r,phase:h.phase})),hazardKinds:HAZARD_KINDS.slice(),
  bossPattern:bossAttack?.kind||null,bossAttackCount,bossPhase:enemy&&currentNode==='boss'?(enemy.hp/enemy.maxHp<.5?2:1):0,
- player:player?{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,
+ player:player?{x:player.x,y:player.y,r:player.r,hp:player.hp,maxHp:player.maxHp,
   dashCooldown:player.dashCooldown,status:{...player.status},load:player.load}:null,
- enemy:enemy?{x:enemy.x,y:enemy.y,hp:enemy.hp,maxHp:enemy.maxHp,
+ enemy:enemy?{x:enemy.x,y:enemy.y,r:enemy.r,hp:enemy.hp,maxHp:enemy.maxHp,
   role:enemy.role,status:{...enemy.status},load:enemy.load}:null,
  bullets:bullets.length,lootCards:document.querySelectorAll('[data-loot]').length,
  magazineSpecs:Object.fromEntries(DEF.weapon.map(w=>[w.id,{mag:w.mag,reload:w.reload,idealRange:w.idealRange}])),
  enemyDistance:player&&enemy?Math.hypot(player.x-enemy.x,player.y-enemy.y):null,
- playerAmmo:player?{ammo:player.ammo,mag:player.stats.weapon.mag,reloadLeft:player.reloadLeft,reloadCount:player.reloadCount,shots:player.shots}:null,
- enemyAmmo:enemy?{ammo:enemy.ammo,mag:enemy.stats.weapon.mag,reloadLeft:enemy.reloadLeft,reloadCount:enemy.reloadCount,shots:enemy.shots,aiMode:enemy.aiMode}:null
+ playerAmmo:player?{ammo:player.ammo,mag:player.stats.mag,reloadTime:player.stats.reloadTime,reloadLeft:player.reloadLeft,reloadCount:player.reloadCount,shots:player.shots}:null,
+ enemyAmmo:enemy?{ammo:enemy.ammo,mag:enemy.stats.mag,reloadTime:enemy.stats.reloadTime,reloadLeft:enemy.reloadLeft,reloadCount:enemy.reloadCount,shots:enemy.shots,aiMode:enemy.aiMode}:null
 });
 const previewLoad=initial();
 player=createRobot(previewLoad,240,295);
