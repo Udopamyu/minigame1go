@@ -1728,7 +1728,7 @@ window.__roboQA=()=>({
  rail:{damage:DEF.weapon.find(w=>w.id==='rail').damage,cooldown:DEF.weapon.find(w=>w.id==='rail').cool,penetratesCover:true},
  spriteSilhouettes:Object.fromEntries(Object.entries(SPRITE_SILHOUETTES).map(([slot,parts])=>[slot,Object.values(parts)])),
  coreProfiles:Object.fromEntries(DEF.core.map(core=>{
-  const s=specs({...initial(),weapon:part('weapon','bounce'),core:part('core',core.id)},true);
+  const s=specs({...initial(),weapon:part('weapon','bounce'),legs:part('legs','tank'),core:part('core',core.id)},true);
   return [core.id,{hp:s.hp,speed:s.speed,dmg:s.dmg,dashCooldown:s.dashCooldown,mag:s.mag,reloadTime:s.reloadTime}];
  })),
  depth,gold,encountersWon,currentNode,eventVariant:activeEventVariant,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
