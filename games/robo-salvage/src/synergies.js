@@ -14,30 +14,30 @@ const SYNERGY_RULES=[
  {
   id:'plasma-loop',
   name:'プラズマ循環',
-  description:'パルスガン＋スパークコア：連射と感電性能が上昇',
-  requires:{weapon:['pulse'],core:['spark']},
+  description:'パルスガン＋バランスコア：連射間隔12%短縮・感電時間35%増加',
+  requires:{weapon:['pulse'],core:['balance']},
   modifiers:{fireCooldown:.88,stun:1.35}
  },
  {
   id:'ion-capacitor',
   name:'イオン過給',
-  description:'パルスガン＋キャパシタ：高威力だが移動速度が少し低下',
-  requires:{weapon:['pulse'],core:['capacitor']},
+  description:'パルスガン＋タクティカル：攻撃15%増加・移動速度5%低下',
+  requires:{weapon:['pulse'],core:['tactical']},
   modifiers:{damage:1.15,speed:.95}
  },
  {
   id:'shock-armor',
   name:'静電防壁',
-  description:'プリズム装甲＋スパーク：守備力と感電時間を強化',
-  requires:{armor:['prism'],core:['spark']},
+  description:'プリズム装甲＋バランス：防御率3.5pt増加・感電時間22%増加',
+  requires:{armor:['prism'],core:['balance']},
   modifiers:{guard:.035,stun:1.22}
  },
  {
   id:'close-quarters',
   name:'突撃散弾',
-  description:'スプレッド砲＋ジェット脚：ダッシュ短縮と吹き飛ばし強化',
+  description:'スプレッド砲＋ジェット脚：移動7%増加・吹き飛ばし40%増加',
   requires:{weapon:['shot'],legs:['jet']},
-  modifiers:{dashCooldown:.82,push:1.4}
+  modifiers:{speed:1.07,push:1.4}
  },
  {
   id:'moving-fortress',
@@ -63,22 +63,22 @@ const SYNERGY_RULES=[
  {
   id:'salvo-control',
   name:'集中制圧',
-  description:'バーストライフル＋ラピッドコア：連射性能と炎上時間を強化',
-  requires:{weapon:['burst'],core:['rapid']},
+  description:'バーストライフル＋スピード：連射間隔12%短縮・炎上時間30%増加',
+  requires:{weapon:['burst'],core:['speed']},
   modifiers:{fireCooldown:.88,burn:1.3}
  },
  {
   id:'burn-engine',
   name:'火炎炉',
-  description:'バーストライフル＋ブレイズ：燃焼が長く、攻撃威力が高い',
-  requires:{weapon:['burst'],core:['blaze']},
+  description:'バーストライフル＋パワー：炎上時間60%増加・攻撃9%増加',
+  requires:{weapon:['burst'],core:['power']},
   modifiers:{burn:1.6,damage:1.09}
  },
  {
   id:'swarm-tactics',
   name:'蜂群ドクトリン',
-  description:'ニードルガン＋ラピッド：高連射と装甲破砕を強化',
-  requires:{weapon:['micro'],core:['rapid']},
+  description:'ニードルガン＋スピード：連射間隔12%短縮・装甲破砕時間50%増加',
+  requires:{weapon:['micro'],core:['speed']},
   modifiers:{fireCooldown:.88,sunder:1.5}
  },
  {
@@ -91,9 +91,9 @@ const SYNERGY_RULES=[
  {
   id:'guided-evasion',
   name:'追跡と回避',
-  description:'ホーミング弾＋ブースター：機動力と回避性能が上昇',
+  description:'ホーミング弾＋ブースター：移動13%増加・防御率1pt増加',
   requires:{weapon:['missile'],legs:['booster']},
-  modifiers:{speed:1.13,dashCooldown:.90}
+  modifiers:{speed:1.13,guard:.01}
  },
  {
   id:'heavy-slug',
@@ -105,50 +105,50 @@ const SYNERGY_RULES=[
  {
   id:'slug-jet',
   name:'強襲ハンマー',
-  description:'グラビティスラグ＋ジェット脚：瞬発力と威力を増強',
+  description:'グラビティスラグ＋ジェット脚：移動10%増加・攻撃10%増加',
   requires:{weapon:['slug'],legs:['jet']},
-  modifiers:{dashCooldown:.85,damage:1.1}
+  modifiers:{speed:1.1,damage:1.1}
  },
  {
   id:'reactive-aegis',
   name:'反応防壁',
-  description:'リアクティブ装甲＋イージス：被弾時の軽減が強化',
-  requires:{armor:['reactive'],core:['aegis']},
+  description:'リアクティブ装甲＋バランス：防御率4.5pt増加・反応装甲の被ダメージ減少',
+  requires:{armor:['reactive'],core:['balance']},
   modifiers:{guard:.045,reactive:.75}
  },
  {
   id:'field-repair',
   name:'自己修復',
-  description:'コンポジット装甲＋リペア：戦闘後回復量を増加',
-  requires:{armor:['composite'],core:['repair']},
+  description:'コンポジット装甲＋タクティカル：戦闘後回復率9pt増加',
+  requires:{armor:['composite'],core:['tactical']},
   modifiers:{repair:.09}
  },
  {
   id:'light-escape',
   name:'逃走回路',
-  description:'フェザー装甲＋レンジャー脚：機動力とダッシュ性能を強化',
+  description:'フェザー装甲＋レンジャー脚：移動14%増加・防御率1.5pt増加',
   requires:{armor:['feather'],legs:['ranger','spider']},
-  modifiers:{speed:1.14,dashCooldown:.80}
+  modifiers:{speed:1.14,guard:.015}
  },
  {
   id:'recycle-tank',
   name:'廃材再生',
-  description:'重装甲＋サルベージコア：耐久と戦闘後回復を増加',
-  requires:{armor:['plated','fortress','composite'],core:['salvager']},
+  description:'重装甲＋パワー：最大HP9%増加・戦闘後回復率8pt増加',
+  requires:{armor:['plated','fortress','composite'],core:['power']},
   modifiers:{hp:1.09,repair:.08}
  },
  {
   id:'wheel-shield',
   name:'ローリングガード',
-  description:'ローラー脚＋イージス：回避の再使用が速く防御力も増加',
-  requires:{legs:['wheel'],core:['aegis']},
-  modifiers:{dashCooldown:.83,guard:.015}
+  description:'ローラー脚＋バランス：移動8%増加・防御率1.5pt増加',
+  requires:{legs:['wheel'],core:['balance']},
+  modifiers:{speed:1.08,guard:.015}
  },
  {
   id:'prism-capacitor',
   name:'高出力防衛',
-  description:'プリズム装甲＋キャパシタ：ガードと連射性能を強化',
-  requires:{armor:['prism'],core:['capacitor']},
+  description:'プリズム装甲＋タクティカル：防御率2pt増加・連射間隔7%短縮',
+  requires:{armor:['prism'],core:['tactical']},
   modifiers:{guard:.02,fireCooldown:.93}
  }
 ];

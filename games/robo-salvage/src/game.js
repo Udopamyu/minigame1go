@@ -34,15 +34,11 @@ const DEF={
   {id:'ranger',name:'レンジャー脚',detail:'回避と速度の中間',speed:252,dash:2.25,color:'#89d1fb'}
  ],
  core:[
-  {id:'spark',name:'スパークコア',detail:'バランスのよい動力源',damage:1.03,rate:1.04,heal:0,color:'#71f3d0'},
-  {id:'blaze',name:'ブレイズコア',detail:'一撃の威力を増幅',damage:1.23,rate:.93,heal:0,color:'#ff9d79'},
-  {id:'rapid',name:'ラピッドコア',detail:'連射性能を大幅強化',damage:.94,rate:1.32,heal:0,color:'#9cdafa'},
-  {id:'repair',name:'リペアコア',detail:'勝利時に追加回復',damage:1,rate:1,heal:.18,color:'#c5a6f8'},
-  {id:'capacitor',name:'キャパシタコア',detail:'連射と火力を少し増強',damage:1.08,rate:1.13,heal:0,color:'#a5e2ff'},
-  {id:'aegis',name:'イージスコア',detail:'攻撃力を抑えてダメージ軽減',damage:.96,rate:1,heal:0,guardBonus:.055,color:'#b3edb6'},
-  {id:'salvager',name:'サルベージコア',detail:'勝利後の回復をさらに増強',damage:.98,rate:.98,heal:.12,color:'#f4d08d'},
-  {id:'reloader',name:'クイックリロードコア',detail:'リロード所要時間を35%短縮',damage:1,rate:1,heal:0,reloadFactor:.65,color:'#7df3e2'},
-  {id:'magazine',name:'拡張マガジンコア',detail:'弾倉を50%増量（切り上げ）',damage:1,rate:1,heal:0,magBonus:1.5,color:'#f5cb89'}
+  {id:'balance',name:'バランスコア',detail:'標準性能／ダッシュ1秒',damage:1,rate:1,heal:0,hpFactor:1,speedFactor:1,dashCooldown:1,color:'#71f3d0'},
+  {id:'power',name:'パワーコア',detail:'攻撃+25%／移動-15%／HP+8%／ダッシュ2秒',damage:1.25,rate:1,heal:0,hpFactor:1.08,speedFactor:.85,dashCooldown:2,color:'#ff9d79'},
+  {id:'speed',name:'スピードコア',detail:'移動+22%／攻撃-15%／HP-6%／ダッシュ0.3秒',damage:.85,rate:1,heal:0,hpFactor:.94,speedFactor:1.22,dashCooldown:.3,color:'#9cdafa'},
+  {id:'tactical',name:'タクティカルコア',detail:'移動・HP-5%／弾倉1.5倍／装填-20%／ダッシュ1秒',damage:1,rate:1,heal:0,hpFactor:.95,speedFactor:.95,dashCooldown:1,magBonus:1.5,reloadFactor:.8,color:'#f5cb89'}
+
  ]
 };
 const WEAPON_TRAITS={
@@ -77,21 +73,21 @@ const chooseEnemyRole=kind=>kind==='boss'?'boss':kind==='elite'?'guardian':pick(
 // The other two slots, all levels and rarities remain random. Roughly
 // one quarter of enemies are completely random to preserve roguelite variety.
 const ENEMY_ARCHETYPES=[
- {id:'voltage-hound',role:'skirmisher',parts:{weapon:'pulse',core:'spark'}},
- {id:'ion-jackal',role:'skirmisher',parts:{weapon:'pulse',core:'capacitor'}},
- {id:'shock-sentinel',role:'guardian',parts:{armor:'prism',core:'spark'}},
+ {id:'voltage-hound',role:'skirmisher',parts:{weapon:'pulse',core:'balance'}},
+ {id:'ion-jackal',role:'skirmisher',parts:{weapon:'pulse',core:'tactical'}},
+ {id:'shock-sentinel',role:'guardian',parts:{armor:'prism',core:'balance'}},
  {id:'scatter-raider',role:'charger',parts:{weapon:'shot',legs:'jet'}},
  {id:'crawler-titan',role:'guardian',parts:{armor:'fortress',legs:'crawler'}},
  {id:'siege-cannon',role:'sniper',parts:{weapon:'rail',legs:'tank'}},
  {id:'mobile-sniper',role:'sniper',parts:{weapon:'rail',legs:'ranger'}},
- {id:'flame-rifle',role:'skirmisher',parts:{weapon:'burst',core:'blaze'}},
- {id:'staccato-burst',role:'flanker',parts:{weapon:'burst',core:'rapid'}},
- {id:'needle-swarm',role:'flanker',parts:{weapon:'micro',core:'rapid'}},
+ {id:'flame-rifle',role:'skirmisher',parts:{weapon:'burst',core:'power'}},
+ {id:'staccato-burst',role:'flanker',parts:{weapon:'burst',core:'speed'}},
+ {id:'needle-swarm',role:'flanker',parts:{weapon:'micro',core:'speed'}},
  {id:'missile-platform',role:'guardian',parts:{weapon:'missile',legs:'crawler'}},
  {id:'missile-runner',role:'flanker',parts:{weapon:'missile',legs:'booster'}},
  {id:'heavy-breaker',role:'charger',parts:{weapon:'slug',armor:'plated'}},
  {id:'jet-breaker',role:'charger',parts:{weapon:'slug',legs:'jet'}},
- {id:'aegis-bastion',role:'guardian',parts:{armor:'reactive',core:'aegis'}},
+ {id:'aegis-bastion',role:'guardian',parts:{armor:'reactive',core:'balance'}},
  {id:'scout-escape',role:'flanker',parts:{armor:'feather',legs:'ranger'}}
 ];
 let chosenEnemyArchetype=null;
@@ -117,9 +113,9 @@ function specs(load,forPlayer=false){
  const synergy=resolveBuildSynergies(load),m=synergy.modifiers;
  const permanent=forPlayer?metaState.upgrades:{hull:0,power:0,drive:0,recovery:0};
  return {
-  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)*m.hp*(1+permanent.hull*.05)),
+  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)*m.hp*(c.hpFactor||1)*(1+permanent.hull*.05)),
   guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1)+(c.guardBonus||0)+m.guard,0,.38),
-  speed:l.speed*lf*m.speed*(1+permanent.drive*.03),dashCooldown:Math.max(1.08,l.dash/Math.sqrt(lf)*m.dashCooldown*(1-permanent.drive*.03)),
+  speed:l.speed*lf*m.speed*(c.speedFactor||1)*(1+permanent.drive*.03),dashCooldown:c.dashCooldown,
   dmg:w.damage*wf*c.damage*cf*m.damage*(1+permanent.power*.04),fireCooldown:Math.max(.125,w.cool/(c.rate*cf)*m.fireCooldown),
   weapon:w,armor:a,legs:l,core:c,mag:Math.max(1,Math.ceil(w.mag*(c.magBonus||1))),
   reloadTime:Math.max(.5,w.reload*(c.reloadFactor||1)),
@@ -129,22 +125,24 @@ function specs(load,forPlayer=false){
 }
 // Persistent research points survive a wipe; run GOLD and looted parts do not.
 const META_KEY='roboSalvageMetaV1';
+const STARTER_UNLOCK_COST=40;
 const META_COSTS=[30,45,70]; // Four three-level lines cost 580 SP.
 const META_UPGRADES={
  hull:{name:'強化フレーム',effect:'最大HP +5% / Lv.'},
  power:{name:'高出力回路',effect:'攻撃力 +4% / Lv.'},
- drive:{name:'駆動制御',effect:'移動 +3%、ダッシュ待機 -3% / Lv.'},
+ drive:{name:'駆動制御',effect:'移動 +3% / Lv.'},
  recovery:{name:'自己補修',effect:'戦闘勝利後回復 +4% / Lv.'}
 };
 function loadMeta(){
- const fallback={points:0,runs:0,earned:0,starter:'pulse',upgrades:{hull:0,power:0,drive:0,recovery:0}};
+ const fallback={points:0,runs:0,earned:0,starter:'pulse',unlockedWeapons:['pulse'],upgrades:{hull:0,power:0,drive:0,recovery:0}};
  try{
   const saved=JSON.parse(localStorage.getItem(META_KEY)||'null');
   if(!saved||typeof saved!=='object')return fallback;
   const safeInt=(v,max)=>Number.isFinite(v)?clamp(Math.floor(v),0,max):0;
   return {
    points:safeInt(saved.points,1000000),runs:safeInt(saved.runs,100000),earned:safeInt(saved.earned,10000000),
-   starter:DEF.weapon.some(w=>w.id===saved.starter)?saved.starter:'pulse',
+   unlockedWeapons:['pulse',...DEF.weapon.filter(w=>w.id!=='pulse'&&Array.isArray(saved.unlockedWeapons)&&saved.unlockedWeapons.includes(w.id)).map(w=>w.id)],
+   starter:Array.isArray(saved.unlockedWeapons)&&saved.unlockedWeapons.includes(saved.starter)&&DEF.weapon.some(w=>w.id===saved.starter)?saved.starter:'pulse',
    upgrades:Object.fromEntries(Object.keys(META_UPGRADES).map(k=>[k,safeInt(saved.upgrades?.[k],3)]))
   };
  }catch(_e){return fallback}
@@ -164,7 +162,7 @@ function settleRun(completed=false){
 }
 const initial=()=>({
  weapon:part('weapon',metaState.starter),armor:part('armor','mesh'),
- legs:part('legs','wheel'),core:part('core','spark')
+ legs:part('legs','wheel'),core:part('core','balance')
 });
 let state='menu',wave=1,best=Number(localStorage.getItem('roboSalvageBest')||0);
 let depth=0,gold=0,routeOptions=[],currentNode='fight',bossCleared=false,runSeed=0,encountersWon=0,shopOffers=[],mapHistory=[];
@@ -795,13 +793,16 @@ function renderHangar(){
  let html='<p class="flag">HANGAR / 永続強化</p><h2>機体整備・初期装備</h2>'
   +'<div class="metaSummary"><span>研究ポイント <b id="metaBalance">'+metaState.points+' SP</b></span>'
   +'<span>強化 '+levels+' / 12</span><span>周回 '+metaState.runs+'</span></div>'
-  +'<div class="metaHint">装備とGOLDは敗北で失うが、SPと永久強化は引き継ぐ。中盤まで約6周で全強化できる設計（必要合計580 SP）。</div>'
+  +'<div class="metaHint">SPで永続強化できます。</div>'
   +'<h3 class="hangarTitle">STARTER WEAPON / 初期武器</h3><div class="starterGrid">';
  for(const w of DEF.weapon){
-  const selected=metaState.starter===w.id;
-  html+='<button type="button" class="starterOption'+(selected?' selected':'')+'" data-starter="'+w.id+'" aria-pressed="'+selected+'">'
+  const unlocked=metaState.unlockedWeapons.includes(w.id),selected=unlocked&&metaState.starter===w.id;
+  const affordable=metaState.points>=STARTER_UNLOCK_COST;
+  html+='<button type="button" class="starterOption'+(selected?' selected':'')+(unlocked?'':' locked')+'" data-starter="'+w.id+'" aria-pressed="'+selected+'"'
+   +(unlocked||affordable?'':' disabled')+' aria-label="'+w.name+(unlocked?'':'：'+STARTER_UNLOCK_COST+' SPで解放')+'">'
    +'<span class="starterGlyph" style="color:'+w.color+'">'+({pulse:'⌁',shot:'▥',rail:'═',missile:'▣',micro:'⋮',burst:'≡',slug:'▰',bounce:'⟐'}[w.id])+'</span>'
-   +'<strong>'+w.name+'</strong><small>'+w.detail+'</small></button>';
+   +'<strong>'+w.name+'</strong><small>'+w.detail+'</small>'
+   +'<span class="starterStatus">'+(selected?'SELECTED':unlocked?'解放済み':'UNLOCK 40 SP')+'</span></button>';
  }
  html+='</div><h3 class="hangarTitle">PERMANENT RESEARCH / 永続強化</h3><div class="metaUpgradeGrid">';
  for(const [id,item] of Object.entries(META_UPGRADES)){
@@ -813,7 +814,13 @@ function renderHangar(){
  html+='</div><button type="button" class="primary hangarStart" id="startBtn">この装備で出撃 ▶</button>';
  showOverlay(html);$('dialog').classList.add('hangarDialog');
  document.querySelectorAll('[data-starter]').forEach(b=>b.addEventListener('click',()=>{
-  if(state!=='menu')return;metaState.starter=b.dataset.starter;saveMeta();renderHangar();
+  if(state!=='menu'||b.disabled)return;
+  const id=b.dataset.starter;
+  if(!metaState.unlockedWeapons.includes(id)){
+   if(metaState.points<STARTER_UNLOCK_COST)return;
+   metaState.points-=STARTER_UNLOCK_COST;metaState.unlockedWeapons.push(id);beep(860,.12,.028);
+  }
+  metaState.starter=id;saveMeta();renderHangar();
  }));
  document.querySelectorAll('[data-meta]').forEach(b=>b.addEventListener('click',()=>{
   if(state!=='menu'||b.disabled)return;
@@ -1717,9 +1724,13 @@ if(navigator.webdriver)window.__roboQATest={
 };
 window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
- meta:{points:metaState.points,runs:metaState.runs,earned:metaState.earned,starter:metaState.starter,upgrades:{...metaState.upgrades},settled:runSettled,totalCost:META_COSTS.reduce((a,b)=>a+b,0)*Object.keys(META_UPGRADES).length,midRunAward:45+5*7+3*8},
+ meta:{points:metaState.points,runs:metaState.runs,earned:metaState.earned,starter:metaState.starter,unlockedWeapons:[...metaState.unlockedWeapons],starterUnlockCost:STARTER_UNLOCK_COST,upgrades:{...metaState.upgrades},settled:runSettled,totalCost:META_COSTS.reduce((a,b)=>a+b,0)*Object.keys(META_UPGRADES).length,midRunAward:45+5*7+3*8},
  rail:{damage:DEF.weapon.find(w=>w.id==='rail').damage,cooldown:DEF.weapon.find(w=>w.id==='rail').cool,penetratesCover:true},
  spriteSilhouettes:Object.fromEntries(Object.entries(SPRITE_SILHOUETTES).map(([slot,parts])=>[slot,Object.values(parts)])),
+ coreProfiles:Object.fromEntries(DEF.core.map(core=>{
+  const s=specs({...initial(),weapon:part('weapon','bounce'),core:part('core',core.id)},true);
+  return [core.id,{hp:s.hp,speed:s.speed,dmg:s.dmg,dashCooldown:s.dashCooldown,mag:s.mag,reloadTime:s.reloadTime}];
+ })),
  depth,gold,encountersWon,currentNode,eventVariant:activeEventVariant,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
  partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
  synergyCount:SYNERGY_RULES.length,playerSynergies:player?.stats.synergies.map(rule=>rule.id)||[],

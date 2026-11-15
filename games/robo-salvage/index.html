@@ -374,6 +374,31 @@ h2,.brandtitle,.partRow .name,.lootCard .partname{letter-spacing:.05em}
  .reloadDesk{display:none}
  .touchGroup .touchbtn{width:clamp(68px,9vw,83px);height:clamp(68px,9vw,83px);font-size:11px}
 }
+
+/* v0.13: make build combos and their effects discoverable at a glance. */
+.synergySummary{border:2px solid #88d7a1!important;background:#122f39!important;padding:11px!important;margin-top:12px}
+.synergyLabel{font-size:16px!important;font-weight:900!important;color:#ecffcd!important;line-height:1.5!important;letter-spacing:.04em}
+.synergyEntry{padding:10px 11px!important;gap:5px!important;border-left:5px solid #bff59e!important;background:#23424b!important}
+.synergyEntry strong{font-size:16px!important;font-weight:900!important;line-height:1.45!important;color:#f4ffca!important}
+.synergyEntry small{font-size:13px!important;line-height:1.7!important;font-weight:750!important;color:#e3f8eb!important}
+.synergySummary>small{font-size:13px!important;line-height:1.6!important}
+.compareSynergy{font-size:14px!important;font-weight:900!important;line-height:1.6!important;
+ margin-top:12px!important;padding:8px 9px!important;background:#183f37!important;
+ border-left:5px solid #89efbb!important;color:#dbffdd!important}
+.compareLoss{font-size:13px!important;line-height:1.5!important}
+.starterOption.locked{border-style:dashed;border-color:#86694b;background:#222735}
+.starterOption.locked:disabled{opacity:.68;cursor:not-allowed}
+.starterOption.locked:not(:disabled):hover{background:#443927;border-color:#f9dc82}
+.starterStatus{margin-top:auto;font:900 11px "Courier New",monospace;letter-spacing:.05em;color:#b3f4cf}
+.starterOption.locked .starterStatus{color:#ffd286}
+@media(max-width:600px){
+ .synergyLabel{font-size:15px!important}
+ .synergyEntry strong{font-size:15px!important}
+ .synergyEntry small{font-size:13px!important}
+ .compareSynergy{font-size:13px!important}
+ .starterOption{min-height:112px}
+ .starterStatus{font-size:10px}
+}
 </style>
 </head>
 <body>
@@ -467,15 +492,11 @@ const DEF={
   {id:'ranger',name:'レンジャー脚',detail:'回避と速度の中間',speed:252,dash:2.25,color:'#89d1fb'}
  ],
  core:[
-  {id:'spark',name:'スパークコア',detail:'バランスのよい動力源',damage:1.03,rate:1.04,heal:0,color:'#71f3d0'},
-  {id:'blaze',name:'ブレイズコア',detail:'一撃の威力を増幅',damage:1.23,rate:.93,heal:0,color:'#ff9d79'},
-  {id:'rapid',name:'ラピッドコア',detail:'連射性能を大幅強化',damage:.94,rate:1.32,heal:0,color:'#9cdafa'},
-  {id:'repair',name:'リペアコア',detail:'勝利時に追加回復',damage:1,rate:1,heal:.18,color:'#c5a6f8'},
-  {id:'capacitor',name:'キャパシタコア',detail:'連射と火力を少し増強',damage:1.08,rate:1.13,heal:0,color:'#a5e2ff'},
-  {id:'aegis',name:'イージスコア',detail:'攻撃力を抑えてダメージ軽減',damage:.96,rate:1,heal:0,guardBonus:.055,color:'#b3edb6'},
-  {id:'salvager',name:'サルベージコア',detail:'勝利後の回復をさらに増強',damage:.98,rate:.98,heal:.12,color:'#f4d08d'},
-  {id:'reloader',name:'クイックリロードコア',detail:'リロード所要時間を35%短縮',damage:1,rate:1,heal:0,reloadFactor:.65,color:'#7df3e2'},
-  {id:'magazine',name:'拡張マガジンコア',detail:'弾倉を50%増量（切り上げ）',damage:1,rate:1,heal:0,magBonus:1.5,color:'#f5cb89'}
+  {id:'balance',name:'バランスコア',detail:'標準性能／ダッシュ1秒',damage:1,rate:1,heal:0,hpFactor:1,speedFactor:1,dashCooldown:1,color:'#71f3d0'},
+  {id:'power',name:'パワーコア',detail:'攻撃+25%／移動-15%／HP+8%／ダッシュ2秒',damage:1.25,rate:1,heal:0,hpFactor:1.08,speedFactor:.85,dashCooldown:2,color:'#ff9d79'},
+  {id:'speed',name:'スピードコア',detail:'移動+22%／攻撃-15%／HP-6%／ダッシュ0.3秒',damage:.85,rate:1,heal:0,hpFactor:.94,speedFactor:1.22,dashCooldown:.3,color:'#9cdafa'},
+  {id:'tactical',name:'タクティカルコア',detail:'移動・HP-5%／弾倉1.5倍／装填-20%／ダッシュ1秒',damage:1,rate:1,heal:0,hpFactor:.95,speedFactor:.95,dashCooldown:1,magBonus:1.5,reloadFactor:.8,color:'#f5cb89'}
+
  ]
 };
 const WEAPON_TRAITS={
@@ -510,21 +531,21 @@ const chooseEnemyRole=kind=>kind==='boss'?'boss':kind==='elite'?'guardian':pick(
 // The other two slots, all levels and rarities remain random. Roughly
 // one quarter of enemies are completely random to preserve roguelite variety.
 const ENEMY_ARCHETYPES=[
- {id:'voltage-hound',role:'skirmisher',parts:{weapon:'pulse',core:'spark'}},
- {id:'ion-jackal',role:'skirmisher',parts:{weapon:'pulse',core:'capacitor'}},
- {id:'shock-sentinel',role:'guardian',parts:{armor:'prism',core:'spark'}},
+ {id:'voltage-hound',role:'skirmisher',parts:{weapon:'pulse',core:'balance'}},
+ {id:'ion-jackal',role:'skirmisher',parts:{weapon:'pulse',core:'tactical'}},
+ {id:'shock-sentinel',role:'guardian',parts:{armor:'prism',core:'balance'}},
  {id:'scatter-raider',role:'charger',parts:{weapon:'shot',legs:'jet'}},
  {id:'crawler-titan',role:'guardian',parts:{armor:'fortress',legs:'crawler'}},
  {id:'siege-cannon',role:'sniper',parts:{weapon:'rail',legs:'tank'}},
  {id:'mobile-sniper',role:'sniper',parts:{weapon:'rail',legs:'ranger'}},
- {id:'flame-rifle',role:'skirmisher',parts:{weapon:'burst',core:'blaze'}},
- {id:'staccato-burst',role:'flanker',parts:{weapon:'burst',core:'rapid'}},
- {id:'needle-swarm',role:'flanker',parts:{weapon:'micro',core:'rapid'}},
+ {id:'flame-rifle',role:'skirmisher',parts:{weapon:'burst',core:'power'}},
+ {id:'staccato-burst',role:'flanker',parts:{weapon:'burst',core:'speed'}},
+ {id:'needle-swarm',role:'flanker',parts:{weapon:'micro',core:'speed'}},
  {id:'missile-platform',role:'guardian',parts:{weapon:'missile',legs:'crawler'}},
  {id:'missile-runner',role:'flanker',parts:{weapon:'missile',legs:'booster'}},
  {id:'heavy-breaker',role:'charger',parts:{weapon:'slug',armor:'plated'}},
  {id:'jet-breaker',role:'charger',parts:{weapon:'slug',legs:'jet'}},
- {id:'aegis-bastion',role:'guardian',parts:{armor:'reactive',core:'aegis'}},
+ {id:'aegis-bastion',role:'guardian',parts:{armor:'reactive',core:'balance'}},
  {id:'scout-escape',role:'flanker',parts:{armor:'feather',legs:'ranger'}}
 ];
 let chosenEnemyArchetype=null;
@@ -556,30 +577,30 @@ const SYNERGY_RULES=[
  {
   id:'plasma-loop',
   name:'プラズマ循環',
-  description:'パルスガン＋スパークコア：連射と感電性能が上昇',
-  requires:{weapon:['pulse'],core:['spark']},
+  description:'パルスガン＋バランスコア：連射間隔12%短縮・感電時間35%増加',
+  requires:{weapon:['pulse'],core:['balance']},
   modifiers:{fireCooldown:.88,stun:1.35}
  },
  {
   id:'ion-capacitor',
   name:'イオン過給',
-  description:'パルスガン＋キャパシタ：高威力だが移動速度が少し低下',
-  requires:{weapon:['pulse'],core:['capacitor']},
+  description:'パルスガン＋タクティカル：攻撃15%増加・移動速度5%低下',
+  requires:{weapon:['pulse'],core:['tactical']},
   modifiers:{damage:1.15,speed:.95}
  },
  {
   id:'shock-armor',
   name:'静電防壁',
-  description:'プリズム装甲＋スパーク：守備力と感電時間を強化',
-  requires:{armor:['prism'],core:['spark']},
+  description:'プリズム装甲＋バランス：防御率3.5pt増加・感電時間22%増加',
+  requires:{armor:['prism'],core:['balance']},
   modifiers:{guard:.035,stun:1.22}
  },
  {
   id:'close-quarters',
   name:'突撃散弾',
-  description:'スプレッド砲＋ジェット脚：ダッシュ短縮と吹き飛ばし強化',
+  description:'スプレッド砲＋ジェット脚：移動7%増加・吹き飛ばし40%増加',
   requires:{weapon:['shot'],legs:['jet']},
-  modifiers:{dashCooldown:.82,push:1.4}
+  modifiers:{speed:1.07,push:1.4}
  },
  {
   id:'moving-fortress',
@@ -605,22 +626,22 @@ const SYNERGY_RULES=[
  {
   id:'salvo-control',
   name:'集中制圧',
-  description:'バーストライフル＋ラピッドコア：連射性能と炎上時間を強化',
-  requires:{weapon:['burst'],core:['rapid']},
+  description:'バーストライフル＋スピード：連射間隔12%短縮・炎上時間30%増加',
+  requires:{weapon:['burst'],core:['speed']},
   modifiers:{fireCooldown:.88,burn:1.3}
  },
  {
   id:'burn-engine',
   name:'火炎炉',
-  description:'バーストライフル＋ブレイズ：燃焼が長く、攻撃威力が高い',
-  requires:{weapon:['burst'],core:['blaze']},
+  description:'バーストライフル＋パワー：炎上時間60%増加・攻撃9%増加',
+  requires:{weapon:['burst'],core:['power']},
   modifiers:{burn:1.6,damage:1.09}
  },
  {
   id:'swarm-tactics',
   name:'蜂群ドクトリン',
-  description:'ニードルガン＋ラピッド：高連射と装甲破砕を強化',
-  requires:{weapon:['micro'],core:['rapid']},
+  description:'ニードルガン＋スピード：連射間隔12%短縮・装甲破砕時間50%増加',
+  requires:{weapon:['micro'],core:['speed']},
   modifiers:{fireCooldown:.88,sunder:1.5}
  },
  {
@@ -633,9 +654,9 @@ const SYNERGY_RULES=[
  {
   id:'guided-evasion',
   name:'追跡と回避',
-  description:'ホーミング弾＋ブースター：機動力と回避性能が上昇',
+  description:'ホーミング弾＋ブースター：移動13%増加・防御率1pt増加',
   requires:{weapon:['missile'],legs:['booster']},
-  modifiers:{speed:1.13,dashCooldown:.90}
+  modifiers:{speed:1.13,guard:.01}
  },
  {
   id:'heavy-slug',
@@ -647,50 +668,50 @@ const SYNERGY_RULES=[
  {
   id:'slug-jet',
   name:'強襲ハンマー',
-  description:'グラビティスラグ＋ジェット脚：瞬発力と威力を増強',
+  description:'グラビティスラグ＋ジェット脚：移動10%増加・攻撃10%増加',
   requires:{weapon:['slug'],legs:['jet']},
-  modifiers:{dashCooldown:.85,damage:1.1}
+  modifiers:{speed:1.1,damage:1.1}
  },
  {
   id:'reactive-aegis',
   name:'反応防壁',
-  description:'リアクティブ装甲＋イージス：被弾時の軽減が強化',
-  requires:{armor:['reactive'],core:['aegis']},
+  description:'リアクティブ装甲＋バランス：防御率4.5pt増加・反応装甲の被ダメージ減少',
+  requires:{armor:['reactive'],core:['balance']},
   modifiers:{guard:.045,reactive:.75}
  },
  {
   id:'field-repair',
   name:'自己修復',
-  description:'コンポジット装甲＋リペア：戦闘後回復量を増加',
-  requires:{armor:['composite'],core:['repair']},
+  description:'コンポジット装甲＋タクティカル：戦闘後回復率9pt増加',
+  requires:{armor:['composite'],core:['tactical']},
   modifiers:{repair:.09}
  },
  {
   id:'light-escape',
   name:'逃走回路',
-  description:'フェザー装甲＋レンジャー脚：機動力とダッシュ性能を強化',
+  description:'フェザー装甲＋レンジャー脚：移動14%増加・防御率1.5pt増加',
   requires:{armor:['feather'],legs:['ranger','spider']},
-  modifiers:{speed:1.14,dashCooldown:.80}
+  modifiers:{speed:1.14,guard:.015}
  },
  {
   id:'recycle-tank',
   name:'廃材再生',
-  description:'重装甲＋サルベージコア：耐久と戦闘後回復を増加',
-  requires:{armor:['plated','fortress','composite'],core:['salvager']},
+  description:'重装甲＋パワー：最大HP9%増加・戦闘後回復率8pt増加',
+  requires:{armor:['plated','fortress','composite'],core:['power']},
   modifiers:{hp:1.09,repair:.08}
  },
  {
   id:'wheel-shield',
   name:'ローリングガード',
-  description:'ローラー脚＋イージス：回避の再使用が速く防御力も増加',
-  requires:{legs:['wheel'],core:['aegis']},
-  modifiers:{dashCooldown:.83,guard:.015}
+  description:'ローラー脚＋バランス：移動8%増加・防御率1.5pt増加',
+  requires:{legs:['wheel'],core:['balance']},
+  modifiers:{speed:1.08,guard:.015}
  },
  {
   id:'prism-capacitor',
   name:'高出力防衛',
-  description:'プリズム装甲＋キャパシタ：ガードと連射性能を強化',
-  requires:{armor:['prism'],core:['capacitor']},
+  description:'プリズム装甲＋タクティカル：防御率2pt増加・連射間隔7%短縮',
+  requires:{armor:['prism'],core:['tactical']},
   modifiers:{guard:.02,fireCooldown:.93}
  }
 ];
@@ -792,9 +813,9 @@ function specs(load,forPlayer=false){
  const synergy=resolveBuildSynergies(load),m=synergy.modifiers;
  const permanent=forPlayer?metaState.upgrades:{hull:0,power:0,drive:0,recovery:0};
  return {
-  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)*m.hp*(1+permanent.hull*.05)),
+  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)*m.hp*(c.hpFactor||1)*(1+permanent.hull*.05)),
   guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1)+(c.guardBonus||0)+m.guard,0,.38),
-  speed:l.speed*lf*m.speed*(1+permanent.drive*.03),dashCooldown:Math.max(1.08,l.dash/Math.sqrt(lf)*m.dashCooldown*(1-permanent.drive*.03)),
+  speed:l.speed*lf*m.speed*(c.speedFactor||1)*(1+permanent.drive*.03),dashCooldown:c.dashCooldown,
   dmg:w.damage*wf*c.damage*cf*m.damage*(1+permanent.power*.04),fireCooldown:Math.max(.125,w.cool/(c.rate*cf)*m.fireCooldown),
   weapon:w,armor:a,legs:l,core:c,mag:Math.max(1,Math.ceil(w.mag*(c.magBonus||1))),
   reloadTime:Math.max(.5,w.reload*(c.reloadFactor||1)),
@@ -804,22 +825,24 @@ function specs(load,forPlayer=false){
 }
 // Persistent research points survive a wipe; run GOLD and looted parts do not.
 const META_KEY='roboSalvageMetaV1';
+const STARTER_UNLOCK_COST=40;
 const META_COSTS=[30,45,70]; // Four three-level lines cost 580 SP.
 const META_UPGRADES={
  hull:{name:'強化フレーム',effect:'最大HP +5% / Lv.'},
  power:{name:'高出力回路',effect:'攻撃力 +4% / Lv.'},
- drive:{name:'駆動制御',effect:'移動 +3%、ダッシュ待機 -3% / Lv.'},
+ drive:{name:'駆動制御',effect:'移動 +3% / Lv.'},
  recovery:{name:'自己補修',effect:'戦闘勝利後回復 +4% / Lv.'}
 };
 function loadMeta(){
- const fallback={points:0,runs:0,earned:0,starter:'pulse',upgrades:{hull:0,power:0,drive:0,recovery:0}};
+ const fallback={points:0,runs:0,earned:0,starter:'pulse',unlockedWeapons:['pulse'],upgrades:{hull:0,power:0,drive:0,recovery:0}};
  try{
   const saved=JSON.parse(localStorage.getItem(META_KEY)||'null');
   if(!saved||typeof saved!=='object')return fallback;
   const safeInt=(v,max)=>Number.isFinite(v)?clamp(Math.floor(v),0,max):0;
   return {
    points:safeInt(saved.points,1000000),runs:safeInt(saved.runs,100000),earned:safeInt(saved.earned,10000000),
-   starter:DEF.weapon.some(w=>w.id===saved.starter)?saved.starter:'pulse',
+   unlockedWeapons:['pulse',...DEF.weapon.filter(w=>w.id!=='pulse'&&Array.isArray(saved.unlockedWeapons)&&saved.unlockedWeapons.includes(w.id)).map(w=>w.id)],
+   starter:Array.isArray(saved.unlockedWeapons)&&saved.unlockedWeapons.includes(saved.starter)&&DEF.weapon.some(w=>w.id===saved.starter)?saved.starter:'pulse',
    upgrades:Object.fromEntries(Object.keys(META_UPGRADES).map(k=>[k,safeInt(saved.upgrades?.[k],3)]))
   };
  }catch(_e){return fallback}
@@ -839,7 +862,7 @@ function settleRun(completed=false){
 }
 const initial=()=>({
  weapon:part('weapon',metaState.starter),armor:part('armor','mesh'),
- legs:part('legs','wheel'),core:part('core','spark')
+ legs:part('legs','wheel'),core:part('core','balance')
 });
 let state='menu',wave=1,best=Number(localStorage.getItem('roboSalvageBest')||0);
 let depth=0,gold=0,routeOptions=[],currentNode='fight',bossCleared=false,runSeed=0,encountersWon=0,shopOffers=[],mapHistory=[];
@@ -1470,13 +1493,16 @@ function renderHangar(){
  let html='<p class="flag">HANGAR / 永続強化</p><h2>機体整備・初期装備</h2>'
   +'<div class="metaSummary"><span>研究ポイント <b id="metaBalance">'+metaState.points+' SP</b></span>'
   +'<span>強化 '+levels+' / 12</span><span>周回 '+metaState.runs+'</span></div>'
-  +'<div class="metaHint">装備とGOLDは敗北で失うが、SPと永久強化は引き継ぐ。中盤まで約6周で全強化できる設計（必要合計580 SP）。</div>'
+  +'<div class="metaHint">SPで永続強化できます。</div>'
   +'<h3 class="hangarTitle">STARTER WEAPON / 初期武器</h3><div class="starterGrid">';
  for(const w of DEF.weapon){
-  const selected=metaState.starter===w.id;
-  html+='<button type="button" class="starterOption'+(selected?' selected':'')+'" data-starter="'+w.id+'" aria-pressed="'+selected+'">'
+  const unlocked=metaState.unlockedWeapons.includes(w.id),selected=unlocked&&metaState.starter===w.id;
+  const affordable=metaState.points>=STARTER_UNLOCK_COST;
+  html+='<button type="button" class="starterOption'+(selected?' selected':'')+(unlocked?'':' locked')+'" data-starter="'+w.id+'" aria-pressed="'+selected+'"'
+   +(unlocked||affordable?'':' disabled')+' aria-label="'+w.name+(unlocked?'':'：'+STARTER_UNLOCK_COST+' SPで解放')+'">'
    +'<span class="starterGlyph" style="color:'+w.color+'">'+({pulse:'⌁',shot:'▥',rail:'═',missile:'▣',micro:'⋮',burst:'≡',slug:'▰',bounce:'⟐'}[w.id])+'</span>'
-   +'<strong>'+w.name+'</strong><small>'+w.detail+'</small></button>';
+   +'<strong>'+w.name+'</strong><small>'+w.detail+'</small>'
+   +'<span class="starterStatus">'+(selected?'SELECTED':unlocked?'解放済み':'UNLOCK 40 SP')+'</span></button>';
  }
  html+='</div><h3 class="hangarTitle">PERMANENT RESEARCH / 永続強化</h3><div class="metaUpgradeGrid">';
  for(const [id,item] of Object.entries(META_UPGRADES)){
@@ -1488,7 +1514,13 @@ function renderHangar(){
  html+='</div><button type="button" class="primary hangarStart" id="startBtn">この装備で出撃 ▶</button>';
  showOverlay(html);$('dialog').classList.add('hangarDialog');
  document.querySelectorAll('[data-starter]').forEach(b=>b.addEventListener('click',()=>{
-  if(state!=='menu')return;metaState.starter=b.dataset.starter;saveMeta();renderHangar();
+  if(state!=='menu'||b.disabled)return;
+  const id=b.dataset.starter;
+  if(!metaState.unlockedWeapons.includes(id)){
+   if(metaState.points<STARTER_UNLOCK_COST)return;
+   metaState.points-=STARTER_UNLOCK_COST;metaState.unlockedWeapons.push(id);beep(860,.12,.028);
+  }
+  metaState.starter=id;saveMeta();renderHangar();
  }));
  document.querySelectorAll('[data-meta]').forEach(b=>b.addEventListener('click',()=>{
   if(state!=='menu'||b.disabled)return;
@@ -2127,7 +2159,8 @@ const SPRITE_SILHOUETTES={
  weapon:{pulse:'thin-coil-barrel',shot:'triple-flared-muzzle',rail:'extra-long-dual-rails',missile:'quad-rocket-pods',micro:'needle-array',burst:'triple-parallel-barrels',slug:'oversized-heavy-cannon',bounce:'forked-ricochet-reflector'},
  armor:{mesh:'exposed-narrow-frame',plated:'stacked-heavy-panels',fortress:'broad-shielded-bastion',reactive:'angular-explosive-tiles',composite:'asymmetric-patchwork',feather:'swept-back-wings',prism:'stepped-diamond-plates'},
  legs:{wheel:'four-independent-wheels',booster:'four-floating-thrusters',tank:'two-caterpillar-belts',spider:'eight-jointed-legs',jet:'swept-wings-and-exhausts',crawler:'two-oversized-crawler-belts',ranger:'long-two-legged-walker'},
- core:{spark:'cross-spark',blaze:'flame-reactor',rapid:'triple-pulse-display',repair:'medical-cross',capacitor:'double-capacitor',aegis:'wide-energy-shield',salvager:'four-way-salvage-rotor',reloader:'glowing-cycle-rotor',magazine:'twin-feed-ammo-capsules'}
+ core:{balance:'cross-stabilizer',power:'oversized-red-reactor',speed:'twin-turbine-impeller',tactical:'two-ammunition-magazines'}
+
 };
 function mechTile(x,y,w,h,color){
  ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),Math.ceil(w),Math.ceil(h));
@@ -2282,66 +2315,39 @@ function drawArmorEquipment(id,c,trim){
  }
 }
 function drawCoreEquipment(id,c,trim){
- const tick=Math.floor(clock*9)%3;
+ const tick=Math.floor(clock*12)%4;
  switch(id){
- case 'spark':
+ case 'balance':
   metal(-18,-18,36,36,c);
   mechTile(-21,-5,42,10,'#f3ffca');mechTile(-5,-21,10,42,'#f3ffca');
-  mechTile(-8,-8,16,16,'#326c7f');break;
- case 'blaze':
-  metal(-18,-20,36,40,'#794339');
-  for(let i=0;i<3;i++){
-   mechTile(-14+i*12,-26-((tick+i)%3)*6,8,20,'#ff9c4e');
-   mechTile(-12+i*12,-18,5,22,c);
-  }
-  mechTile(-11,-10,22,22,'#ffe8a0');break;
- case 'rapid':
-  metal(-19,-20,39,40,'#274c72');
-  for(let i=0;i<3;i++){
-   mechTile(-14,-15+i*12,28,8,i===tick?'#efffff':c);
-   mechTile(15,-15+i*12,8,8,trim);
-  }break;
- case 'repair':
-  metal(-18,-19,38,38,'#356d60');
-  mechTile(-7,-16,15,32,'#f3ffe1');mechTile(-17,-6,36,13,'#f3ffe1');
-  mechTile(-3,-3,7,7,c);break;
- case 'capacitor':
-  metal(-21,-20,42,40,'#21435a');
-  for(let x=-16;x<=5;x+=21){
-   metal(x,-16,14,32,c,'#122639',trim);
-   mechTile(x+4,-11,6,22,'#c6e9ff');
-  }break;
- case 'aegis':
-  pixelDiamond(0,0,28,32,c,'#e7fff4');
-  for(const side of [-1,1]){
-   mechTile(-27,side*36-4,55,8,trim);
-   mechTile(-35,side*28-4,10,15,c);
-  }
-  mechTile(-7,-8,14,17,'#244c56');break;
- case 'salvager':
-  metal(-19,-20,38,40,'#584e36');
-  for(let i=0;i<4;i++){
-   const a=i*Math.PI/2+(tick-1)*.13;
-   mechTile(Math.cos(a)*13-5,Math.sin(a)*13-5,11,11,c);
-  }
-  metal(-6,-7,12,14,trim);break;
- case 'reloader':
-  metal(-19,-19,38,38,'#155c69','#0a2730','#c5fff0');
-  for(let i=0;i<4;i++){
-   const a=(i+tick/3)*Math.PI/2;
-   const x=Math.round(Math.cos(a)*19),y=Math.round(Math.sin(a)*19);
-   mechTile(x-5,y-5,10,10,c);
-  }
-  mechTile(-14,-4,28,8,'#e6fffa');
-  mechTile(-4,-14,8,28,'#aef8eb');
+  mechTile(-8,-8,16,16,'#326c7f');
   break;
- case 'magazine':
-  metal(-14,-17,28,34,'#7a5934','#241e21','#ffde97');
-  for(const x of [-30,13]){
-   metal(x,-24,17,48,c,'#352b2a','#fff1c6');
-   for(let y=-17;y<18;y+=11)mechTile(x+5,y,8,7,'#ffe8a4');
+ case 'power':
+  metal(-25,-27,50,54,'#7a3636','#29101c','#ffcc99');
+  for(const x of [-29,22]){
+   metal(x,-21,12,42,c,'#4d1828','#ffe3bc');
+   mechTile(x+3,-12+tick*5,6,12,'#fff3a4');
   }
-  mechTile(-11,-5,22,11,'#ffe2a7');
+  pixelDiamond(0,0,19,20,'#ff9c59','#ffe1a0');
+  for(const y of [-30,25])mechTile(-13,y,27,7,'#ffb15c');
+  break;
+ case 'speed':
+  metal(-21,-19,42,38,'#21446a','#142336',trim);
+  for(const x of [-26,12]){
+   metal(x,-25,17,50,c,'#0e3058','#d6f6ff');
+   for(let k=0;k<3;k++)mechTile(x+3,-18+k*15,11,8,k===tick%3?'#faffff':'#77b8fa');
+  }
+  mechTile(-13,-5,27,10,'#d0f9ff');
+  mechTile(-4,-14,8,29,'#71bdff');
+  break;
+ case 'tactical':
+  metal(-20,-22,40,44,'#554d29','#221d14','#f1df9d');
+  for(const x of [-35,20]){
+   metal(x,-25,18,51,c,'#3a331e','#ffe59e');
+   for(let y=-18;y<23;y+=12)mechTile(x+5,y,8,7,'#fff3c3');
+  }
+  mechTile(-14,-6,28,12,'#ffd679');
+  mechTile(-8,-14,16,29,'#997b3b');
   break;
  }
 }
@@ -2725,9 +2731,13 @@ if(navigator.webdriver)window.__roboQATest={
 };
 window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
- meta:{points:metaState.points,runs:metaState.runs,earned:metaState.earned,starter:metaState.starter,upgrades:{...metaState.upgrades},settled:runSettled,totalCost:META_COSTS.reduce((a,b)=>a+b,0)*Object.keys(META_UPGRADES).length,midRunAward:45+5*7+3*8},
+ meta:{points:metaState.points,runs:metaState.runs,earned:metaState.earned,starter:metaState.starter,unlockedWeapons:[...metaState.unlockedWeapons],starterUnlockCost:STARTER_UNLOCK_COST,upgrades:{...metaState.upgrades},settled:runSettled,totalCost:META_COSTS.reduce((a,b)=>a+b,0)*Object.keys(META_UPGRADES).length,midRunAward:45+5*7+3*8},
  rail:{damage:DEF.weapon.find(w=>w.id==='rail').damage,cooldown:DEF.weapon.find(w=>w.id==='rail').cool,penetratesCover:true},
  spriteSilhouettes:Object.fromEntries(Object.entries(SPRITE_SILHOUETTES).map(([slot,parts])=>[slot,Object.values(parts)])),
+ coreProfiles:Object.fromEntries(DEF.core.map(core=>{
+  const s=specs({...initial(),weapon:part('weapon','bounce'),core:part('core',core.id)},true);
+  return [core.id,{hp:s.hp,speed:s.speed,dmg:s.dmg,dashCooldown:s.dashCooldown,mag:s.mag,reloadTime:s.reloadTime}];
+ })),
  depth,gold,encountersWon,currentNode,eventVariant:activeEventVariant,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
  partCounts:Object.fromEntries(Object.keys(DEF).map(k=>[k,DEF[k].length])),weaponTraits:Object.keys(WEAPON_TRAITS),
  synergyCount:SYNERGY_RULES.length,playerSynergies:player?.stats.synergies.map(rule=>rule.id)||[],

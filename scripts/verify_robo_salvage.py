@@ -46,7 +46,7 @@ def test(browser,url,label,size,mobile=False):
         return outcome
     check(label+" page title","ロボ・サルベージ" in page.title())
     check(label+" initial modal",page.locator("#overlay").is_visible())
-    check(label+" eight free selectable starting weapons",
+    check(label+" eight initial weapon slots (one free, seven unlockable)",
           page.locator("[data-starter]").count()==8)
     check(label+" four permanent research branches",
           page.locator("[data-meta]").count()==4)
@@ -55,13 +55,28 @@ def test(browser,url,label,size,mobile=False):
           get()["meta"]["totalCost"]==580)
     check(label+" approximately six typical mid-game runs complete research",
           get()["meta"]["midRunAward"]*6 >= get()["meta"]["totalCost"])
+    check(label+" all seven non-pulse starters begin locked",
+          page.locator('.starterOption.locked:disabled').count()==7
+          and get()["meta"]["unlockedWeapons"]==["pulse"])
+    check(label+" each starter weapon costs exactly 40 SP",get()["meta"]["starterUnlockCost"]==40)
+    check(label+" hangar uses only the short permanent-upgrade hint",
+          "SPで永続強化できます。" in page.locator(".metaHint").inner_text()
+          and "中盤まで約6周" not in page.locator(".metaHint").inner_text())
+    hook("grantMetaPoints",40)
+    check(label+" new starter unlock becomes affordable",page.locator('[data-starter="shot"]').is_enabled())
     page.locator('[data-starter="shot"]').click()
-    check(label+" selected starter changes",get()["meta"]["starter"]=="shot")
+    check(label+" 40 SP permanently unlocks and selects starter",
+          get()["meta"]["starter"]=="shot" and "shot" in get()["meta"]["unlockedWeapons"]
+          and get()["meta"]["points"]==0)
     page.reload(wait_until="domcontentloaded")
     page.wait_for_function("()=>!!window.__roboQA",timeout=10000)
-    check(label+" chosen starter survives page reload",get()["meta"]["starter"]=="shot")
+    check(label+" purchased starting weapon survives reload",
+          get()["meta"]["starter"]=="shot" and "shot" in get()["meta"]["unlockedWeapons"])
+    page.locator('[data-starter="shot"]').click()
+    check(label+" reselecting unlocked weapon costs no SP",
+          get()["meta"]["points"]==0 and get()["meta"]["starter"]=="shot")
     page.locator('[data-starter="pulse"]').click()
-    check(label+" player preview updates to starter",
+    check(label+" player preview updates to free starter",
           get()["player"]["load"]["weapon"]["id"]=="pulse")
     check(label+" four player parts",page.locator("#playerParts .partRow").count()==4)
     check(label+" four enemy parts",page.locator("#enemyParts .partRow").count()==4)
@@ -132,12 +147,33 @@ def test(browser,url,label,size,mobile=False):
     check(label+" all enemy archetypes activate a combo",
           len(builds)==16 and all(len(b["combinations"])>=1 for b in builds),
           builds)
-    check(label+" starting pulse+spark build activates synergy",
+    check(label+" starting pulse+balance build activates synergy",
           "plasma-loop" in start["playerSynergies"],start["playerSynergies"])
     check(label+" pixel mode is active",start["pixelMode"] is True,start["pixelMode"])
-    check(label+" all 31 part models have distinct silhouettes",
+    cp=start["coreProfiles"]
+    check(label+" exactly four mutually exclusive core profiles",
+          set(cp)=={"balance","power","speed","tactical"})
+    check(label+" balance dash cooldown is exactly one second",
+          cp["balance"]["dashCooldown"]==1)
+    check(label+" power core increases offense and HP, reduces mobility, dash 2s",
+          cp["power"]["dmg"]>cp["balance"]["dmg"]*1.24
+          and cp["power"]["hp"]>cp["balance"]["hp"]
+          and cp["power"]["speed"]<cp["balance"]["speed"]
+          and cp["power"]["dashCooldown"]==2)
+    check(label+" speed core prioritizes mobility, reduces attack and HP, dash 0.3s",
+          cp["speed"]["speed"]>cp["balance"]["speed"]*1.2
+          and cp["speed"]["dmg"]<cp["balance"]["dmg"]
+          and cp["speed"]["hp"]<cp["balance"]["hp"]
+          and abs(cp["speed"]["dashCooldown"]-.3)<1e-8)
+    check(label+" tactical core expands ammo 1.5x, loads 20% faster, mildly sacrifices durability and mobility",
+          cp["tactical"]["mag"]==__import__("math").ceil(cp["balance"]["mag"]*1.5)
+          and abs(cp["tactical"]["reloadTime"]-cp["balance"]["reloadTime"]*.8)<1e-7
+          and cp["tactical"]["speed"]<cp["balance"]["speed"]
+          and cp["tactical"]["hp"]<cp["balance"]["hp"]
+          and cp["tactical"]["dashCooldown"]==1)
+    check(label+" all 26 part models have distinct silhouettes",
           all(len(start["spriteSilhouettes"][slot])==n and len(set(start["spriteSilhouettes"][slot]))==n
-              for slot,n in (("weapon",8),("armor",7),("legs",7),("core",9))),
+              for slot,n in (("weapon",8),("armor",7),("legs",7),("core",4))),
           start["spriteSilhouettes"])
     check(label+" rail damage sharply reduced and cover piercing retained",
           start["rail"]["damage"]==18 and start["rail"]["cooldown"]>=1.3
@@ -148,17 +184,17 @@ def test(browser,url,label,size,mobile=False):
           start["pixelBuffer"])
     for combo,parts in (
         ("moving-fortress",{"armor":"fortress","legs":"crawler"}),
-        ("burn-engine",{"weapon":"burst","core":"blaze"}),
+        ("burn-engine",{"weapon":"burst","core":"power"}),
         ("missile-platform",{"weapon":"missile","legs":"tank"}),
-        ("reactive-aegis",{"armor":"reactive","core":"aegis"}),
+        ("reactive-aegis",{"armor":"reactive","core":"balance"}),
         ("light-escape",{"armor":"feather","legs":"spider"}),
-        ("salvo-control",{"weapon":"burst","core":"rapid"}),
+        ("salvo-control",{"weapon":"burst","core":"speed"}),
     ):
         info=hook("inspectBuild",parts)
         check(label+" synergy "+combo+" activates",
               info is not None and combo in info["ids"],info)
-    basic=hook("inspectBuild",{"weapon":"burst","core":"spark"})
-    offense=hook("inspectBuild",{"weapon":"burst","core":"blaze"})
+    basic=hook("inspectBuild",{"weapon":"burst","core":"balance"})
+    offense=hook("inspectBuild",{"weapon":"burst","core":"power"})
     check(label+" build synergy actually changes weapon damage",
           offense["damage"]>basic["damage"],
           {"base":basic["damage"],"combo":offense["damage"]})
@@ -169,8 +205,8 @@ def test(browser,url,label,size,mobile=False):
           set(start["hazardKinds"])=={"shock","frost","repair","rotor"})
     check(label+" all four hazard types appear across stages",
           set(hook("sampleHazardKinds"))=={"shock","frost","repair","rotor"})
-    check(label+" expanded 31 distinct collectible parts",
-          all(start["partCounts"].get(slot)==n for slot,n in (("weapon",8),("armor",7),("legs",7),("core",9))),
+    check(label+" expanded 26 distinct collectible parts",
+          all(start["partCounts"].get(slot)==n for slot,n in (("weapon",8),("armor",7),("legs",7),("core",4))),
           start["partCounts"])
     check(label+" six tactical enemy roles available",
           set(start["roles"])=={"skirmisher","charger","sniper","flanker","guardian","boss"},
@@ -201,6 +237,11 @@ def test(browser,url,label,size,mobile=False):
           page.locator("#playerParts .synergyEntry").count()>=1)
     check(label+" synergy descriptions are readable",
           "プラズマ" in page.locator("#playerParts .synergySummary").inner_text())
+    check(label+" synergy names and benefits now use large fonts",
+          page.locator("#playerParts .synergyEntry strong").first.evaluate(
+              "(e)=>parseFloat(getComputedStyle(e).fontSize)")>=15
+          and page.locator("#playerParts .synergyEntry small").first.evaluate(
+              "(e)=>parseFloat(getComputedStyle(e).fontSize)")>=13)
     check(label+" menu pauses",get()["menuOpen"])
     check(label+" gold and progress visible inside drawer",
           page.locator("#goldText").is_visible() and page.locator("#depthText").is_visible())
@@ -247,18 +288,16 @@ def test(browser,url,label,size,mobile=False):
           rebound["boundary"]["bounces"]==1,rebound)
     check(label+" ricochet expires after three rebounds",
           bool(rebound) and rebound["exhausted"],rebound)
-    # The two new core effects change real combat magazine/reload specs.
+    # Tactical core combines the prior two ammo effects.
     basicAmmo=get()["playerAmmo"]
-    hook("equipTestPart","core","reloader")
-    quick=get()["playerAmmo"]
-    check(label+" fast-reload core reduces actual reload time by 35%",
-          quick["reloadTime"]<basicAmmo["reloadTime"] and
-          abs(quick["reloadTime"]-basicAmmo["reloadTime"]*.65)<.01,quick)
-    hook("equipTestPart","core","magazine")
-    expanded=get()["playerAmmo"]
-    check(label+" extended magazine core increases actual capacity by 50%",
-          expanded["mag"]==__import__("math").ceil(basicAmmo["mag"]*1.5),expanded)
-    hook("equipTestPart","core","spark")
+    hook("equipTestPart","core","tactical")
+    tactical=get()["playerAmmo"]
+    check(label+" tactical core reduces actual reload time by 20%",
+          tactical["reloadTime"]<basicAmmo["reloadTime"] and
+          abs(tactical["reloadTime"]-basicAmmo["reloadTime"]*.8)<.01,tactical)
+    check(label+" tactical core increases actual capacity by 50%",
+          tactical["mag"]==__import__("math").ceil(basicAmmo["mag"]*1.5),tactical)
+    hook("equipTestPart","core","balance")
     hook("equipTestPart","weapon","bounce")
     check(label+" ricochet weapon can actually equip",get()["player"]["load"]["weapon"]["id"]=="bounce")
     hook("equipTestPart","weapon","pulse")
@@ -559,9 +598,12 @@ def test(browser,url,label,size,mobile=False):
     page.wait_for_function("()=>!!window.__roboQA",timeout=10000)
     check(label+" max level research persists after reload",
           set(get()["meta"]["upgrades"].values())=={3})
+    hook("grantMetaPoints",40)
+    rail_before=get()["meta"]["points"]
     page.locator('[data-starter="rail"]').click()
-    check(label+" can choose nerfed rail as starting weapon",
-          get()["meta"]["starter"]=="rail")
+    check(label+" rail starter unlock costs 40 SP",
+          get()["meta"]["starter"]=="rail" and get()["meta"]["points"]==rail_before-40
+          and "rail" in get()["meta"]["unlockedWeapons"])
     page.locator("#startBtn").click()
     check(label+" selected starting weapon actually equips",
           get()["player"]["load"]["weapon"]["id"]=="rail")

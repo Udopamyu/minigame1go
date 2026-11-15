@@ -7,7 +7,8 @@ const SPRITE_SILHOUETTES={
  weapon:{pulse:'thin-coil-barrel',shot:'triple-flared-muzzle',rail:'extra-long-dual-rails',missile:'quad-rocket-pods',micro:'needle-array',burst:'triple-parallel-barrels',slug:'oversized-heavy-cannon',bounce:'forked-ricochet-reflector'},
  armor:{mesh:'exposed-narrow-frame',plated:'stacked-heavy-panels',fortress:'broad-shielded-bastion',reactive:'angular-explosive-tiles',composite:'asymmetric-patchwork',feather:'swept-back-wings',prism:'stepped-diamond-plates'},
  legs:{wheel:'four-independent-wheels',booster:'four-floating-thrusters',tank:'two-caterpillar-belts',spider:'eight-jointed-legs',jet:'swept-wings-and-exhausts',crawler:'two-oversized-crawler-belts',ranger:'long-two-legged-walker'},
- core:{spark:'cross-spark',blaze:'flame-reactor',rapid:'triple-pulse-display',repair:'medical-cross',capacitor:'double-capacitor',aegis:'wide-energy-shield',salvager:'four-way-salvage-rotor',reloader:'glowing-cycle-rotor',magazine:'twin-feed-ammo-capsules'}
+ core:{balance:'cross-stabilizer',power:'oversized-red-reactor',speed:'twin-turbine-impeller',tactical:'two-ammunition-magazines'}
+
 };
 function mechTile(x,y,w,h,color){
  ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),Math.ceil(w),Math.ceil(h));
@@ -162,66 +163,39 @@ function drawArmorEquipment(id,c,trim){
  }
 }
 function drawCoreEquipment(id,c,trim){
- const tick=Math.floor(clock*9)%3;
+ const tick=Math.floor(clock*12)%4;
  switch(id){
- case 'spark':
+ case 'balance':
   metal(-18,-18,36,36,c);
   mechTile(-21,-5,42,10,'#f3ffca');mechTile(-5,-21,10,42,'#f3ffca');
-  mechTile(-8,-8,16,16,'#326c7f');break;
- case 'blaze':
-  metal(-18,-20,36,40,'#794339');
-  for(let i=0;i<3;i++){
-   mechTile(-14+i*12,-26-((tick+i)%3)*6,8,20,'#ff9c4e');
-   mechTile(-12+i*12,-18,5,22,c);
-  }
-  mechTile(-11,-10,22,22,'#ffe8a0');break;
- case 'rapid':
-  metal(-19,-20,39,40,'#274c72');
-  for(let i=0;i<3;i++){
-   mechTile(-14,-15+i*12,28,8,i===tick?'#efffff':c);
-   mechTile(15,-15+i*12,8,8,trim);
-  }break;
- case 'repair':
-  metal(-18,-19,38,38,'#356d60');
-  mechTile(-7,-16,15,32,'#f3ffe1');mechTile(-17,-6,36,13,'#f3ffe1');
-  mechTile(-3,-3,7,7,c);break;
- case 'capacitor':
-  metal(-21,-20,42,40,'#21435a');
-  for(let x=-16;x<=5;x+=21){
-   metal(x,-16,14,32,c,'#122639',trim);
-   mechTile(x+4,-11,6,22,'#c6e9ff');
-  }break;
- case 'aegis':
-  pixelDiamond(0,0,28,32,c,'#e7fff4');
-  for(const side of [-1,1]){
-   mechTile(-27,side*36-4,55,8,trim);
-   mechTile(-35,side*28-4,10,15,c);
-  }
-  mechTile(-7,-8,14,17,'#244c56');break;
- case 'salvager':
-  metal(-19,-20,38,40,'#584e36');
-  for(let i=0;i<4;i++){
-   const a=i*Math.PI/2+(tick-1)*.13;
-   mechTile(Math.cos(a)*13-5,Math.sin(a)*13-5,11,11,c);
-  }
-  metal(-6,-7,12,14,trim);break;
- case 'reloader':
-  metal(-19,-19,38,38,'#155c69','#0a2730','#c5fff0');
-  for(let i=0;i<4;i++){
-   const a=(i+tick/3)*Math.PI/2;
-   const x=Math.round(Math.cos(a)*19),y=Math.round(Math.sin(a)*19);
-   mechTile(x-5,y-5,10,10,c);
-  }
-  mechTile(-14,-4,28,8,'#e6fffa');
-  mechTile(-4,-14,8,28,'#aef8eb');
+  mechTile(-8,-8,16,16,'#326c7f');
   break;
- case 'magazine':
-  metal(-14,-17,28,34,'#7a5934','#241e21','#ffde97');
-  for(const x of [-30,13]){
-   metal(x,-24,17,48,c,'#352b2a','#fff1c6');
-   for(let y=-17;y<18;y+=11)mechTile(x+5,y,8,7,'#ffe8a4');
+ case 'power':
+  metal(-25,-27,50,54,'#7a3636','#29101c','#ffcc99');
+  for(const x of [-29,22]){
+   metal(x,-21,12,42,c,'#4d1828','#ffe3bc');
+   mechTile(x+3,-12+tick*5,6,12,'#fff3a4');
   }
-  mechTile(-11,-5,22,11,'#ffe2a7');
+  pixelDiamond(0,0,19,20,'#ff9c59','#ffe1a0');
+  for(const y of [-30,25])mechTile(-13,y,27,7,'#ffb15c');
+  break;
+ case 'speed':
+  metal(-21,-19,42,38,'#21446a','#142336',trim);
+  for(const x of [-26,12]){
+   metal(x,-25,17,50,c,'#0e3058','#d6f6ff');
+   for(let k=0;k<3;k++)mechTile(x+3,-18+k*15,11,8,k===tick%3?'#faffff':'#77b8fa');
+  }
+  mechTile(-13,-5,27,10,'#d0f9ff');
+  mechTile(-4,-14,8,29,'#71bdff');
+  break;
+ case 'tactical':
+  metal(-20,-22,40,44,'#554d29','#221d14','#f1df9d');
+  for(const x of [-35,20]){
+   metal(x,-25,18,51,c,'#3a331e','#ffe59e');
+   for(let y=-18;y<23;y+=12)mechTile(x+5,y,8,7,'#fff3c3');
+  }
+  mechTile(-14,-6,28,12,'#ffd679');
+  mechTile(-8,-14,16,29,'#997b3b');
   break;
  }
 }
