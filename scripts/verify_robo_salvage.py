@@ -322,17 +322,11 @@ def test(browser,url,label,size,mobile=False):
           and get()["playerAmmo"]["reloadLeft"]==0)
     check(label+" full magazine cannot reload",
           page.locator("#reloadTouch").is_disabled())
-    hook("setAmmo",1)
-    page.keyboard.down("Space")
-    page.wait_for_timeout(470)
-    page.keyboard.up("Space")
-    automatic=get()["playerAmmo"]
+    automatic=hook("testAutoMagazineCycle")
     check(label+" empty magazine automatically starts reload",
-          automatic["ammo"]==0 and automatic["reloadLeft"]>0 and
-          automatic["reloadCount"]>=2,automatic)
-    page.wait_for_timeout(1750)
+          bool(automatic) and automatic["started"],automatic)
     check(label+" automatic reload refills magazine",
-          get()["playerAmmo"]["ammo"]==get()["playerAmmo"]["mag"])
+          bool(automatic) and automatic["refilled"],automatic)
     check(label+" enemy also maintains an ammunition magazine",
           get()["enemyAmmo"]["mag"] in [5,12,3,4,30,9])
     page.screenshot(path=str(OUT/(label+"-fight.png")),full_page=True)

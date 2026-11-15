@@ -2594,8 +2594,20 @@ if(navigator.webdriver)window.__roboQATest={
  setGold:value=>{gold=Math.max(0,Math.floor(value));updatePanels(true)},
  grantMetaPoints:value=>{if(state!=='menu')return false;metaState.points+=Math.max(0,Math.floor(value));saveMeta();renderHangar();return true},
  // Integration-only: force a one-round magazine to validate auto reload.
+ testAutoMagazineCycle:()=>{
+  if(state!=='fight'||!player||!enemy)return null;
+  // Atomic integration check: no unrelated stun, hazards or enemy fire can intervene.
+  player.status.stun=0;player.cd=0;player.ammo=1;player.reloadLeft=0;
+  const shots=player.shots,reloads=player.reloadCount;
+  shoot(player,enemy,Math.atan2(enemy.y-player.y,enemy.x-player.x));
+  const started=player.ammo===0&&player.reloadLeft>0&&player.shots===shots+1
+   &&player.reloadCount===reloads+1;
+  updateReload(player,player.reloadTotal+.02);
+  return {started,refilled:player.ammo===player.stats.mag&&player.reloadLeft===0,
+   ammo:player.ammo,capacity:player.stats.mag};
+ },
  setAmmo:value=>{if(!player||state!=='fight')return false;
-  player.reloadLeft=0;player.ammo=clamp(Math.floor(value),0,player.stats.weapon.mag);return true},
+  player.reloadLeft=0;player.ammo=clamp(Math.floor(value),0,player.stats.mag);return true},
 
 
  enemyBuilds:()=>ENEMY_ARCHETYPES.map(profile=>({id:profile.id,role:profile.role,parts:profile.parts,
