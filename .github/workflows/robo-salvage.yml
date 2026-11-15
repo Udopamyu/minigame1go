@@ -6,12 +6,14 @@ on:
       - 'games/robo-salvage/**'
       - 'scripts/verify_robo_salvage.py'
       - 'scripts/robo_playtest.py'
+      - 'scripts/robo_release_preflight.py'
       - '.github/workflows/robo-salvage.yml'
   pull_request:
     paths:
       - 'games/robo-salvage/**'
       - 'scripts/verify_robo_salvage.py'
       - 'scripts/robo_playtest.py'
+      - 'scripts/robo_release_preflight.py'
       - '.github/workflows/robo-salvage.yml'
   workflow_dispatch:
 
@@ -29,6 +31,8 @@ jobs:
         run: |
           python scripts/build_robo_salvage.py --check
           python scripts/robo_line_count.py
+      - name: Verify release packaging and self-contained assets
+        run: python scripts/robo_release_preflight.py
       - name: Validate JavaScript syntax
         run: |
           python - <<'PY'
