@@ -182,6 +182,9 @@ def run_attempt(page, number, max_seconds=125):
         if state == "route":
             pilot.release()
             choose_route(page, q, stages)
+        elif state == "endlessGate":
+            pilot.release()
+            page.locator("#endlessContinue").click()
         elif state == "ready":
             pilot.release()
             page.locator("#phaseContinue").click()
@@ -287,6 +290,8 @@ def main():
                 page.on("pageerror",lambda e: errors.append(str(e)))
                 page.goto(url,wait_until="domcontentloaded")
                 page.wait_for_function("()=>!!window.__roboQA",timeout=10000)
+                if page.locator("#titleEnter").count():
+                    page.locator("#titleEnter").click()
                 for i in range(3):
                     if i:
                         q=telemetry(page)

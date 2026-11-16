@@ -113,10 +113,10 @@ function specs(load,forPlayer=false){
  const synergy=resolveBuildSynergies(load),m=synergy.modifiers;
  const permanent=forPlayer?metaState.upgrades:{hull:0,power:0,drive:0,recovery:0};
  return {
-  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)*m.hp*(c.hpFactor||1)*(1+permanent.hull*.05)),
+  hp:Math.round(2*(a.hp*af+(l.bonusHp||0)*lf)*m.hp*(c.hpFactor||1)*(1+permanent.hull*.05)*(1+(forPlayer&&endlessMode?endlessUpgrades.hp*.06:0))),
   guard:clamp(a.guard+.007*(load.armor.lv-1)+.008*(load.armor.tier-1)+(c.guardBonus||0)+m.guard,0,.38),
-  speed:l.speed*lf*m.speed*(c.speedFactor||1)*(1+permanent.drive*.03),dashCooldown:c.dashCooldown,
-  dmg:w.damage*wf*c.damage*cf*m.damage*(1+permanent.power*.04),fireCooldown:Math.max(.125,w.cool/(c.rate*cf)*m.fireCooldown),
+  speed:l.speed*lf*m.speed*(c.speedFactor||1)*(1+permanent.drive*.03)*(1+(forPlayer&&endlessMode?endlessUpgrades.spd*.04:0)),dashCooldown:c.dashCooldown,
+  dmg:w.damage*wf*c.damage*cf*m.damage*(1+permanent.power*.04)*(1+(forPlayer&&endlessMode?endlessUpgrades.atk*.07:0)),fireCooldown:Math.max(.125,w.cool/(c.rate*cf)*m.fireCooldown),
   weapon:w,armor:a,legs:l,core:c,mag:Math.max(1,Math.ceil(w.mag*(c.magBonus||1))),
   reloadTime:Math.max(.5,w.reload*(c.reloadFactor||1)),
   repair:clamp(c.heal*cf+m.repair+permanent.recovery*.04,0,.65),
@@ -167,6 +167,9 @@ const initial=()=>({
 let state='menu',wave=1,best=Number(localStorage.getItem('roboSalvageBest')||0);
 let depth=0,gold=0,routeOptions=[],currentNode='fight',bossCleared=false,runSeed=0,encountersWon=0,shopOffers=[],mapHistory=[];
 let routeGraph=[],routeCandidates=[],currentLane=2,chosenNodes=[];
+let endlessUpgrades={atk:0,hp:0,spd:0};
+let endlessMode=false,endlessCycle=0,finishSequence=null,endlessBest=Number(localStorage.getItem('roboSalvageEndlessBest')||0);
+let runClearCounts={fight:0,elite:0,boss:0,shop:0,rest:0,event:0,cache:0};
 let player=null,enemy=null,bullets=[],effects=[],rings=[],blocks=[],hazards=[],bossAttack=null,bossCooldown=4,bossPattern=0,bossAttackCount=0,aim={x:800,y:295},keys={},fireMouse=false,fireTouch=false,joy={x:0,y:0},wantsDash=false;
 let activeJoyPointer=null,soundOn=true,audio=null,clock=0,screenShake=0,enemySeed=0,lootTaken=false,shotsFired=0,menuOpen=false;
 $('best').textContent=String(best).padStart(2,'0');
@@ -261,6 +264,30 @@ function drawPhaseLetters(label){
   g.drawImage(small,12,4,216,56);
  }
 }
+
+function showOpeningScreen(){
+ try{if(sessionStorage.getItem('roboSalvageOpeningSeen')==='1')return;}catch(_e){}
+ state='title';setMusicMode('route');
+ showOverlay('<section class="openingScene"><p class="openingEyebrow">MINIGAME 1GO // #003</p>'
+  +'<canvas id="openingLogo" width="300" height="108" role="img" aria-label="ロボサルベージ"></canvas>'
+  +'<p class="openingSub">ROBO SALVAGE</p>'
+  +'<button type="button" class="primary" id="titleEnter">START ▶</button></section>');
+ $('dialog').classList.add('openingDialog');
+ const c=$('openingLogo'),g=c.getContext('2d');
+ g.imageSmoothingEnabled=false;g.fillStyle='#071724';g.fillRect(0,0,c.width,c.height);
+ g.fillStyle='#163744';for(let x=0;x<c.width;x+=12)for(let y=0;y<c.height;y+=12)
+  if((x+y/12)%5===0)g.fillRect(x,y,2,2);
+ g.fillStyle='#5ef8da';g.fillRect(10,13,280,3);g.fillRect(10,89,280,3);
+ g.font='bold 31px "MS Gothic","Noto Sans JP",monospace';g.textAlign='center';
+ g.fillStyle='#285c65';g.fillText('ロボサルベージ',152,62);
+ g.fillStyle='#a9ffe2';g.fillText('ロボサルベージ',150,59);
+ g.fillStyle='#ffda91';for(let i=0;i<5;i++){g.fillRect(16+i*9,26,5,5);g.fillRect(239+i*9,74,5,5);}
+ $('titleEnter').addEventListener('click',()=>{
+  try{sessionStorage.setItem('roboSalvageOpeningSeen','1')}catch(_e){}
+  renderHangar();
+ },{once:true});
+}
+
 function showPhaseCard(label,next,phase){
  state=phase;fireMouse=false;fireTouch=false;keys={};
  showOverlay('<div class="phaseCard"><canvas id="phaseLetters" width="240" height="70" role="img" aria-label="'+label+'"></canvas><button id="phaseContinue" class="primary" type="button">OK</button></div>');
@@ -437,7 +464,9 @@ function shuffled(arr){
 }
 function beginRun(){
  wave=1;depth=0;gold=0;encountersWon=0;runSettled=false;runSeed=Math.floor(rand(0,15));
- bossCleared=false;mapHistory=[];currentNode='fight';routeOptions=[];shopOffers=[];
+ bossCleared=false;endlessMode=false;endlessCycle=0;finishSequence=null;endlessUpgrades={atk:0,hp:0,spd:0};
+ runClearCounts={fight:0,elite:0,boss:0,shop:0,rest:0,event:0,cache:0};
+ mapHistory=[];currentNode='fight';routeOptions=[];shopOffers=[];
  forcedEventVariant=null;activeEventVariant=null;
  currentLane=2;chosenNodes=[];routeCandidates=[];routeGraph=buildRouteGraph();
  player=createRobot(initial(),166,295);enemy=null;
@@ -445,17 +474,32 @@ function beginRun(){
  closeMenu();updatePanels(true);
  showRoute();
 }
+
+function endlessRow(){return endlessMode?(depth-11)%10:depth}
+function isEndlessBoss(){return endlessMode&&endlessRow()===9}
+function endlessStage(){return endlessMode?Math.max(0,depth-10):0}
+function recordClearedNode(type){
+ const normalized=type==='fight2'?'fight':type;
+ runClearCounts[normalized]=(runClearCounts[normalized]||0)+1;
+ mapHistory.push(type);
+}
+function clearedSummary(){
+ return [['通常戦',runClearCounts.fight],['強敵戦',runClearCounts.elite],
+ ['ボス戦',runClearCounts.boss],['イベント',runClearCounts.event],
+ ['ショップ',runClearCounts.shop],['休憩',runClearCounts.rest],['資材庫',runClearCounts.cache]]
+ .map(([name,count])=>name+' '+count+'マス').join(' ／ ');
+}
 function buildRouteGraph(){
  const pool=['shop','rest','elite','event','cache','shop','event','elite','rest','shop'];
  return Array.from({length:10},(_,row)=>{
   const left=pick(pool),right=pick(pool.filter(t=>t!==left));
   return Array.from({length:5},(_,lane)=>{
-   if(lane===1)return left;
-   if(lane===3)return right;
-   return lane===2?'fight':row%2===lane%2?'fight':'fight2';
+   const kind=lane===1?left:lane===3?right:lane===2?'fight':row%2===lane%2?'fight':'fight2';
+   return endlessMode&&(kind==='fight'||kind==='fight2')?'elite':kind;
   });
  });
 }
+
 function lanesFrom(lane){
  if(lane<=1)return [0,1,2];
  if(lane>=3)return [2,3,4];
@@ -467,28 +511,29 @@ function mapY(row){return 1234-row*115}
 function mapLine(x1,y1,x2,y2,kind=''){
  return '<path class="map-edge '+kind+'" d="M '+x1+' '+y1+' Q '+((x1+x2)/2)+' '+((y1+y2)/2)+' '+x2+' '+y2+'"/>';
 }
+
 function renderRouteMap(){
  let lines='',nodes='';
- // All accessible future branches are visible before the player selects a path.
- for(const lane of lanesFrom(2)) {
-  const visited=chosenNodes[0]?.lane===lane;
-  const active=depth===0&&routeCandidates.some(n=>n.lane===lane);
-  lines+=mapLine(320,MAP_START_Y,mapX(lane),mapY(0)+27,visited?'done':active?'active':'');
+ const rowIndex=endlessRow(),rows=endlessMode?9:10;
+ for(const lane of lanesFrom(2)){
+  const selected=chosenNodes[0]?.lane===lane;
+  const active=rowIndex===0&&routeCandidates.some(n=>n.lane===lane);
+  lines+=mapLine(320,MAP_START_Y,mapX(lane),mapY(0)+27,selected?'done':active?'active':'');
  }
- for(let row=0;row<9;row++)for(let from=0;from<5;from++){
+ for(let row=0;row<rows-1;row++)for(let from=0;from<5;from++){
   for(const to of lanesFrom(from)){
    const selected=chosenNodes[row]?.lane===from&&chosenNodes[row+1]?.lane===to;
-   const active=row+1===depth&&chosenNodes[row]?.lane===from&&routeCandidates.some(n=>n.lane===to);
+   const active=row+1===rowIndex&&chosenNodes[row]?.lane===from&&routeCandidates.some(n=>n.lane===to);
    lines+=mapLine(mapX(from),mapY(row)-25,mapX(to),mapY(row+1)+25,selected?'done':active?'active':'');
   }
  }
  for(let lane=0;lane<5;lane++){
-  const last=chosenNodes[9]?.lane===lane;
-  lines+=mapLine(mapX(lane),mapY(9)-27,320,MAP_BOSS_Y+35,last?(depth===10?'active':'done'):'');
+  const last=chosenNodes[rows-1]?.lane===lane;
+  lines+=mapLine(mapX(lane),mapY(rows-1)-27,320,MAP_BOSS_Y+35,last?(rowIndex>=rows?'active':'done'):'');
  }
- for(let row=0;row<10;row++)for(let lane=0;lane<5;lane++){
+ for(let row=0;row<rows;row++)for(let lane=0;lane<5;lane++){
   const selected=chosenNodes.some(n=>n.depth===row&&n.lane===lane);
-  const available=depth===row?routeCandidates.find(n=>n.lane===lane):null;
+  const available=rowIndex===row?routeCandidates.find(n=>n.lane===lane):null;
   const type=available?.type||routeGraph[row][lane],n=NODE[type];
   const special=type!=='fight'&&type!=='fight2';
   const cls='map-node'+(selected?' completed':'')+(available?' current':'')+(special?' special':'');
@@ -496,31 +541,33 @@ function renderRouteMap(){
   nodes+='<g class="'+cls+'" transform="translate('+mapX(lane)+' '+mapY(row)+')"'+attrs+'>'
     +'<circle r="28"/><text y="-3">'+n.symbol+'</text><text class="small" y="35">'+n.name+'</text></g>';
  }
- const activeBoss=depth>=10;
+ const activeBoss=endlessMode?isEndlessBoss():depth>=10;
  nodes+='<g class="map-node boss'+(activeBoss?' current':'')+'" transform="translate(320 '+MAP_BOSS_Y+')"'
-  +(activeBoss?' data-route="boss" data-lane="2" tabindex="0" role="button" aria-label="最終ボスに挑戦"':'')
-  +'><circle r="35"/><text y="-2">★</text><text class="small" y="45">FINAL BOSS</text></g>';
+  +(activeBoss?' data-route="boss" data-lane="2" tabindex="0" role="button" aria-label="ボスに挑戦"':'')
+  +'><circle r="35"/><text y="-2">★</text><text class="small" y="45">'+(endlessMode?'ENDLESS BOSS':'FINAL BOSS')+'</text></g>';
  nodes+='<circle class="startNode" cx="320" cy="'+MAP_START_Y+'" r="25"/><text class="map-caption" x="320" y="'+(MAP_START_Y+5)+'" text-anchor="middle">START</text>';
- return '<svg class="mapBoard" viewBox="0 0 640 '+MAP_HEIGHT+'" role="img" aria-label="10階層の分岐と最上部のボスマスを示す全体マップ">'
+ return '<svg class="mapBoard" viewBox="0 0 640 '+MAP_HEIGHT+'" role="img" aria-label="分岐ルートとボス">'
   +'<g>'+lines+'</g><g>'+nodes+'</g></svg>';
 }
 function showRoute(){
  state='route';setMusicMode('route');updatePanels(true);
- if(depth>=10){
+ const rowIndex=endlessRow(),final=endlessMode?isEndlessBoss():depth>=10;
+ if(final){
   routeCandidates=[{lane:2,type:'boss'}];routeOptions=['boss'];
  }else{
-  routeCandidates=lanesFrom(currentLane).map(lane=>({lane,type:routeGraph[depth][lane]}));
-  const combats=routeCandidates.filter(c=>c.type==='fight'||c.type==='fight2');
-  combats.forEach((c,i)=>c.type=i===0?'fight':'fight2');
+  routeCandidates=lanesFrom(currentLane).map(lane=>({lane,type:routeGraph[rowIndex][lane]}));
+  if(!endlessMode){
+   const combats=routeCandidates.filter(c=>c.type==='fight'||c.type==='fight2');
+   combats.forEach((c,i)=>c.type=i===0?'fight':'fight2');
+  }
   routeOptions=routeCandidates.map(c=>c.type);
  }
- const final=depth>=10;
- let html='<p class="flag">'+(final?'ALL PATHS CONVERGE':'BRANCHING ROUTE / NODE '+(depth+1)+' OF 10')+'</p>'
-  +'<h2>'+(final?'最終決戦':'ルート選択')+'</h2>'
+ const subtitle=endlessMode?'ENDLESS / STAGE '+(depth+1):final?'ALL PATHS CONVERGE':'BRANCHING ROUTE / NODE '+(depth+1)+' OF 10';
+ let html='<p class="flag">'+subtitle+'</p>'
+  +'<h2>'+(final?(endlessMode?'エンドレスボス':'最終決戦'):'ルート選択')+'</h2>'
   +'<div class="resourceLine"><span>GOLD '+gold+'</span><span>HP '+Math.ceil(player.hp)+' / '+player.maxHp+'</span></div>'
   +'<div class="mapWrap" id="mapScroll">'+renderRouteMap()+'</div>'
-  +'<div class="mapLegend"><span><span class="statusDot"></span><b>光るマス</b>が次の選択肢</span><span>進行 '+depth+' / 10 → ★</span></div>'
-  ;
+  +'<div class="mapLegend"><span><span class="statusDot"></span><b>次のマス</b></span><span>'+(endlessMode?'STAGE '+(depth+1)+' / ∞':'進行 '+depth+' / 10 → ★')+'</span></div>';
  showOverlay(html);
  $('dialog').classList.add('routeDialog');
  document.querySelectorAll('#mapScroll [data-route]').forEach(el=>{
@@ -528,16 +575,16 @@ function showRoute(){
   el.addEventListener('click',enter);
   el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();enter()}});
  });
- const el=$('mapScroll'),y=final?MAP_BOSS_Y:mapY(depth);
- const scrollTarget=y*(el.scrollHeight/MAP_HEIGHT)-el.clientHeight*.58;
- el.scrollTop=Math.max(0,scrollTarget);
+ const el=$('mapScroll'),y=final?MAP_BOSS_Y:mapY(rowIndex);
+ el.scrollTop=Math.max(0,y*(el.scrollHeight/MAP_HEIGHT)-el.clientHeight*.58);
 }
+
 function enterNode(type,lane){
  if(state!=='route')return;
  const choice=routeCandidates.find(c=>c.type===type&&(lane==null||c.lane===lane));
  if(!choice)return;
  currentLane=choice.lane;
- chosenNodes.push({depth,lane:choice.lane,type:choice.type});
+ chosenNodes.push({depth:endlessRow(),lane:choice.lane,type:choice.type});
  currentNode=type;wave=depth+1;
  if(type==='fight'||type==='fight2'||type==='elite'||type==='boss'){startWave();return}
  if(type==='shop'){openShopNode();return}
@@ -570,7 +617,7 @@ function healPlayer(fraction){
  updatePanels(true);
 }
 function completeNode(){
- mapHistory.push(currentNode);
+ recordClearedNode(currentNode);
  depth++;wave=depth+1;
  showRoute();
 }
@@ -589,11 +636,13 @@ function startWave(){
  enemy.role=currentNode==='boss'||currentNode==='elite'?chooseEnemyRole(currentNode):chosenEnemyArchetype?.role||chooseEnemyRole(currentNode);
  let warmup=wave===1?.76:wave===2?.87:wave===3?.94:1;
  const kind=currentNode;
- const hpScale=kind==='boss'?2.15:kind==='elite'?1.42:1;
+ const limitBreaker=endlessMode?1+.07*Math.pow(endlessStage(),.92):1;
+ const hpScale=(kind==='boss'?2.15:kind==='elite'?1.42:1)*limitBreaker;
  enemy.maxHp=Math.round(enemy.maxHp*warmup*hpScale);enemy.hp=enemy.maxHp;
- if(kind==='boss'){enemy.stats.dmg*=1.22;enemy.r=24;enemy.name='OMEGA GUARDIAN'}
+ if(kind==='boss'){enemy.stats.dmg*=1.22;enemy.r=24;enemy.name=endlessMode?'OMEGA '+endlessStage():'OMEGA GUARDIAN'}
  else if(kind==='elite'){enemy.stats.dmg*=1.1;enemy.name='ELITE '+pick(enemyNames)}
  else enemy.name=ENEMY_ROLES[enemy.role].label+' '+pick(enemyNames);
+ if(endlessMode){enemy.stats.dmg*=limitBreaker;enemy.stats.speed*=Math.pow(limitBreaker,.25)}
  enemySeed=Math.random()*10;
  player.x=165;player.y=295;player.vx=0;player.vy=0;player.cd=0;player.hitFlash=0;
  // Healing happens only after combat, not on entering a new fight.
@@ -669,6 +718,7 @@ function openEvent(){
 }
 function shopCost(kind,slot){
  if(kind==='repair')return 55+depth*8;
+ if(kind==='limit')return 120+endlessUpgrades[slot]*65+Math.max(0,depth-10)*6;
  if(kind==='upgrade')return 68+player.load[slot].lv*28+depth*7;
  return 100+depth*16;
 }
@@ -690,6 +740,9 @@ function buyShop(kind,arg){
  }else if(kind==='upgrade'&&SLOT[arg]){
   cost=shopCost('upgrade',arg);if(gold<cost)return;
   gold-=cost;player.load[arg].lv++;restoreVitalsFromLoad();
+  }else if(kind==='limit'&&endlessMode&&Object.hasOwn(endlessUpgrades,arg)){
+  cost=shopCost('limit',arg);if(gold<cost)return;
+  gold-=cost;endlessUpgrades[arg]++;restoreVitalsFromLoad();
  }else if(kind==='offer'){
   const item=shopOffers[Number(arg)];if(!item||item.bought||gold<item.price)return;
   gold-=item.price;player.load[item.slot]=clone(item.part);item.bought=true;restoreVitalsFromLoad();
@@ -710,6 +763,14 @@ function renderShop(){
    +'><strong>↑ '+SLOT[slot]+'</strong><small>'+find(player.load[slot]).name+' Lv.'+player.load[slot].lv+' → '+(player.load[slot].lv+1)+'</small>'
    +'<span class="cost">'+cost+' G</span></button>';
  }
+ if(endlessMode){
+  for(const [key,label,effect] of [['atk','攻撃','ATK +7%'],['hp','耐久','HP +6%'],['spd','機動','SPD +4%']]){
+   const price=shopCost('limit',key);
+   html+='<button class="shopItem limitUpgrade" data-shop="limit" data-arg="'+key+'" '+(gold<price?'disabled':'')+'>'
+    +'<strong>∞ '+label+' 限界突破</strong><small>'+effect+' / Lv.'+endlessUpgrades[key]+' → '+(endlessUpgrades[key]+1)+'</small>'
+    +'<span class="cost">'+price+' G</span></button>';
+  }
+ }
  for(let i=0;i<shopOffers.length;i++){
   const item=shopOffers[i],p=item.part;
   html+='<button class="shopItem" data-shop="offer" data-arg="'+i+'" '+(item.bought||gold<item.price?'disabled':'')
@@ -725,7 +786,7 @@ function renderShop(){
 
 function updatePanels(forceParts){
  $('topWave').textContent=String(wave).padStart(2,'0');
- $('goldText').textContent=gold+' G';$('depthText').textContent=depth+' / 10';
+ $('goldText').textContent=gold+' G';$('depthText').textContent=endlessMode?'STAGE '+(depth+1)+' / ∞':depth+' / 10';
  if($('metaPoints'))$('metaPoints').textContent=metaState.points+' SP';
  $('playerModel').textContent='SALVAGER-01';
  $('enemyModel').textContent=enemy?enemy.name:'SCANNING';
@@ -790,7 +851,8 @@ function renderStatRadar(){
   +grid+spokes+poly+dots+axes+'</svg>'
   +'<div class="radarReadout">'+numbers+'</div>'
   +'<div class="radarDetails"><span>DASH '+stats.dashCooldown.toFixed(1)+'s</span><span>RELOAD '+stats.reloadTime.toFixed(2)+'s</span></div>'
-  +'<div class="radarResearch">研究 HP '+u.hull+' / ATK '+u.power+' / SPD '+u.drive+' / REC '+u.recovery+'</div>';
+  +'<div class="radarResearch">研究 HP '+u.hull+' / ATK '+u.power+' / SPD '+u.drive+' / REC '+u.recovery+'</div>'
+  +(endlessMode?'<div class="radarResearch">LIMIT BREAK ATK '+endlessUpgrades.atk+' / HP '+endlessUpgrades.hp+' / SPD '+endlessUpgrades.spd+'</div>':'');
 }
 
 function partsPanel(id,load){
@@ -878,16 +940,21 @@ function win(){
  gold+=reward;healPlayer(.30+player.stats.repair);
  best=Math.max(best,depth+1);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
  if(currentNode==='boss'){
-  bossCleared=true;state='victory';mapHistory.push('boss');
-  const earned=settleRun(true);
-  showPhaseCard('WIN',()=>{state='victory';setMusicMode('result');showOverlay('<p class="flag">ROUTE CLEAR / BOSS DEFEATED</p><h2>全エリア踏破！</h2>'
-   +'<p>10マスの分岐を生き抜き、最終ボスを撃破しました。</p>'
-   +'<div class="statline"><div class="statpill">通過 '+depth+' マス</div>'
-   +'<div class="statpill">撃破 '+encountersWon+' 機</div>'
-   +'<div class="statpill">GOLD '+gold+'</div></div>'
-   +'<p class="metaReward">研究ポイント +'+earned+' SP ／ 所持 '+metaState.points+' SP（永久保存）</p>'
-   +'<button id="newRun" class="primary">格納庫で強化・次の周回へ ▶</button>');
-  $('newRun').addEventListener('click',renderHangar);beep(860,.27,.05)},'winCard');return;
+  bossCleared=true;recordClearedNode('boss');depth++;wave=depth+1;
+  best=Math.max(best,depth);localStorage.setItem('roboSalvageBest',String(best));
+  $('best').textContent=String(best).padStart(2,'0');
+  if(!endlessMode){endlessMode=true;endlessCycle=0;}
+  else endlessCycle++;
+  chosenNodes=[];currentLane=2;routeGraph=buildRouteGraph();
+  showPhaseCard('WIN',()=>{
+   state='endlessGate';setMusicMode('result');
+   showOverlay('<p class="flag">BOSS BREAKTHROUGH</p><h2>ENDLESS MODE</h2>'
+    +'<div class="endlessNotice">STAGE '+(depth+1)+'　／　強化上限なし</div>'
+    +'<p>すべての戦闘が強敵へ。10ステージごとにボスが出現。</p>'
+    +'<button id="endlessContinue" class="primary">現在の機体で続行 ▶</button>');
+   $('endlessContinue').addEventListener('click',showRoute,{once:true});
+  },'winCard');
+  return;
  }
  lootTaken=false;
  const bonus=40+depth*9;
@@ -930,19 +997,25 @@ function skipLoot(){
 
 function lost(){
  if(state!=='fight')return;
- const lostGold=gold,earned=settleRun(false);
- // Run loot and GOLD are lost; research SP survives.
+ const lostGold=gold,endedStage=depth+1,completed=depth,earned=settleRun(false);
+ if(endlessMode){
+  endlessBest=Math.max(endlessBest,completed);
+  try{localStorage.setItem('roboSalvageEndlessBest',String(endlessBest))}catch(_e){}
+ }
  gold=0;player.load=initial();player.stats=specs(player.load,true);
  fireMouse=false;fireTouch=false;
- best=Math.max(best,depth);localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
+ best=Math.max(best,completed);
+ localStorage.setItem('roboSalvageBest',String(best));$('best').textContent=String(best).padStart(2,'0');
  showPhaseCard('LOSE',()=>{
   state='dead';setMusicMode('dead');
-  showOverlay('<p class="flag">SIGNAL LOST / RUN ENDED</p><h2>機体、戦闘不能。</h2>'
-   +'<p>到達地点 <strong>'+(depth+1)+'</strong> ／ 今回撃破 <strong>'+encountersWon+'</strong>機。装備と所持金 '+lostGold+' Gはすべて失いました。</p>'
-   +'<p class="metaReward">研究ポイント +'+earned+' SP ／ 所持 '+metaState.points+' SP（永久保存）</p>'
-   +'<div class="statline"><div class="statpill">撃破 '+encountersWon+'</div><div class="statpill">BEST '+best+'</div></div>'
-   +'<button class="primary" id="againBtn">格納庫で強化・再出撃 ▶</button>'
-   +'<div class="mini">SPで永久強化が可能。次の周回では初期武器も変更できます。</div>');
+  showOverlay('<p class="flag">RUN ENDED</p><h2>STAGE '+endedStage+'　戦闘不能</h2>'
+   +'<div class="resultBreakdown"><strong>踏破 '+completed+'マス</strong>'
+   +'<span>'+clearedSummary()+'</span></div>'
+   +'<p>撃破 '+encountersWon+'機 ／ 装備と所持金 '+lostGold+' Gはすべて失いました。</p>'
+   +'<p class="metaReward">研究ポイント +'+earned+' SP ／ 所持 '+metaState.points+' SP</p>'
+   +'<div class="statline"><div class="statpill">BEST STAGE '+best+'</div>'
+   +(endlessMode?'<div class="statpill">ENDLESS BEST '+endlessBest+'</div>':'')+'</div>'
+   +'<button class="primary" id="againBtn">格納庫へ ▶</button>');
   updatePanels(true);$('againBtn').addEventListener('click',renderHangar);
   beep(140,.36,.055,'sawtooth');
  },'loseCard');
@@ -986,6 +1059,57 @@ function particle(x,y,color,n=9,scale=1){
  }
 }
 function ring(x,y,color,r=20){rings.push({x,y,color,r,life:.30,max:.30})}
+/* One second of cinematic slow motion. Target shatters into four real
+ * independently drawn equipment components, followed by white/blackout. */
+function startFinisher(target){
+ if(state!=='fight'||finishSequence)return;
+ fireMouse=false;fireTouch=false;keys={};wantsDash=false;closeMenu();
+ finishSequence={kind:target.enemy?'win':'lose',target,elapsed:0,duration:1};
+ state='finisher';setMusicMode('silent');
+ screenShake=3;
+}
+function finisherProgress(){return finishSequence?clamp(finishSequence.elapsed/finishSequence.duration,0,1):0}
+function drawDestroyedMech(){
+ if(!finishSequence)return;
+ const o=finishSequence.target,t=finisherProgress();
+ const p=Math.max(0,(t-.13)/.87),slow=1-Math.pow(1-p,3),spread=slow*168;
+ const defs=o.stats,enemyTint=o.enemy,trim=enemyTint?'#eac0c0':'#b6e9ea';
+ const slots=[
+  {id:o.load.legs.id,paint:drawLegEquipment,color:hostileShade(defs.legs.color,enemyTint),dx:-.70,dy:1.05,rot:-1.1},
+  {id:o.load.armor.id,paint:drawArmorEquipment,color:hostileShade(defs.armor.color,enemyTint),dx:-.32,dy:-.70,rot:.85},
+  {id:o.load.core.id,paint:drawCoreEquipment,color:hostileShade(defs.core.color,enemyTint),dx:.48,dy:.75,rot:-1.5},
+  {id:o.load.weapon.id,paint:drawWeaponEquipment,color:hostileShade(defs.weapon.color,enemyTint),dx:1.3,dy:-.42,rot:1.2}
+ ];
+ ctx.save();ctx.translate(o.x,o.y);ctx.rotate(o.angle);
+ ctx.scale(MECH_SCALE,MECH_SCALE);
+ if(o.enemy&&currentNode==='boss')ctx.scale(1.19,1.19);
+ for(const part of slots){
+  ctx.save();
+  ctx.translate(part.dx*spread,part.dy*spread+slow*slow*40);
+  ctx.rotate(part.rot*slow);
+  part.paint(part.id,part.color,trim);
+  ctx.restore();
+ }
+ const count=18;
+ for(let i=0;i<count;i++){
+  const a=i*TAU/count+o.angle/3,v=(23+i%5*17)*slow;
+  const x=Math.cos(a)*v,y=Math.sin(a)*v,sz=2+(i%3)*2;
+  mechTile(x,y,sz,sz,i%2?'#ffdc83':'#a1f6eb');
+ }
+ ctx.restore();
+}
+function drawFinisherMask(width,height){
+ if(!finishSequence)return;
+ const t=finisherProgress();
+ const white=finishSequence.kind==='win';
+ const opacity=Math.pow(clamp((t-.54)/.46,0,1),1.4);
+ if(opacity<=0)return;
+ ctx.save();ctx.setTransform(1,0,0,1,0,0);
+ ctx.fillStyle=white?'rgba(255,255,255,'+opacity+')':'rgba(0,0,0,'+opacity+')';
+ ctx.fillRect(0,0,width,height);
+ ctx.restore();
+}
+
 function damage(target,amount){
  if(target.dead||state!=='fight')return;
  if(target===player)amount*=.86; // Enemy deals 14% less damage; loot strength unchanged.
@@ -1001,7 +1125,7 @@ function damage(target,amount){
  if(target.hp<=0){
   target.dead=true;particle(target.x,target.y,target.enemy?'#ffb06c':'#8aeafa',48,1.5);
   ring(target.x,target.y,target.enemy?'#ffb578':'#62f0ef',42);
-  if(target.enemy)win();else lost();
+  startFinisher(target);
  }else beep(target.enemy?240:160,.04,.008);
 }
 // Weapon traits are explicit combat rules, applied equally to the enemy and player.
@@ -1314,6 +1438,15 @@ function update(dt){
  for(let i=effects.length-1;i>=0;i--){let e=effects[i];e.life-=dt;e.x+=e.vx*dt;e.y+=e.vy*dt;e.vx*=.97;e.vy*=.97;if(e.life<=0)effects.splice(i,1)}
  for(let i=rings.length-1;i>=0;i--){rings[i].life-=dt;if(rings[i].life<=0)rings.splice(i,1)}
  screenShake=Math.max(0,screenShake-17*dt);
+ if(state==='finisher'&&finishSequence){
+  finishSequence.elapsed=Math.min(finishSequence.duration,finishSequence.elapsed+dt);
+  if(finishSequence.elapsed>=finishSequence.duration){
+   const wasWin=finishSequence.kind==='win';
+   finishSequence=null;state='fight';
+   if(wasWin)win();else lost();
+  }
+  return;
+ }
  if(state!=='fight'||!player||!enemy)return;
  player.cd=Math.max(0,player.cd-dt);enemy.cd=Math.max(0,enemy.cd-dt);
  updateReload(player,dt);updateReload(enemy,dt);
@@ -1541,8 +1674,20 @@ function render(){
  }else ctx.translate((cw-W*scale)/2,(ch-H*scale)/2);
  ctx.scale(scale,scale);
  if(screenShake>0)ctx.translate(rand(-screenShake,screenShake),rand(-screenShake,screenShake));
- drawArena();drawHazards();drawCover();drawBossTelegraph();drawEffects();drawRobot(player);drawRobot(enemy);drawBullets();
+ if(finishSequence){
+  const o=finishSequence.target;
+  const zoom=1+.9*Math.sin(finisherProgress()*Math.PI/2);
+  ctx.translate(W/2,H/2);ctx.scale(zoom,zoom);ctx.translate(-o.x,-o.y);
+ }
+ drawArena();drawHazards();drawCover();drawBossTelegraph();drawEffects();
+ if(finishSequence){
+  if(player!==finishSequence.target)drawRobot(player);
+  if(enemy!==finishSequence.target)drawRobot(enemy);
+  drawDestroyedMech();
+ }else{drawRobot(player);drawRobot(enemy);}
+ drawBullets();
  ctx.restore();
+ drawFinisherMask(cw,ch);
  renderPixelFrame();
 }
 function loop(t){let dt=Math.min(.033,(t-(loop.last||t))/1000||0);loop.last=t;update(dt);musicTick();render();requestAnimationFrame(loop)}
@@ -1571,6 +1716,7 @@ window.addEventListener('keydown',e=>{
  if((e.code==='ShiftLeft'||e.code==='ShiftRight')&&!e.repeat)wantsDash=true;
  if(e.code==='KeyR'&&!e.repeat)startReload(player);
  if(e.code==='Enter'&&state==='menu')beginRun();
+ if(e.code==='Enter'&&state==='title'&&$('titleEnter'))$('titleEnter').click();
  if(e.code==='Enter'&&state==='dead')beginRun();
 });
 window.addEventListener('keyup',e=>{keys[e.code]=false});
@@ -1670,7 +1816,7 @@ if(navigator.webdriver)window.__roboQATest={
   if(!player||state!=='fight')return false;
   player.dashLeft=0;player.shieldCooldown=9999;
   damage(player,player.hp/(Math.max(.01,1-player.stats.guard)*.86)+500);
-  return state==='loseCard';
+  return state==='finisher';
  },
  testRicochetCollision:()=>{
   if(state!=='fight'||!blocks.length)return null;
@@ -1764,6 +1910,9 @@ if(navigator.webdriver)window.__roboQATest={
 };
 window.__roboQA=()=>({
  state,wave,shotsFired,lootTaken,best,menuOpen,enemyDamageMultiplier:.86,portraitArena:isPortraitArena(),
+ endlessMode,endlessCycle,endlessStage:endlessStage(),endlessBossDue:isEndlessBoss(),endlessBest,
+ finishProgress:finisherProgress(),finishKind:finishSequence?.kind||null,
+ runClearCounts:{...runClearCounts},clearedSummary:clearedSummary(),endlessUpgrades:{...endlessUpgrades},
  meta:{points:metaState.points,runs:metaState.runs,earned:metaState.earned,starter:metaState.starter,unlockedWeapons:[...metaState.unlockedWeapons],starterUnlockCost:STARTER_UNLOCK_COST,upgrades:{...metaState.upgrades},settled:runSettled,totalCost:META_COSTS.reduce((a,b)=>a+b,0)*Object.keys(META_UPGRADES).length,midRunAward:45+5*7+3*8},
  rail:{damage:DEF.weapon.find(w=>w.id==='rail').damage,cooldown:DEF.weapon.find(w=>w.id==='rail').cool,penetratesCover:true},
  spriteSilhouettes:Object.fromEntries(Object.entries(SPRITE_SILHOUETTES).map(([slot,parts])=>[slot,Object.values(parts)])),
@@ -1797,6 +1946,6 @@ window.__roboQA=()=>({
 const previewLoad=initial();
 player=createRobot(previewLoad,240,295);
 enemy=createRobot(makeEnemyLoadout(1),760,295,true);
-blocks=makeCover();updatePanels(true);renderHangar();
+blocks=makeCover();updatePanels(true);renderHangar();showOpeningScreen();
 requestAnimationFrame(loop);
 })();

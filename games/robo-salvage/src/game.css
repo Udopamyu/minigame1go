@@ -418,3 +418,31 @@ h2,.brandtitle,.partRow .name,.lootCard .partname{letter-spacing:.05em}
  .radarAxisText{font-size:12px}
  .playerStatPanel{padding:8px 6px 10px}
 }
+
+
+/* Release finishing: one-screen pixel title and endless run summary. */
+.openingDialog{max-width:min(94vw,940px)!important;min-width:min(88vw,690px)!important;background:#061527!important;
+ border:4px solid #70ead7!important;box-shadow:0 0 0 8px #091b2b,0 0 0 14px #173646,12px 12px 0 #02060e!important}
+.openingScene{display:flex;align-items:center;flex-direction:column;justify-content:center;
+ min-height:clamp(320px,65dvh,530px);gap:18px;padding:clamp(12px,4vw,34px);text-align:center;
+ background:repeating-linear-gradient(0deg,#071527 0 12px,#0b2032 12px 15px)}
+.openingEyebrow{font:900 15px "Courier New",monospace;letter-spacing:.28em;color:#82b3c9;margin:0}
+#openingLogo{display:block;width:min(95%,750px);height:auto;image-rendering:pixelated;image-rendering:crisp-edges;
+ border:0;filter:drop-shadow(0px 8px 0px #0a4556)}
+.openingSub{font:900 clamp(17px,3vw,28px) "Courier New",monospace;letter-spacing:.18em;
+ color:#f9dc93;text-shadow:4px 4px #375665;margin:-12px 0 4px}
+#titleEnter{min-width:220px;padding:16px 24px;font:900 22px "Courier New",monospace;letter-spacing:.18em;
+ border:3px solid #abf8dc;box-shadow:5px 5px 0 #052e3b}
+.resultBreakdown{display:flex;flex-direction:column;gap:10px;margin:14px 0;padding:13px;
+ border:2px solid #5e8198;background:#0b2735;color:#dcebf3;font:800 13px "Courier New",monospace;line-height:1.75}
+.resultBreakdown strong{font-size:19px;color:#fff1b5}
+.endlessNotice{display:inline-block;margin:8px 0;padding:10px 13px;border:2px solid #b9dd8e;
+ color:#edffb0;background:#1a3441;font:900 16px "Courier New",monospace}
+.limitUpgrade{border-color:#bbac78!important}
+@media(max-width:560px){
+ .openingDialog{min-width:0!important;width:94vw!important}
+ .openingScene{min-height:350px;padding:14px;gap:15px}
+ .openingEyebrow{font-size:11px}
+ #titleEnter{font-size:17px;min-width:160px}
+ .resultBreakdown{font-size:12px}
+}

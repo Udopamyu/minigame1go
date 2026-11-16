@@ -30,17 +30,29 @@ def test(browser,url,label,size,mobile=False):
     page.on("pageerror",lambda e: errors.append(str(e)))
     page.goto(url,wait_until="domcontentloaded")
     page.wait_for_function("()=>!!window.__roboQA",timeout=10000)
+    if page.locator("#titleEnter").count():
+        check(label+" opening splash is a pixel-art Japanese title",
+              page.locator("#openingLogo").is_visible()
+              and page.locator("#openingLogo").get_attribute("aria-label")=="ロボサルベージ"
+              and page.locator("#titleEnter").is_visible()
+              and page.evaluate("()=>window.__roboQA().state")=="title")
+        page.screenshot(path=str(OUT/(label+"-opening.png")),full_page=True)
+        page.locator("#titleEnter").click()
     get=lambda:page.evaluate("()=>window.__roboQA()")
     def hook(name,*args):
         outcome=page.evaluate(
             "({name,args}) => window.__roboQATest[name](...args)",
             {"name":name,"args":list(args)})
-        if name=="defeatEnemy":
-            check(label+" WIN card appears",get()["state"]=="winCard"
-                  and page.locator("#phaseLetters").get_attribute("aria-label")=="WIN")
-        if name=="defeatPlayer":
-            check(label+" LOSE card appears",get()["state"]=="loseCard"
-                  and page.locator("#phaseLetters").get_attribute("aria-label")=="LOSE")
+        if name in ("defeatEnemy","defeatPlayer"):
+            expected_kind="win" if name=="defeatEnemy" else "lose"
+            check(label+" one-second finisher starts before "+expected_kind,
+                  get()["state"]=="finisher"
+                  and get()["finishKind"]==expected_kind)
+            page.wait_for_function(
+                "(kind)=>window.__roboQA().state===(kind==='win'?'winCard':'loseCard')",
+                arg=expected_kind,timeout=6000)
+            check(label+" "+expected_kind.upper()+" card follows finisher",
+                  page.locator("#phaseLetters").get_attribute("aria-label")==expected_kind.upper())
         if page.locator("#phaseContinue").count() and page.locator("#phaseContinue").is_visible():
             page.locator("#phaseContinue").click()
         return outcome
@@ -543,9 +555,104 @@ def test(browser,url,label,size,mobile=False):
           get()["bossAttackCount"]>=4,get()["bossAttackCount"])
     hook("setBossHpRatio",.42)
     check(label+" injured boss enters second phase",get()["bossPhase"]==2)
+    player_before_boss=get()["player"]["load"]
+    gold_before_boss=get()["gold"]
     hook("defeatEnemy")
-    check(label+" boss victory finishes run",get()["state"]=="victory" and get()["bossCleared"])
-    check(label+" final screen can start again",page.locator("#newRun").is_visible())
+    boss_cleared=get()
+    check(label+" first boss unlocks endless without settling run",
+          boss_cleared["state"]=="endlessGate" and boss_cleared["bossCleared"]
+          and boss_cleared["endlessMode"] and boss_cleared["depth"]==11
+          and boss_cleared["meta"]["runs"]==0
+          and boss_cleared["meta"]["settled"] is False)
+    check(label+" boss clear keeps equipment and GOLD",
+          boss_cleared["player"]["load"]==player_before_boss
+          and boss_cleared["gold"]>gold_before_boss)
+    check(label+" endless starts at stage twelve",
+          "STAGE 12" in page.locator("#dialog").inner_text())
+    page.locator("#endlessContinue").click()
+    endless=get()
+    check(label+" first endless route enters stage twelve",
+          endless["state"]=="route" and endless["depth"]==11
+          and endless["endlessStage"]==1)
+    check(label+" endless battle choices are all elite, no normal fights",
+          all(t not in ("fight","fight2") for row in endless["routeGraph"] for t in row)
+          and all(c["type"] not in ("fight","fight2") for c in endless["routeCandidates"]))
+    check(label+" endless retains nine regular branches and one boss",
+          page.locator("#mapScroll .map-node:not(.boss)").count()==45)
+
+    # Endless shop: each of three limit-break stats can level beyond the original
+    # three-rank permanent tree; no maximum is imposed.
+    hook("selectNode","shop")
+    hook("setGold",100000)
+    page.locator("#leaveShop").count() and page.locator("#leaveShop")
+    for category in ("atk","hp","spd"):
+        for _ in range(5):
+            target=page.locator('[data-shop="limit"][data-arg="'+category+'"]')
+            check(label+" endless "+category+" upgrade stays purchasable",target.is_enabled())
+            target.click()
+        check(label+" endless "+category+" exceeds prior 3-level cap",
+              get()["endlessUpgrades"][category]==5)
+    page.locator("#leaveShop").click()
+    check(label+" stage twelve shop completion recorded",
+          get()["depth"]==12 and get()["runClearCounts"]["shop"]==1)
+
+    # Nine regular endless stages precede the 10th-stage boss. The shop just
+    # completed stage 12; take eight rest/event-free nodes to reach stage 21.
+    for index in range(8):
+        hook("selectNode","rest")
+        page.locator("#nodeContinue").click()
+    check(label+" endless boss appears on the tenth stage",
+          get()["depth"]==20 and get()["endlessBossDue"]
+          and get()["routeOptions"]==["boss"]
+          and page.locator('[data-route="boss"]').count()==1)
+    page.locator('[data-route="boss"]').click()
+    page.locator("#phaseContinue").click()
+    check(label+" stage twenty-one is a stronger boss",
+          get()["currentNode"]=="boss" and get()["endlessStage"]==10
+          and get()["enemy"]["role"]=="boss")
+    hook("defeatEnemy")
+    check(label+" defeating endless boss continues a new ten-stage loop",
+          get()["depth"]==21 and get()["endlessCycle"]==1
+          and get()["state"]=="endlessGate")
+    page.locator("#endlessContinue").click()
+    check(label+" stage twenty-two route regenerated",
+          get()["state"]=="route" and get()["depth"]==21
+          and not get()["endlessBossDue"]
+          and len(get()["chosenNodes"])==0)
+    points_before_death=get()["meta"]["points"]
+    hook("selectNode","elite")
+    hook("setGold",430)
+    hook("equipTestPart","weapon","rail")
+    check(label+" endless battle preserves upgraded weapon before death",
+          get()["player"]["load"]["weapon"]["id"]=="rail")
+    check(label+" endless battle has accumulated gold",get()["gold"]>=430)
+    check(label+" losing battle triggers permadeath",hook("defeatPlayer") is True)
+    after_death=get()
+    check(label+" death removes all gold",after_death["gold"]==0)
+    check(label+" death resets all equipped parts",
+          all(after_death["player"]["load"][slot]["lv"]==1 and
+              after_death["player"]["load"][slot]["tier"]==1 for slot in
+              ("weapon","armor","legs","core"))
+          and after_death["player"]["load"]["weapon"]["id"]=="pulse")
+    summary=page.locator("#dialog").inner_text()
+    check(label+" death report includes actual stage and node-type totals",
+          "STAGE 22" in summary and "通常戦" in summary
+          and "強敵戦" in summary and "イベント" in summary
+          and "ショップ" in summary and "ボス戦" in summary)
+    check(label+" endgame lifetime research awarded exactly once",
+          get()["meta"]["points"]>points_before_death and get()["meta"]["runs"]==1
+          and get()["meta"]["settled"])
+    check(label+" endless best persists through defeat",
+          get()["endlessBest"]>=21)
+    page.locator("#againBtn").click()
+    check(label+" defeat returns to original hangar with saved research",
+          get()["state"]=="menu" and page.locator("#metaBalance").is_visible())
+    page.locator("#startBtn").click()
+    check(label+" new run resets stage, gold, and limitless upgrades",
+          get()["depth"]==0 and get()["gold"]==0
+          and get()["state"]=="route"
+          and not get()["endlessMode"]
+          and set(get()["endlessUpgrades"].values())=={0})
 
     # Every run is ironman: losing clears equipped parts and all gold.
     points_after_victory=get()["meta"]["points"]

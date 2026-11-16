@@ -66,7 +66,9 @@ def main():
         "release_branding_without_prototype_label": "MINIGAME 1GO / PROTOTYPE" not in template,
         "permanent_progress_local_storage": "roboSalvageMetaV1" in actual,
         "latest_gameplay_features_bundled": all(x in actual for x in
-            ("renderStatRadar","synergyEffectText","STARTER_UNLOCK_COST=40","handleRicochet")),
+            ("renderStatRadar","synergyEffectText","STARTER_UNLOCK_COST=40","handleRicochet",
+             "showOpeningScreen","startFinisher","drawDestroyedMech","isEndlessBoss",
+             "endlessUpgrades","clearedSummary")),
         "no_external_css_imports": not bool(re.search(r"@import\s+(?:url\s*\(|['\"])?\s*https?://",
                                               actual,re.IGNORECASE))
     }
