@@ -1,5 +1,15 @@
 # ミニゲーム1GO
 
+## 開発指示の引き継ぎ
+
+次の開発は [AGENTS.md](AGENTS.md) と [共通開発方針](docs/game-development-guide.md) から開始してください。過去の本人指示を統合し、同じ条件を再説明しなくてよいように整理しています。
+
+- 作品仕様：[二重振り子ブランコ靴飛ばし](specs/swing-shoe.md)／[投石機研究所](specs/catapult.md)／[ロボサルベージ](specs/robo-salvage.md)
+- [決定・置換履歴](docs/game-decisions.md)／[新作企画テンプレート](specs/new-game-template.md)
+- 投石機は公開済み・開発終了。継続開発の主軸はロボ2D、3D TPSは別路線。
+
+以下の初期セットアップ・公開準備の記述には過去時点の状態が含まれます。現在の開発方針は上の指示書、公開状況は最新の実行記録を参照してください。
+
 無料・広告なしのブラウザゲームを、統括AI・ゲーム制作AI・動画制作AIが連携して制作する最小環境。
 共通ルールは [AGENTS.md](AGENTS.md)、役割と起動手順は [開発手順](docs/team-workflow.md)。
 
