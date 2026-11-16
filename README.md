@@ -20,3 +20,8 @@ python scripts/pipeline.py --game tap-spark
 - [統合実行結果](runs/tap-spark/latest.json)
 
 公開URLは未設定。ローカル合格後も、動画の人間確認・ゲーム公開・X投稿は別工程として記録する。
+
+## 公開準備中の作品
+
+- [#003 ロボ・サルベージ（公開候補）](games/robo-salvage/index.html) — ロボットの装備を奪って戦うローグライト。現時点では開発ブランチのため未公開。
+- [公開チェックリスト](docs/robo-salvage-release-checklist.md) ／ [試遊と操作説明](games/robo-salvage/README.md)
