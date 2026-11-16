@@ -153,8 +153,16 @@ def finish_loot(page, q):
 
 
 def run_attempt(page, number, max_seconds=125):
-    starter = STARTERS[number % len(STARTERS)]
-    page.locator(f'[data-starter="{starter}"]').click()
+    requested = STARTERS[number % len(STARTERS)]
+    meta = telemetry(page)["meta"]
+    # The playtest uses the same 40-SP research economy as a player.
+    # Never click a locked weapon before enough research points are earned.
+    affordable = requested in meta["unlockedWeapons"] or meta["points"] >= meta["starterUnlockCost"]
+    starter = requested if affordable else "pulse"
+    selected = page.locator(f'[data-starter="{starter}"]')
+    if not selected.is_enabled():
+        raise AssertionError(f"Starter {starter} unavailable despite research balance {meta['points']}")
+    selected.click(timeout=3500)
     buy_hangar_upgrades(page)
     beginning = telemetry(page)["meta"]
     page.locator("#startBtn").click()
@@ -238,7 +246,7 @@ def run_attempt(page, number, max_seconds=125):
     pilot.release()
     q = telemetry(page)
     result = {
-        "attempt":number+1, "starter":starter, "seconds":round(time.monotonic()-started,1),
+        "attempt":number+1, "requested_starter":requested, "starter":starter, "seconds":round(time.monotonic()-started,1),
         "outcome":fail_reason or "time_limit",
         "max_completed_nodes":max_depth, "reached_boss":reached_boss,
         "battle_victories":max_fights,
