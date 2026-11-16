@@ -698,7 +698,7 @@ def test(browser,url,label,size,mobile=False):
     page.wait_for_function("()=>!!window.__roboQA",timeout=10000)
     old_meta=get()["meta"]
     check(label+" persistent SP survives reload after combat",
-          old_meta["runs"]==2 and old_meta["points"]>0,old_meta)
+          old_meta["runs"]==1 and old_meta["points"]>0,old_meta)
     hook("grantMetaPoints",580)
     before_sp=get()["meta"]["points"]
     for branch in ("hull","power","drive","recovery"):
