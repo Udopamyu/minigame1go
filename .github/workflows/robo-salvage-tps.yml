@@ -1,0 +1,59 @@
+name: Robo Salvage 3D TPS smoke
+
+on:
+  push:
+    paths:
+      - 'games/robo-salvage-tps/**'
+      - 'scripts/verify_robo_salvage_tps.py'
+      - '.github/workflows/robo-salvage-tps.yml'
+  pull_request:
+    paths:
+      - 'games/robo-salvage-tps/**'
+      - 'scripts/verify_robo_salvage_tps.py'
+      - '.github/workflows/robo-salvage-tps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tps-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript module syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("games/robo-salvage-tps/index.html").read_text()
+          scripts = re.findall(r'<script type="module">(.*?)</script>', html, re.S)
+          assert len(scripts) == 1
+          Path('/tmp/robo-tps-check.mjs').write_text(scripts[0])
+          assert all(token in html for token in ("id=\"startBtn\"", "id=\"stick\"", "id=\"fireBtn\"", "id=\"dashBtn\""))
+          PY
+          node --check /tmp/robo-tps-check.mjs
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright
+        run: |
+          python -m pip install playwright
+          BROWSER=$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)
+          if [ -n "$BROWSER" ]; then
+            echo "CHROMIUM_EXECUTABLE=$BROWSER" >> "$GITHUB_ENV"
+          else
+            python -m playwright install --with-deps chromium
+          fi
+      - name: Browser smoke test
+        run: python scripts/verify_robo_salvage_tps.py
+      - name: Upload screenshot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robo-salvage-tps-qa
+          retention-days: 14
+          if-no-files-found: warn
+          path: evaluation/robo-salvage-tps/
