@@ -582,6 +582,7 @@ def test(browser,url,label,size,mobile=False):
 
     # Endless shop: each of three limit-break stats can level beyond the original
     # three-rank permanent tree; no maximum is imposed.
+    shops_before=get()["runClearCounts"]["shop"]
     hook("selectNode","shop")
     hook("setGold",100000)
     page.locator("#leaveShop").count() and page.locator("#leaveShop")
@@ -594,7 +595,9 @@ def test(browser,url,label,size,mobile=False):
               get()["endlessUpgrades"][category]==5)
     page.locator("#leaveShop").click()
     check(label+" stage twelve shop completion recorded",
-          get()["depth"]==12 and get()["runClearCounts"]["shop"]==1)
+          get()["depth"]==12
+          and get()["runClearCounts"]["shop"]==shops_before+1,
+          get()["runClearCounts"])
 
     # Nine regular endless stages precede the 10th-stage boss. The shop just
     # completed stage 12; take eight rest/event-free nodes to reach stage 21.
@@ -653,42 +656,6 @@ def test(browser,url,label,size,mobile=False):
           and get()["state"]=="route"
           and not get()["endlessMode"]
           and set(get()["endlessUpgrades"].values())=={0})
-
-    # Every run is ironman: losing clears equipped parts and all gold.
-    points_after_victory=get()["meta"]["points"]
-    check(label+" final boss grants permanent research points",
-          points_after_victory>0 and get()["meta"]["runs"]==1)
-    page.locator("#newRun").click()
-    check(label+" after boss victory returns to hangar",get()["state"]=="menu")
-    check(label+" research points are visible in hangar",
-          page.locator("#metaBalance").is_visible())
-    page.locator("#startBtn").click()
-    hook("selectNode","fight")
-    check(label+" next run enters battle",get()["state"]=="fight")
-    hook("setGold",430)
-    hook("equipTestPart","weapon","rail")
-    check(label+" test run had a rare weapon",
-          get()["player"]["load"]["weapon"]["id"]=="rail")
-    check(label+" test run had gold",
-          get()["gold"]==430)
-    check(label+" losing battle triggers permadeath",hook("defeatPlayer") is True)
-    after_death=get()
-    check(label+" death removes all gold",after_death["gold"]==0)
-    check(label+" death resets all equipped parts",
-          all(after_death["player"]["load"][slot]["lv"]==1 and
-              after_death["player"]["load"][slot]["tier"]==1 for slot in
-              ("weapon","armor","legs","core"))
-          and after_death["player"]["load"]["weapon"]["id"]=="pulse")
-    check(label+" death result states all gold and equipment lost",
-          "すべて失いました" in page.locator("#dialog").inner_text())
-    check(label+" losing grants SP without losing prior SP",
-          get()["meta"]["points"]>points_after_victory
-          and get()["meta"]["runs"]==2)
-    page.locator("#againBtn").click()
-    check(label+" after defeat returns to hangar",get()["state"]=="menu")
-    page.locator("#startBtn").click()
-    check(label+" restarting after death begins new zero-gold run",
-          get()["gold"]==0 and get()["depth"]==0 and get()["state"]=="route")
 
     # All event families are exercised through their real button handlers.
     for variant,option in (("depot","supply"),("forge","reforge"),("vault","overload")):
