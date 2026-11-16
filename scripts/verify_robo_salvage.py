@@ -649,7 +649,9 @@ def test(browser,url,label,size,mobile=False):
           get()["endlessBest"]>=21)
     page.locator("#againBtn").click()
     check(label+" defeat returns to original hangar with saved research",
-          get()["state"]=="menu" and page.locator("#metaBalance").is_visible())
+          get()["state"]=="menu" and page.locator("#metaBalance").is_visible()
+          and not get()["endlessMode"]
+          and set(get()["endlessUpgrades"].values())=={0})
     page.locator("#startBtn").click()
     check(label+" new run resets stage, gold, and limitless upgrades",
           get()["depth"]==0 and get()["gold"]==0

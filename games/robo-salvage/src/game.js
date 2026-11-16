@@ -888,6 +888,8 @@ function showOverlay(html){$('dialog').className='dialog';$('dialog').innerHTML=
 function closeOverlay(){$('overlay').classList.remove('show');document.querySelector('.shell').classList.remove('overlayOpen')}
 
 function renderHangar(){
+ // Limit-break upgrades exist only inside the active endless run.
+ endlessMode=false;endlessCycle=0;endlessUpgrades={atk:0,hp:0,spd:0};finishSequence=null;
  state='menu';fireMouse=false;fireTouch=false;keys={};wantsDash=false;closeMenu();
  player=createRobot(initial(),240,295,false);enemy=createRobot(makeEnemyLoadout(1),760,295,true);
  updatePanels(true);
@@ -1102,7 +1104,7 @@ function drawFinisherMask(width,height){
  if(!finishSequence)return;
  const t=finisherProgress();
  const white=finishSequence.kind==='win';
- const opacity=Math.pow(clamp((t-.54)/.46,0,1),1.4);
+ const opacity=Math.pow(clamp((t-.54)/.40,0,1),1.4);
  if(opacity<=0)return;
  ctx.save();ctx.setTransform(1,0,0,1,0,0);
  ctx.fillStyle=white?'rgba(255,255,255,'+opacity+')':'rgba(0,0,0,'+opacity+')';
