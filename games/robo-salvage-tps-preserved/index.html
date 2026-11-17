@@ -3368,6 +3368,49 @@ tpsBattleRender=function(){
 };
 if(navigator.webdriver)Object.defineProperty(window,'__roboTPSV04',{get:()=>({field:tpsBiome().name,fieldIndex:tpsFieldIndex,fields:TPS_FIELDS.map(x=>x.name),trailCount:tpsSpeedTrail.length,dashKick:tpsDashKick,playerSpeed:player?.stats?.speed,player:player?{x:player.x,y:player.y,dashLeft:player.dashLeft,air:tpsAir}:null,originalUI:!!$('menuBtn')&&!!$('sidePanel')&&typeof renderRouteMap==='function'})});
 
+// v0.4.1: fix battle screenshot composition; stronger 2D-authored silhouette from TPS.
+// The player is framed three-quarters from above instead of cut off at the bottom.
+tpsPitch=-.29;
+tpsCamUpdate=function(){if(!player)return;
+ const fx=Math.cos(tpsYaw),fy=Math.sin(tpsYaw),rightX=-fy,rightY=fx;
+ const back=142+tpsDashKick*10,shoulder=37;
+ tpsCam.x=player.x-fx*back+rightX*shoulder;
+ tpsCam.y=player.y-fy*back+rightY*shoulder;
+ tpsCam.z=tpsGround(player.x,player.y)+tpsAir+100;
+ tpsCam.f=canvas.width*.88;
+};
+const tpsBackgroundDrawV04=tpsDrawGround;
+tpsDrawGround=function(){tpsCam.f=canvas.width*(.87-.09*tpsDashKick);tpsBackgroundDrawV04()};
+// Covers must be tall enough for tactics but not fill the entire viewport like flat walls.
+// Recreate the original game's modular panels, rim plates and bolts on 3D geometry.
+tpsDrawCover=function(b){const x=b.x-b.w/2,y=b.y-b.h/2,X=b.x+b.w/2,Y=b.y+b.h/2,
+ g=tpsGround(b.x,b.y),field=tpsBiome(),mat=b.material,
+ h=(mat==='tower'?46:mat==='pillar'?39:mat==='rubble'?18:27)+Math.min(18,Math.min(b.w,b.h)*.13),H=g+h;
+ const isOutdoor=['waste','desert','mountain','snow','river'].includes(field.id);
+ const tint=mat==='tower'?'#7c7394':mat==='pillar'?'#52838b':mat==='rubble'?'#a66a6d':field.id==='snow'?'#7f9ba7':isOutdoor?'#776e66':'#466778';
+ const dark=tpsHexMix(tint,'#111d32',.57),mid=tpsHexMix(tint,'#243b4b',.35),rim=tpsHexMix(tint,field.accent,.48),top=tpsHexMix(tint,field.floor[2],.44);
+ tpsBox(x,y,g,b.w,b.h,h,[top,mid,tpsHexMix(tint,'#172332',.41),dark,tint]);
+ // Four top-edge strips, borrowed from the original 2D mech tile vocabulary.
+ const eps=1.3;
+ tpsPoly([[x+4,y+4,H+eps],[X-4,y+4,H+eps],[X-4,y+8,H+eps],[x+4,y+8,H+eps]],rim);
+ tpsPoly([[x+4,Y-8,H+eps],[X-4,Y-8,H+eps],[X-4,Y-4,H+eps],[x+4,Y-4,H+eps]],mid);
+ const frontY=tpsCam.y<y?y-.1:Y+.1,frontX=tpsCam.x<x?x-.1:X+.1;
+ const edgeZ=g+h*.52;
+ // Tactical visibility: rectangular front plate on whichever side faces the camera.
+ if(b.w>34){const a=x+8,c=X-8;const plateY=frontY;
+  tpsPoly([[a,plateY,g+8],[c,plateY,g+8],[c,plateY,H-6],[a,plateY,H-6]],dark,.8);
+  tpsPoly([[a,plateY,edgeZ],[c,plateY,edgeZ],[c,plateY,edgeZ+3],[a,plateY,edgeZ+3]],rim);
+  for(let i=0;i<4;i++){let xx=x+12+i*(b.w-24)/3;
+   tpsPoly([[xx-2,plateY,H-11],[xx+2,plateY,H-11],[xx+2,plateY,H-7],[xx-2,plateY,H-7]],'#d6dedb');}
+ }
+ if(b.h>38){const a=y+7,c=Y-7;
+  tpsPoly([[frontX,a,g+9],[frontX,c,g+9],[frontX,c,H-8],[frontX,a,H-8]],dark,.65);
+  tpsPoly([[frontX,a,H-11],[frontX,c,H-11],[frontX,c,H-7],[frontX,a,H-7]],rim,.9);
+ }
+ // Damage hint uses the same HP system as the original 2D cover (no new physics).
+ if(b.hp<b.maxHp*.67)tpsPoly([[x+9,y+9,H+2],[x+14,y+9,H+2],[x+29,Y-10,H+2],[x+23,Y-10,H+2]],'#203042');
+};
+
 const previewLoad=initial();
 player=createRobot(previewLoad,240,295);
 enemy=createRobot(makeEnemyLoadout(1),760,295,true);
