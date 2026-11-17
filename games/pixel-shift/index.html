@@ -12,13 +12,13 @@
 <button id="camera" aria-label="俯瞰と追尾カメラを切り替え"><svg viewBox="0 0 40 40"><rect x="7" y="13" width="26" height="19" rx="3"/><circle cx="20" cy="22" r="7"/><path d="M13 13L17 8H23L27 13M11 4l-6 6m0-5v5h5M29 36l6-6m0 5v-5h-5"/></svg></button>
 <button id="helpBtn" aria-label="遊び方"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><path d="M12 11Q16 5 20 11Q22 14 16 17V20M16 25v1"/></svg></button>
 </div>
-<div id="help" role="dialog" aria-modal="true" aria-label="操作説明"><article><h2>PIXEL SHIFT</h2><p>カメラが上空から車の後ろへ、同じ立体世界の中を飛んで移動します。車・樹木・障害物・ゲートは、積層したドット絵を実際の立体面として描画しています。</p><p>左右：A / D または ← / →<br>ブースト：Space / Shift / ↑<br>視点切替：C / V / Tab、またはカメラアイコン</p><p>光るゲートをくぐり、赤い障害物を避けて進みます。コースに沿って自動で走るので、左右への進路変更と視点の使い分けに集中できます。</p><p>プレイ画面は文字なし。俯瞰で先の障害物を確認し、追尾視点でスピードを楽しんでください。</p><button id="helpClose">戻る</button></article></div>
+<div id="help" role="dialog" aria-modal="true" aria-label="操作説明"><article><h2>PIXEL SHIFT</h2><p>カメラが上空から車の後ろへ、同じ立体世界の中を飛んで移動します。車・樹木・障害物・ゲートは、積層したドット絵を実際の立体面として描画しています。</p><p>左右：A / D または ← / →<br>ブースト：Space / Shift / ↑<br>視点切替：C / V / Tab、またはカメラアイコン</p><p>光るゲートをくぐり、赤い障害物を避けて進みます。コースに沿って自動で走るので、左右を押すと車体の向きが大きく振れ、側面が見える鋭いドリフトになります。視点の使い分けも楽しめます。</p><p>プレイ画面は文字なし。俯瞰で先の障害物を確認し、追尾視点でスピードを楽しんでください。</p><button id="helpClose">戻る</button></article></div>
 <script>
 (()=>{'use strict';
 const canvas=document.getElementById('game'),g=canvas.getContext('2d',{alpha:false,desynchronized:true});
 const TAU=Math.PI*2,PI=Math.PI,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t,smooth=t=>t*t*(3-2*t),S=(v)=>Math.sin(v),C=(v)=>Math.cos(v),hyp=Math.hypot;
 let W=480,H=270,frame=0,last=0,elapsed=0,fps=60,fpsAccumulator=0,fpsN=0,quality=1,drawCalls=0,collisionCount=0,gatesPassed=0,gateMissed=0,flash=0,hit=0;
-const input={left:false,right:false,boost:false},car={z:0,lane:0,speed:235,heading:0,tilt:0},cam={mix:0,target:0,x:0,y:0,z:0,yaw:0,forward:[0,0,1],right:[1,0,0],up:[0,1,0],focal:340,pitch:0};
+const input={left:false,right:false,boost:false},car={z:0,lane:0,speed:235,heading:0,tilt:0,turnYaw:0,sideV:0,turnVelocity:0},cam={mix:0,target:0,x:0,y:0,z:0,yaw:0,forward:[0,0,1],right:[1,0,0],up:[0,1,0],focal:340,pitch:0};
 let cameraTouched=false,engine=null;
 function resize(){let w=innerWidth,h=innerHeight,base=Math.min(540,Math.max(250,Math.round(w*(w>820?.51:.69))));W=base;H=clamp(Math.round(W*h/w),200,650);canvas.width=W;canvas.height=H;g.imageSmoothingEnabled=false;}resize();window.addEventListener('resize',resize);
 function curve(z){return 145*S(z/530)+62*S(z/219)+29*S(z/1050+1.4)}
@@ -169,14 +169,23 @@ const depthFaces=[];
 function stack(type,x,z,ang=0,scale=1){
  const base=proj(x,0,z);if(!base||base.d>1100||base.k<.12)return;
  const mesh=volumes[type],ss=S(ang),cc=C(ang);
+ // Car only: a subtle lateral body-roll around the cabin midpoint. All
+ // mesh face normals are rotated with the same transform as the vertices.
+ const roll=type==='car'?car.tilt:0,rr=S(roll),rc=C(roll);
+ const rolled=(p)=>{
+   if(!roll)return p;
+   const h=p[1]-16;return [p[0]*rc-h*rr,16+p[0]*rr+h*rc,p[2]];
+ };
  // Different layers have correct exposed front/back/side faces. Cull faces
  // pointing away from the single perspective camera, then painter-sort.
  depthFaces.length=0;
  for(const f of mesh){
   const n=f.normal;
-  const nx=n[0]*cc+n[2]*ss,ny=n[1],nz=-n[0]*ss+n[2]*cc;
-  const cx=x+scale*(f.centroid[0]*cc+f.centroid[2]*ss),cy=f.centroid[1]*scale,
-        cz=z+scale*(-f.centroid[0]*ss+f.centroid[2]*cc);
+  const localNx=n[0]*rc-n[1]*rr,ny=n[0]*rr+n[1]*rc;
+  const nx=localNx*cc+n[2]*ss,nz=-localNx*ss+n[2]*cc;
+  const middle=rolled(f.centroid);
+  const cx=x+scale*(middle[0]*cc+middle[2]*ss),cy=middle[1]*scale,
+        cz=z+scale*(-middle[0]*ss+middle[2]*cc);
   if(nx*(cam.x-cx)+ny*(cam.y-cy)+nz*(cam.z-cz)<=0)continue;
   const d=camCoord(cx,cy,cz).Z;if(d<3.7)continue;
   depthFaces.push({f,d});
@@ -184,7 +193,8 @@ function stack(type,x,z,ang=0,scale=1){
  depthFaces.sort((a,b)=>b.d-a.d);
  for(const item of depthFaces){
   const f=item.f;const verts=[];let outside=0;
-  for(const p of f.corners){
+  for(const p0 of f.corners){
+   const p=rolled(p0);
    let px=x+scale*(p[0]*cc+p[2]*ss),py=scale*p[1],pz=z+scale*(-p[0]*ss+p[2]*cc);
    const v=proj(px,py,pz);if(!v){outside++;continue}verts.push(v)
   }
@@ -247,19 +257,58 @@ function drawObjects(){const drawList=[];
   }else drawGate(o)
  }
 }
-let exhaust=[];function update(dt){elapsed+=dt;frame++;
+let exhaust=[],skidMarks=[];
+function update(dt){elapsed+=dt;frame++;
  if(!cameraTouched&&elapsed>1.1){cam.target=1;cameraTouched=true}
  const steering=(+input.right)-(+input.left);
  car.speed=lerp(car.speed,input.boost?515:235,clamp(dt*(input.boost?1.65:.78),0,1));
- car.lane=clamp(car.lane+steering*(75+car.speed*.21)*dt,-145,145);
- car.heading=Math.atan(dcurve(car.z))+steering*.11;
- car.tilt=lerp(car.tilt,steering,clamp(dt*4.5,0,1));
+ // Arcade drift: lateral inertia follows the actual controls, while the body
+ // snaps its nose into the lane change. Strong yaw reveals the 3D side faces.
+ const lateralTarget=steering*(155+car.speed*.28);
+ car.sideV=lerp(car.sideV,lateralTarget,1-Math.exp(-dt*(steering?16:7.5)));
+ const previousLane=car.lane;
+ car.lane=clamp(car.lane+car.sideV*dt,-151,151);
+ if(Math.abs(car.lane)>=150.9 && Math.sign(car.sideV)===Math.sign(car.lane))car.sideV=0;
+ const sideActual=(car.lane-previousLane)/Math.max(dt,.001);
+ const baseYaw=clamp(Math.atan2(sideActual,Math.max(210,car.speed))*1.34,-.98,.98);
+ // At the road edge, keep a fraction of the turn animation, not an endless
+ // sideways slide. Reversing the steering immediately flips the target.
+ const cornerTarget=steering?(baseYaw*.79+steering*.26):0;
+ const response=steering?(Math.sign(cornerTarget)===Math.sign(car.turnYaw)?17:23):9;
+ const prevYaw=car.turnYaw;
+ car.turnYaw=lerp(car.turnYaw,clamp(cornerTarget,-1.12,1.12),1-Math.exp(-dt*response));
+ car.turnVelocity=(car.turnYaw-prevYaw)/Math.max(dt,.001);
+ car.heading=Math.atan(dcurve(car.z))+car.turnYaw;
+ const bankTarget=clamp(car.turnYaw*.14+car.turnVelocity*.008,-.17,.17);
+ car.tilt=lerp(car.tilt,bankTarget,1-Math.exp(-dt*10));
  car.z+=car.speed*dt;
+ // Two independently projected tire streaks follow the actual world path.
+ // They are effects only, not steering/collision coordinates.
+ if(frame%2===0&&Math.abs(car.turnYaw)>.24&&Math.abs(sideActual)>15){
+  const cs=C(car.heading),sn=S(car.heading),x=curve(car.z)+car.lane;
+  for(const side of [-1,1])skidMarks.push({x:x+side*14*cs-(-15)*sn,z:car.z-side*14*sn-15*cs,t:elapsed,side});
+ }
+ skidMarks=skidMarks.filter(v=>elapsed-v.t<2.1).slice(-165);
  for(let o of gates){let d=o.z-car.z;if(!o.got&&!o.miss&&d<-12){if(Math.abs(car.lane-o.lane)<48){o.got=true;gatesPassed++;flash=.8}else{o.miss=true;gateMissed++}}}
  for(let o of hazards){let d=Math.abs(o.z-car.z);if(!o.hit&&d<20&&Math.abs(car.lane-o.lane)<25){o.hit=true;car.speed*=.55;collisionCount++;hit=.95}}
  flash=Math.max(0,flash-dt*1.3);hit=Math.max(0,hit-dt*1.1);
  cameraUpdate(dt);
  if(frame%2===0 && car.speed>280){const x=curve(car.z)+car.lane;exhaust.push({x:x+(Math.random()-.5)*12,z:car.z-22,t:elapsed,side:Math.random()>.5?1:-1})}exhaust=exhaust.filter(p=>elapsed-p.t<.65).slice(-45);
+}
+function drawSkids(){
+ // Ground-level trails, rendered with the same single-camera projection.
+ let previous=[null,null];
+ for(const k of skidMarks){
+  const i=k.side===-1?0:1,p=proj(k.x,.5,k.z);
+  const t=previous[i];
+  if(p&&t&&Math.abs(p.x-t.x)<W*.24&&Math.abs(p.y-t.y)<H*.35){
+   const fade=clamp(1-(elapsed-k.t)/2.1,0,1);
+   g.globalAlpha=fade*.55;g.strokeStyle='#63d7cb';g.lineWidth=clamp(p.k*1.4,1,3);
+   g.beginPath();g.moveTo(t.x,t.y);g.lineTo(p.x,p.y);g.stroke();
+  }
+  previous[i]=p;
+ }
+ g.globalAlpha=1;
 }
 function carDraw(){const x=curve(car.z)+car.lane,z=car.z;
  let p=proj(x,0,z);if(p){g.globalAlpha=.35;disk(p.x,p.y+3*p.k,clamp(p.k*22,6,47),'#03202a');g.globalAlpha=1}
@@ -281,7 +330,7 @@ function HUD(){// all the UI elements on the playing field are pictographic
  if(hit){g.fillStyle=`rgba(250,79,87,${hit*.30})`;g.fillRect(0,0,W,H)}
  if(elapsed<.4){g.fillStyle=`rgba(255,255,234,${(.4-elapsed)*.3})`;g.fillRect(0,0,W,H)}
 }
-function draw(){drawCalls=0;g.setTransform(1,0,0,1,0,0);backdrop();terrain();drawObjects();carDraw();speedFX();HUD();}
+function draw(){drawCalls=0;g.setTransform(1,0,0,1,0,0);backdrop();terrain();drawSkids();drawObjects();carDraw();speedFX();HUD();}
 function tick(tm){let dt=last?Math.min(.04,(tm-last)/1000):.016;last=tm;
  if(document.getElementById('help').classList.contains('visible')){requestAnimationFrame(tick);return}
  update(dt);draw();fpsAccumulator+=dt;fpsN++;if(fpsAccumulator>=1){fps=Number((fpsN/fpsAccumulator).toFixed(1));fpsAccumulator=0;fpsN=0}requestAnimationFrame(tick)}
@@ -296,7 +345,7 @@ document.addEventListener('keydown',e=>{let k=e.key.toLowerCase();if(['arrowleft
 document.addEventListener('keyup',e=>{let k=e.key.toLowerCase();if(k==='arrowleft'||k==='a')input.left=false;if(k==='arrowright'||k==='d')input.right=false;if(k==='arrowup'||k==='shift'||k===' ')input.boost=false});
 window.addEventListener('blur',()=>{input.left=input.right=input.boost=false});
 // Automated evaluation probes: no debug control hooks or gameplay mutation.
-window.pixelShiftDiagnostics=()=>({frames:frame,fps,mix:Number(cam.mix.toFixed(4)),target:cam.target,pitch:Number(cam.pitch.toFixed(3)),camera:{x:Number(cam.x.toFixed(1)),y:Number(cam.y.toFixed(1)),z:Number(cam.z.toFixed(1)),focal:Number(cam.focal.toFixed(1))},car:{z:Math.round(car.z),lane:Math.round(car.lane),speed:Math.round(car.speed)},gatesPassed,gateMissed,collisionCount,drawCalls,viewport:[W,H],render:'single-3d-camera-volumetric-sprite-mesh',spriteLayers:stacks.car.length,meshFaces:Object.fromEntries(Object.entries(volumes).map(([n,mesh])=>[n,mesh.length]))});
+window.pixelShiftDiagnostics=()=>({frames:frame,fps,mix:Number(cam.mix.toFixed(4)),target:cam.target,pitch:Number(cam.pitch.toFixed(3)),camera:{x:Number(cam.x.toFixed(1)),y:Number(cam.y.toFixed(1)),z:Number(cam.z.toFixed(1)),focal:Number(cam.focal.toFixed(1))},car:{z:Math.round(car.z),lane:Math.round(car.lane),speed:Math.round(car.speed),yawDegrees:Math.round(car.turnYaw*180/PI),rollDegrees:Math.round(car.tilt*180/PI),lateralSpeed:Math.round(car.sideV)},gatesPassed,gateMissed,collisionCount,drawCalls,viewport:[W,H],render:'single-3d-camera-volumetric-mesh-arcade-drift-v03',spriteLayers:stacks.car.length,meshFaces:Object.fromEntries(Object.entries(volumes).map(([n,mesh])=>[n,mesh.length]))});
 requestAnimationFrame(tick);
 })();
 </script></body></html>
