@@ -87,6 +87,15 @@ with sync_playwright() as p:
         page.keyboard.up('Shift')
         assert dash['dashKick']>0.1, f'{label}: dash speed visual absent'
         page.screenshot(path=str(SAMPLES/f'{label}-battle.png'))
+        if label=='desktop':
+            # Visual regression references for every TPS field without changing game menus.
+            field_names=['waste','desert','snow','mountain','city','river','arena']
+            field_labels=['荒野','砂原','雪山','山岳','市街地','川','スタジアム']
+            for n,name in enumerate(field_names):
+                actual=page.evaluate('(i)=>window.__roboTPSPreviewField(i)',n)
+                assert actual==field_labels[n], f'Biome switching failed {n}: {actual}'
+                page.wait_for_timeout(95)
+                page.screenshot(path=str(SAMPLES/f'biome-{n+1:02d}-{name}.png'))
         assert not errors, f'{label}: JavaScript errors: {errors[:4]}'
         results.append({'screen':label,'hangar_weapons':8,'route_nodes':page.locator('.map-node').count(),'speed':stats['playerStats']['spd'],'movement_420ms':round(distance,1),'stopped_drift':round(stop_delta,2),'yaw_delta':round(yaw2-yaw,2),'JS_errors':len(errors),'field':quality['field'],'trails':quality['trailCount'],'dashKick':round(dash['dashKick'],2)})
         ctx.close()
