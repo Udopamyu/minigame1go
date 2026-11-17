@@ -3304,9 +3304,9 @@ function tpsDrawTrails(){for(const t of tpsSpeedTrail){const p=tpsCameraPoint(t.
  const a=clamp(t.life/t.max,0,1);ctx.globalAlpha=a*(t.boost?.82:.38);ctx.strokeStyle=t.boost?'#aafffb':'#68cfe8';ctx.lineWidth=clamp(p.k*(t.boost?2.8:1.8),1,5);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();
  if(t.boost){ctx.fillStyle='#e5fff3';ctx.fillRect(p.x-1.5,p.y-1.5,3,3);}ctx.globalAlpha=1;
  }}
-function tpsDrawSpeedLines(){if(tpsDashKick<.10)return;const cw=canvas.width,ch=canvas.height,alpha=tpsDashKick*.55;
+function tpsDrawSpeedLines(){if(tpsDashKick<.10)return;const cw=canvas.width,ch=canvas.height,alpha=tpsDashKick*.28;
  ctx.save();ctx.strokeStyle='#c8fff4';ctx.globalAlpha=alpha;ctx.lineWidth=1;
- for(let i=0;i<18;i++){const th=i*2.399+clock*1.9,r0=.20+(i%4)*.06,r1=r0+.16+tpsDashKick*.14;
+ for(let i=0;i<12;i++){const th=i*2.399+clock*1.9,r0=.28+(i%4)*.055,r1=r0+.09+tpsDashKick*.07;
  const x0=cw*.5+Math.cos(th)*cw*r0,y0=ch*.49+Math.sin(th)*ch*r0;
  const x1=cw*.5+Math.cos(th)*cw*r1,y1=ch*.49+Math.sin(th)*ch*r1;
  ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();}ctx.restore();}
@@ -3366,14 +3366,15 @@ tpsBattleRender=function(){
  }
  tpsDrawBullets();tpsDrawSpeedLines();tpsReticle();renderPixelFrame();
 };
+if(navigator.webdriver)window.__roboTPSPreviewField=i=>{if(state!=='fight')return false;depth=Math.floor(Math.max(0,Math.min(6,i)));tpsEnsureField();return tpsBiome().name};
 if(navigator.webdriver)Object.defineProperty(window,'__roboTPSV04',{get:()=>({field:tpsBiome().name,fieldIndex:tpsFieldIndex,fields:TPS_FIELDS.map(x=>x.name),trailCount:tpsSpeedTrail.length,dashKick:tpsDashKick,playerSpeed:player?.stats?.speed,player:player?{x:player.x,y:player.y,dashLeft:player.dashLeft,air:tpsAir}:null,originalUI:!!$('menuBtn')&&!!$('sidePanel')&&typeof renderRouteMap==='function'})});
 
 // v0.4.1: fix battle screenshot composition; stronger 2D-authored silhouette from TPS.
 // The player is framed three-quarters from above instead of cut off at the bottom.
-tpsPitch=-.52;
+tpsPitch=-.44;
 tpsCamUpdate=function(){if(!player)return;
  const fx=Math.cos(tpsYaw),fy=Math.sin(tpsYaw),rightX=-fy,rightY=fx;
- const back=183+tpsDashKick*10,shoulder=41;
+ const back=187+tpsDashKick*10,shoulder=41;
  tpsCam.x=player.x-fx*back+rightX*shoulder;
  tpsCam.y=player.y-fy*back+rightY*shoulder;
  tpsCam.z=tpsGround(player.x,player.y)+tpsAir+114;
