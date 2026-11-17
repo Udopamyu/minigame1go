@@ -3047,8 +3047,10 @@ tpsCSS.textContent=`
  .shell.tpsBattle #fireTouch,.shell.tpsBattle #fireDesk{display:none!important}
  .shell.tpsBattle .controlCopy{opacity:.15}
  .shell.tpsBattle .touchGroup{pointer-events:none}
- .shell.tpsBattle #dashTouch,.shell.tpsBattle #reloadTouch{pointer-events:auto}
- @media(max-width:750px){#tpsLook{bottom:15px;right:12px}#tpsRise{bottom:calc(15px + min(33vw,142px) + 10px)}}
+ .shell.tpsBattle #dashTouch,.shell.tpsBattle #reloadTouch{pointer-events:auto;position:fixed;width:48px;height:48px;font-size:10px;z-index:8}
+ .shell.tpsBattle #dashTouch{left:18px;bottom:calc(148px + env(safe-area-inset-bottom))}
+ .shell.tpsBattle #reloadTouch{right:18px;bottom:calc(148px + env(safe-area-inset-bottom))}
+ @media(max-width:750px){#tpsLook{bottom:15px;right:12px}#tpsRise{bottom:calc(15px + min(33vw,142px) + 61px)}.shell.tpsBattle #reloadTouch{bottom:calc(15px + min(33vw,142px) + 8px)}}
 `;
 document.head.appendChild(tpsCSS);
 const tpsPad=document.createElement('div');tpsPad.id='tpsLook';tpsPad.setAttribute('aria-label','カメラ操作スティック');tpsPad.innerHTML='<div id="tpsLookThumb"></div>';
