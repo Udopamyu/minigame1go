@@ -63,6 +63,12 @@ with sync_playwright() as p:
         page.keyboard.down('w')
         page.wait_for_timeout(420)
         page.keyboard.up('w')
+        # Quality upgrade: 7 deterministic outdoor/indoor themes and speed trails.
+        quality=page.evaluate('window.__roboTPSV04')
+        assert quality['originalUI'], f'{label}: original UI integration missing'
+        assert quality['fields']==['荒野','砂原','雪山','山岳','市街地','川','スタジアム'], f'{label}: field catalog mismatch'
+        assert quality['field']=='荒野', f'{label}: first field should be wasteland'
+        assert quality['trailCount']>0, f'{label}: motion trail not emitted while moving'
         moving=page.evaluate('window.__roboQA().player')
         distance=((moving['x']-old['x'])**2+(moving['y']-old['y'])**2)**.5
         assert distance>35,f'{label}: sluggish movement: {distance}'
@@ -74,9 +80,15 @@ with sync_playwright() as p:
         page.keyboard.down('ArrowRight');page.wait_for_timeout(280);page.keyboard.up('ArrowRight')
         yaw2=page.evaluate('window.__roboTPS.aim.yaw')
         assert yaw2-yaw>.3,f'{label}: camera input not responsive'
+        # Verify dash visual state after a real Shift key press.
+        page.keyboard.down('Shift')
+        page.wait_for_timeout(85)
+        dash=page.evaluate('window.__roboTPSV04')
+        page.keyboard.up('Shift')
+        assert dash['dashKick']>0.1, f'{label}: dash speed visual absent'
         page.screenshot(path=str(SAMPLES/f'{label}-battle.png'))
         assert not errors, f'{label}: JavaScript errors: {errors[:4]}'
-        results.append({'screen':label,'hangar_weapons':8,'route_nodes':page.locator('.map-node').count(),'speed':stats['playerStats']['spd'],'movement_420ms':round(distance,1),'stopped_drift':round(stop_delta,2),'yaw_delta':round(yaw2-yaw,2),'JS_errors':len(errors)})
+        results.append({'screen':label,'hangar_weapons':8,'route_nodes':page.locator('.map-node').count(),'speed':stats['playerStats']['spd'],'movement_420ms':round(distance,1),'stopped_drift':round(stop_delta,2),'yaw_delta':round(yaw2-yaw,2),'JS_errors':len(errors),'field':quality['field'],'trails':quality['trailCount'],'dashKick':round(dash['dashKick'],2)})
         ctx.close()
     browser.close()
 Path('evaluation/robo-tps-preserved/results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
