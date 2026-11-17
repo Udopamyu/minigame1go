@@ -1,11 +1,11 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#2d6477"><title>Voxel Sky | Pixel Tech Lab</title><style>*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#5d8d9d;touch-action:none}canvas{width:100%;height:100%;display:block;image-rendering:pixelated}#controls{pointer-events:none;position:fixed;inset:0}#controls button{pointer-events:auto;position:absolute;bottom:max(23px,env(safe-area-inset-bottom));height:65px;width:65px;display:grid;place-items:center;border:2px solid #f5fff1a0;border-radius:17px;color:#fffce2;background:#234d6eb1;touch-action:none;box-shadow:0 4px 0 #173e55}#controls button.on,#controls button:active{background:#448a93c7;transform:translateY(3px);box-shadow:none}#turnL{left:20px}#turnR{left:96px}#climb{right:96px}#dive{right:20px}button svg{height:31px;width:31px;stroke:currentColor;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}@media(max-width:430px){#controls button{height:54px;width:54px;bottom:max(15px,env(safe-area-inset-bottom))}#turnL{left:10px}#turnR{left:72px}#climb{right:72px}#dive{right:10px}}@media(min-width:1000px){#controls button{opacity:.25}#controls:hover button{opacity:.9}}</style></head><body><canvas id="game" aria-label="ポリゴンを使わず高さマップを描く擬似3Dの飛行機ゲーム。光るリングをくぐる"></canvas><div id="controls"><button id="turnL" aria-label="左旋回"><svg viewBox="0 0 32 32"><path d="M22 5 L10 16 L22 27"/></svg></button><button id="turnR" aria-label="右旋回"><svg viewBox="0 0 32 32"><path d="M10 5 L22 16 L10 27"/></svg></button><button id="climb" aria-label="上昇"><svg viewBox="0 0 32 32"><path d="M6 22 L16 10 L26 22"/></svg></button><button id="dive" aria-label="下降"><svg viewBox="0 0 32 32"><path d="M6 10 L16 22 L26 10"/></svg></button></div><script>
-(()=>{'use strict';const c=document.getElementById('game'),g=c.getContext('2d',{alpha:false});const TAU=Math.PI*2,PI=Math.PI;let W=480,H=270,t=0,last=0,frames=0;const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));const lerp=(a,b,t)=>a+(b-a)*t,rand=(a,b)=>a+Math.random()*(b-a);function resize(){W=Math.min(560,Math.max(320,Math.round(innerWidth*.68)));H=Math.max(230,Math.round(W*innerHeight/innerWidth));c.width=W;c.height=H;g.imageSmoothingEnabled=false}addEventListener('resize',resize);resize();
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#2d6477"><title>Voxel Sky — Cinematic Camera | Pixel Tech Lab</title><style>*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#5d8d9d;touch-action:none}canvas{width:100%;height:100%;display:block;image-rendering:pixelated}#controls{pointer-events:none;position:fixed;inset:0}#controls button{pointer-events:auto;position:absolute;bottom:max(23px,env(safe-area-inset-bottom));height:65px;width:65px;display:grid;place-items:center;border:2px solid #f5fff1a0;border-radius:17px;color:#fffce2;background:#234d6eb1;touch-action:none;box-shadow:0 4px 0 #173e55}#controls button.on,#controls button:active{background:#448a93c7;transform:translateY(3px);box-shadow:none}#turnL{left:20px}#turnR{left:96px}#climb{right:96px}#dive{right:20px}#camera{top:max(16px,env(safe-area-inset-top));right:17px;bottom:auto!important;border-radius:50%!important;width:58px!important;height:58px!important;background:#1b5a75dd!important;border-color:#d5ffff!important;box-shadow:0 3px 16px #012b5277!important;z-index:8}#camera svg{width:30px;height:30px}#boost{left:50%;bottom:max(24px,env(safe-area-inset-bottom))!important;transform:translateX(-50%);background:#a35635cb!important;border-color:#ffe7c5!important;border-radius:50%!important;width:71px!important;height:71px!important;z-index:8}#boost.on,#boost:active{background:#e58c45fa!important;transform:translateX(-50%) scale(.94)!important}#camera.on{background:#6c9bb1df!important}button svg{height:31px;width:31px;stroke:currentColor;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}@media(max-width:430px){#camera{width:48px!important;height:48px!important;right:11px;top:max(10px,env(safe-area-inset-top))}#boost{width:62px!important;height:62px!important;bottom:max(10px,env(safe-area-inset-bottom))!important}#controls button{height:54px;width:54px;bottom:max(15px,env(safe-area-inset-bottom))}#turnL{left:10px}#turnR{left:72px}#climb{right:72px}#dive{right:10px}}@media(min-width:1000px){#controls button{opacity:.25}#controls:hover button{opacity:.9}}</style></head><body><canvas id="game" aria-label="ポリゴンを使わず高さマップを描く擬似3Dの飛行機ゲーム。光るリングをくぐる"></canvas><div id="controls"><button id="turnL" aria-label="左旋回"><svg viewBox="0 0 32 32"><path d="M22 5 L10 16 L22 27"/></svg></button><button id="turnR" aria-label="右旋回"><svg viewBox="0 0 32 32"><path d="M10 5 L22 16 L10 27"/></svg></button><button id="climb" aria-label="上昇"><svg viewBox="0 0 32 32"><path d="M6 22 L16 10 L26 22"/></svg></button><button id="dive" aria-label="下降"><svg viewBox="0 0 32 32"><path d="M6 10 L16 22 L26 10"/></svg></button><button id="boost" aria-label="加速する（押し続ける）"><svg viewBox="0 0 32 32"><path d="M17 3 L7 18 H15 L12 29 L26 12 H18 Z" fill="currentColor" stroke="none"/></svg></button><button id="camera" aria-label="俯瞰視点とTPS視点を切り替える"><svg viewBox="0 0 32 32"><path d="M5 8 L16 3 L27 8 L16 13 Z M5 8 V21 L16 27 L27 21 V8 M16 13 V27"/><path d="M9 18 L16 22 L23 18"/></svg></button></div><script>
+(()=>{'use strict';const c=document.getElementById('game'),mainG=c.getContext('2d',{alpha:false});let g=mainG;const overhead=document.createElement('canvas'),chase=document.createElement('canvas');let topG=overhead.getContext('2d',{alpha:false}),chaseG=chase.getContext('2d',{alpha:false});const TAU=Math.PI*2,PI=Math.PI;let W=480,H=270,t=0,last=0,frames=0;const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));const lerp=(a,b,t)=>a+(b-a)*t,rand=(a,b)=>a+Math.random()*(b-a);function resize(){W=Math.min(560,Math.max(320,Math.round(innerWidth*.68)));H=Math.max(230,Math.round(W*innerHeight/innerWidth));c.width=W;c.height=H;overhead.width=chase.width=W;overhead.height=chase.height=H;mainG.imageSmoothingEnabled=false;topG.imageSmoothingEnabled=false;chaseG.imageSmoothingEnabled=false}addEventListener('resize',resize);resize();
 const MAP=512,WORLD=4096,TILE=WORLD/MAP;const hm=new Float32Array(MAP*MAP);const centers=[[680,780,650,237],[1600,1390,560,250],[2590,2200,655,240],[3300,2800,550,290],[800,3010,580,190],[3410,690,470,252],[2150,550,370,165]];
 function noise(x,z){return (Math.sin(x*.011)*Math.cos(z*.014)+Math.sin(x*.038+z*.019)*.35+Math.cos(z*.044-x*.031)*.16)*.5}
 for(let z=0;z<MAP;z++)for(let x=0;x<MAP;x++){let wx=x*TILE,wz=z*TILE,h=0;for(let [cx,cz,rad,peak] of centers){let dx=wx-cx,dz=wz-cz,dist=(dx*dx+dz*dz)/(rad*rad);if(dist<1){let a=Math.max(0,1-dist);h+=peak*a*a*(.91+noise(wx,wz)*.15)}}hm[z*MAP+x]=Math.max(0,h-1.3)}
 function height(x,z){x=(x+WORLD)%WORLD;z=(z+WORLD)%WORLD;const ix=Math.floor(x/TILE)&511,iz=Math.floor(z/TILE)&511;return hm[iz*MAP+ix]}
-const keys={turnL:false,turnR:false,climb:false,dive:false};for(let k in keys){const e=document.getElementById(k);e.addEventListener('pointerdown',a=>{a.preventDefault();e.setPointerCapture(a.pointerId);keys[k]=true;e.classList.add('on')});for(let ev of ['pointerup','pointercancel','lostpointercapture'])e.addEventListener(ev,()=>{keys[k]=false;e.classList.remove('on')})}const bind={ArrowLeft:'turnL',a:'turnL',ArrowRight:'turnR',d:'turnR',ArrowUp:'climb',w:'climb',ArrowDown:'dive',s:'dive'};document.addEventListener('keydown',e=>{let k=bind[e.key]||bind[e.key.toLowerCase()];if(k){e.preventDefault();keys[k]=true}});document.addEventListener('keyup',e=>{let k=bind[e.key]||bind[e.key.toLowerCase()];if(k)keys[k]=false});addEventListener('blur',()=>Object.keys(keys).forEach(k=>keys[k]=false));
-const route=[[950,750,210],[860,1100,235],[960,1410,215],[1170,1720,190],[1410,1970,215],[1750,2200,255],[2080,2340,220],[2450,2550,275]];let rings=route.map((v,i)=>({x:v[0],z:v[1],h:v[2],i}));let ring=0,finish=0,impact=0,roll=0,trail=[],sparks=[];let plane={x:950,z:450,h:210,yaw:0,speed:134};
+const keys={turnL:false,turnR:false,climb:false,dive:false,boost:false};for(let k in keys){const e=document.getElementById(k);e.addEventListener('pointerdown',a=>{a.preventDefault();e.setPointerCapture(a.pointerId);keys[k]=true;e.classList.add('on')});for(let ev of ['pointerup','pointercancel','lostpointercapture'])e.addEventListener(ev,()=>{keys[k]=false;e.classList.remove('on')})}const bind={ArrowLeft:'turnL',a:'turnL',ArrowRight:'turnR',d:'turnR',ArrowUp:'climb',w:'climb',ArrowDown:'dive',s:'dive',Shift:'boost',' ':'boost'};let viewMix=0,viewTarget=0,manualView=false,autoSequence=true,boostStrength=0;const cameraButton=document.getElementById('camera');function toggleCamera(){manualView=true;autoSequence=false;viewTarget=viewTarget>.5?0:1;cameraButton.classList.add('on');setTimeout(()=>cameraButton.classList.remove('on'),280)}cameraButton.addEventListener('pointerdown',e=>{e.preventDefault();toggleCamera()});document.addEventListener('keydown',e=>{if(e.key==='c'||e.key==='C'||e.key==='v'||e.key==='V'||e.key==='Tab'){e.preventDefault();if(!e.repeat)toggleCamera();return}let k=bind[e.key]||bind[e.key.toLowerCase()];if(k){e.preventDefault();keys[k]=true}});document.addEventListener('keyup',e=>{let k=bind[e.key]||bind[e.key.toLowerCase()];if(k)keys[k]=false});addEventListener('blur',()=>Object.keys(keys).forEach(k=>keys[k]=false));
+const route=[[950,750,210],[860,1100,235],[960,1410,215],[1170,1720,190],[1410,1970,215],[1750,2200,255],[2080,2340,220],[2450,2550,275]];let rings=route.map((v,i)=>({x:v[0],z:v[1],h:v[2],i}));let ring=0,finish=0,impact=0,roll=0,trail=[],sparks=[],streakSeed=0;let plane={x:950,z:450,h:210,yaw:0,speed:148};
 const slices=[];for(let z=0;z<11;z++){let b=document.createElement('canvas');b.width=63;b.height=51;const a=b.getContext('2d');a.imageSmoothingEnabled=false;function rect(x,y,w,h,col){a.fillStyle=col;a.fillRect(x,y,w,h)}
 if(z<=1){rect(27,4,11,41,'#1b3650');rect(3,20,57,10,'#1a3550');rect(16,34,31,9,'#1a3550');rect(6,19,11,3,'#fabe94');rect(46,19,11,3,'#fabe94')}
 if(z>=1&&z<=6){let s=z>4?z-4:0;rect(8+s,20,47-s*2,10,z%2?'#f5debb':'#dfc29f');rect(21,15,21,23,z%2?'#ec856e':'#b95860');rect(27,4,10,40,'#f2d9b5');rect(9,21,10,3,'#d37778');rect(45,21,9,3,'#d37778');rect(17,35,28,4,'#e9c4a2')}
@@ -14,25 +14,137 @@ if(z===10){rect(29,15,6,11,'#bcfff5')}slices.push(b)}
 function planeStack(x,y,bank=0){g.save();g.translate(x,y);g.rotate(bank);for(let i=0;i<slices.length;i++){g.drawImage(slices[i],-31.5,-20.5-i*1.2)}g.restore()}
 const cloudShapes=Array.from({length:26},(_,i)=>({x:i*87+Math.random()*66,y:20+Math.random()*38,z:.1+Math.random()*.8,size:rand(8,36)}));
 function terrainColor(h,d,tx,tz){let pal;if(h<3)pal=['#1d6f8a','#2787a0','#459cb0','#6aafbf'];else if(h<13)pal=['#c8bd83','#d5c693','#e4d6a9','#f2e0b5'];else if(h<79)pal=['#305f60','#427864','#69a078','#a5be8b'];else if(h<158)pal=['#446b66','#688277','#9caa8c','#b5b49b'];else if(h<215)pal=['#5c6673','#84929a','#b3b3b4','#c6c3b9'];else pal=['#8d9d9e','#b4c8c6','#d4e2dc','#eef5e5'];let ix=d>1100?3:d>700?2:d>370?1:0;if((Math.floor(tx*.047)+Math.floor(tz*.041))%13===0&&h>12&&h<120)ix=Math.min(3,ix+1);return pal[ix]}
+
+const mapCanvas=document.createElement('canvas');mapCanvas.width=MAP;mapCanvas.height=MAP;const mapG=mapCanvas.getContext('2d',{willReadFrequently:false});
+function buildTopMap(){const image=mapG.createImageData(MAP,MAP),pix=image.data;for(let z=0;z<MAP;z++)for(let x=0;x<MAP;x++){const h=hm[z*MAP+x],wx=x*TILE,wz=z*TILE;let rgb;if(h<3)rgb=[19,105,139];else if(h<13)rgb=[213,193,132];else if(h<75)rgb=[42,107,80];else if(h<150)rgb=[89,132,102];else if(h<210)rgb=[122,132,121];else rgb=[207,220,202];let shade=Math.sin(wx*.047+wz*.022)*8+Math.cos(wx*.033-wz*.072)*6+Math.sin(h*.12+x*.4)*5;const i=(z*MAP+x)*4;for(let c=0;c<3;c++)pix[i+c]=clamp(Math.round(rgb[c]+shade),0,255);pix[i+3]=255;}mapG.putImageData(image,0,0)}buildTopMap();
+const viewPoint=(wx,wz,zoom)=>{let dx=wx-plane.x,dz=wz-plane.z;dx-=Math.round(dx/WORLD)*WORLD;dz-=Math.round(dz/WORLD)*WORLD;let s=Math.sin(plane.yaw),cs=Math.cos(plane.yaw);return{x:W*.5+zoom*(dx*cs-dz*s),y:H*.5-zoom*(dx*s+dz*cs)}};
+function drawOverhead(){
+  const zoom=(Math.min(W/1050,H/780))*(1-.23*boostStrength),scale=zoom*TILE;
+  g.fillStyle='#216c88';g.fillRect(0,0,W,H);
+  g.save();g.translate(W*.5,H*.5);g.rotate(-plane.yaw);g.scale(scale,-scale);
+  const px=plane.x/TILE,pz=plane.z/TILE;
+  for(let ix=-1;ix<=1;ix++)for(let iz=-1;iz<=1;iz++)g.drawImage(mapCanvas,ix*MAP-px,iz*MAP-pz,MAP,MAP);
+  g.restore();
+  // Rings are marked on terrain by a thick luminous hoop and a vertical-height signal.
+  for(let i=ring;i<Math.min(rings.length,ring+3);i++){
+    const r=rings[i],p=viewPoint(r.x,r.z,zoom),R=clamp(zoom*43,9,65);if(p.x+R<0||p.x-R>W||p.y+R<0||p.y-R>H)continue;
+    g.save();g.globalAlpha=i===ring?1:.34;
+    g.fillStyle='#78fff33d';g.beginPath();g.arc(p.x,p.y,R*.89,0,TAU);g.fill();
+    g.lineWidth=Math.max(2,3+(i===ring?2:0));g.strokeStyle='#fff5b6';g.beginPath();g.arc(p.x,p.y,R,0,TAU);g.stroke();
+    g.lineWidth=2;g.strokeStyle='#73ffff';g.setLineDash([6,5]);g.lineDashOffset=-t*17;g.beginPath();g.arc(p.x,p.y,R*1.14,0,TAU);g.stroke();g.restore();
+  }
+  // Projected, decaying white wake follows the flight path.
+  if(trail.length>1){g.save();g.lineCap='round';for(let i=1;i<trail.length;i++){
+    let a=viewPoint(trail[i-1].x,trail[i-1].z,zoom),b=viewPoint(trail[i].x,trail[i].z,zoom),age=t-trail[i].time;
+    if(Math.hypot(a.x-b.x,a.y-b.y)>130)continue;g.globalAlpha=clamp(1-age/2,0,1)*.75;
+    g.strokeStyle='#e5f9e6';g.lineWidth=clamp(1.4+boostStrength*2.8,1,5);
+    g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke()}
+    g.restore();}
+  if(boostStrength>.04){g.save();g.globalAlpha=boostStrength*.7;for(let i=0;i<24;i++){
+    let seed=i*107.31,px=(Math.sin(seed)*.5+.5)*W,py=((t*(190+boostStrength*480)+seed*37)%(H+130))-65,len=(10+boostStrength*55)*(i%3===0?1.6:1);
+    g.strokeStyle=i%4===0?'#f8edba':'#9af9ff';g.lineWidth=i%5===0?2:1;g.beginPath();g.moveTo(px,py);g.lineTo(px-Math.sin(plane.yaw)*roll*7,py+len);g.stroke();}g.restore()}
+  const shipScale=Math.min(2.7,Math.max(1.45,W/220));g.save();g.translate(W*.5,H*.5);g.scale(shipScale,shipScale);
+  g.fillStyle='#143f508e';g.beginPath();g.ellipse(0,13,28,7,0,0,TAU);g.fill();planeStack(0,0,roll*.7);g.restore();
+  drawEdgeArrow(viewPoint(rings[ring].x,rings[ring].z,zoom),W*.5,H*.5);
+}
+function drawEdgeArrow(p,x0,y0){if(p.x>24&&p.x<W-24&&p.y>22&&p.y<H-22)return;let a=Math.atan2(p.y-y0,p.x-x0),rad=Math.min(W,H)*.42,x=x0+Math.cos(a)*rad,y=y0+Math.sin(a)*rad;
+ g.save();g.translate(clamp(x,24,W-24),clamp(y,24,H-24));g.rotate(a+PI/2);g.fillStyle='#fff0b4';g.beginPath();g.moveTo(0,-9);g.lineTo(7,6);g.lineTo(0,2);g.lineTo(-7,6);g.fill();g.restore()}
 function drawSky(horizon){let sky=g.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#1d4d70');sky.addColorStop(.37,'#5e91a0');sky.addColorStop(.62,'#c9beb0');sky.addColorStop(1,'#a2babc');g.fillStyle=sky;g.fillRect(0,0,W,H);let sunX=W*(.77-.14*Math.sin(plane.yaw*.7)),sunY=horizon*.55;g.fillStyle='#e7c3a79c';g.fillRect(sunX-27,sunY-27,54,54);g.fillStyle='#ffe3b7';g.fillRect(sunX-17,sunY-17,34,34);g.fillStyle='#fff0d1';g.fillRect(sunX-8,sunY-8,16,16);for(let cloud of cloudShapes){let x=(cloud.x-t*cloud.z*5+(plane.yaw*.1)*W)%(W+130);if(x<0)x+=W+130;let y=cloud.y*H/270+Math.sin(t*.1+cloud.x)*2,gx=cloud.size/36;g.fillStyle='#c5e1d699';g.fillRect(x,y,cloud.size*1.7,cloud.size*.28);g.fillRect(x+cloud.size*.25,y-cloud.size*.14,cloud.size*.8,cloud.size*.31);g.fillStyle='#fff2de7d';g.fillRect(x+cloud.size*.34,y-cloud.size*.27,cloud.size*.54,cloud.size*.14)}}
-function drawTerrain(){let f=W*.73,horizon=H*.46,camH=plane.h+38,camX=plane.x-Math.sin(plane.yaw)*67,camZ=plane.z-Math.cos(plane.yaw)*67;drawSky(horizon);
+function drawTerrain(){let f=W*(.76-.14*boostStrength),horizon=H*(.47-.035*boostStrength),camH=plane.h+39+boostStrength*4,followDist=65+boostStrength*54,camX=plane.x-Math.sin(plane.yaw)*followDist,camZ=plane.z-Math.cos(plane.yaw)*followDist;drawSky(horizon);
 // Front-to-back heightmap column-casting (Voxel Space). No meshes, polygons or 3D engine.
 for(let sx=0;sx<W;sx+=2){let ray=(sx-W*.5)/f,dX=Math.sin(plane.yaw)+Math.cos(plane.yaw)*ray,dZ=Math.cos(plane.yaw)-Math.sin(plane.yaw)*ray,len=1/Math.hypot(dX,dZ);dX*=len;dZ*=len;let lastY=H;for(let distance=10;distance<1650;distance+=4.2+distance*.018){let tx=camX+dX*distance,tz=camZ+dZ*distance,h=height(tx,tz);let yy=Math.round(horizon+(camH-h)*f/distance);if(yy<lastY){let top=clamp(yy,-H,H),bottom=clamp(lastY,0,H);if(top<bottom){g.fillStyle=terrainColor(h,distance,tx,tz);g.fillRect(sx,top,2,bottom-top)}lastY=yy;if(lastY<=0)break}}}
 const mist=g.createLinearGradient(0,horizon-10,0,horizon+35);mist.addColorStop(0,'#cae8e625');mist.addColorStop(.5,'#a1c8c22a');mist.addColorStop(1,'transparent');g.fillStyle=mist;g.fillRect(0,horizon-10,W,45);return{f,horizon,camH,camX,camZ}}
 function project(wx,wy,wz,view){let dx=wx-view.camX,dz=wz-view.camZ,cx=dx*Math.cos(plane.yaw)-dz*Math.sin(plane.yaw),depth=dx*Math.sin(plane.yaw)+dz*Math.cos(plane.yaw);if(depth<=6)return null;return{x:W*.5+cx*view.f/depth,y:view.horizon+(view.camH-wy)*view.f/depth,depth,scale:view.f/depth}}
-function drawRing(view,data,alpha=1){let p=project(data.x,data.h,data.z,view);if(!p||p.depth>1650)return;let radius=clamp(39*p.scale,4,280);if(p.x<-radius||p.x>W+radius||p.y<-radius||p.y>H+radius)return;g.save();g.globalAlpha=alpha;g.lineWidth=clamp(3*p.scale,1.3,10);g.strokeStyle='#2a6781';g.beginPath();g.arc(p.x,p.y,radius+2,0,TAU);g.stroke();g.strokeStyle='#fff2b3';g.beginPath();g.arc(p.x,p.y,radius,0,TAU);g.stroke();g.strokeStyle='#76ffe3';g.lineWidth=clamp(1.4*p.scale,1,5);g.setLineDash([clamp(9*p.scale,3,80),clamp(8*p.scale,3,70)]);g.lineDashOffset=-t*16;g.beginPath();g.arc(p.x,p.y,radius,0,TAU);g.stroke();g.setLineDash([]);g.fillStyle='#f8eab5';for(let a=0;a<TAU;a+=PI/2){let u=p.x+Math.cos(a+t*.5)*radius,v=p.y+Math.sin(a+t*.5)*radius;g.fillRect(u-2*p.scale,v-2*p.scale,4*p.scale,4*p.scale)}g.restore()}
+function drawRing(view,data,alpha=1){let p=project(data.x,data.h,data.z,view);if(!p||p.depth>2000)return;let radius=clamp(39*p.scale,4,280);if(p.x<-radius||p.x>W+radius||p.y<-radius||p.y>H+radius)return;g.save();g.globalAlpha=alpha;g.lineWidth=clamp(3*p.scale,1.3,10);g.strokeStyle='#2a6781';g.beginPath();g.arc(p.x,p.y,radius+2,0,TAU);g.stroke();g.strokeStyle='#fff2b3';g.beginPath();g.arc(p.x,p.y,radius,0,TAU);g.stroke();g.strokeStyle='#76ffe3';g.lineWidth=clamp(1.4*p.scale,1,5);g.setLineDash([clamp(9*p.scale,3,80),clamp(8*p.scale,3,70)]);g.lineDashOffset=-t*16;g.beginPath();g.arc(p.x,p.y,radius,0,TAU);g.stroke();g.setLineDash([]);g.fillStyle='#f8eab5';for(let a=0;a<TAU;a+=PI/2){let u=p.x+Math.cos(a+t*.5)*radius,v=p.y+Math.sin(a+t*.5)*radius;g.fillRect(u-2*p.scale,v-2*p.scale,4*p.scale,4*p.scale)}g.restore()}
 function targetIndicator(view){let a=rings[ring];if(!a)return;let p=project(a.x,a.h,a.z,view);if(p&&p.x>20&&p.x<W-20&&p.y>15&&p.y<H-20)return;let dx=a.x-plane.x,dz=a.z-plane.z,theta=Math.atan2(dx,dz)-plane.yaw,x=W*.5+Math.sin(theta)*Math.min(W*.39,130),y=H*.15+Math.abs(theta)*9;g.save();g.translate(x,y);g.rotate(theta);g.fillStyle='#fff3b1';g.beginPath();g.moveTo(0,-9);g.lineTo(6,5);g.lineTo(0,1);g.lineTo(-6,5);g.closePath();g.fill();g.restore()}
-function update(dt){t+=dt;let yawInput=(+keys.turnR)-(+keys.turnL),climb=(+keys.climb)-(+keys.dive);plane.yaw+=yawInput*.9*dt;roll=lerp(roll,yawInput*.42,clamp(dt*3.5,0,1));plane.h=clamp(plane.h+climb*95*dt,52,430);plane.speed=lerp(plane.speed,climb?120:137,Math.min(1,dt*1.2));plane.x=(plane.x+Math.sin(plane.yaw)*plane.speed*dt+WORLD)%WORLD;plane.z=(plane.z+Math.cos(plane.yaw)*plane.speed*dt+WORLD)%WORLD;
-const h=height(plane.x,plane.z);if(plane.h<h+18){impact=1;plane.h=h+63;for(let i=0;i<35;i++)sparks.push({x:rand(-25,25),y:rand(-15,15),vx:rand(-90,90),vy:rand(-90,90),life:rand(.4,1)})}impact=Math.max(0,impact-dt*1.5);let a=rings[ring];if(a&&Math.hypot(a.x-plane.x,a.z-plane.z)<51&&Math.abs(a.h-plane.h)<65){ring++;finish=.85;for(let i=0;i<70;i++)sparks.push({x:rand(-23,23),y:rand(-40,40),vx:rand(-150,150),vy:rand(-150,150),life:rand(.6,1.2)});if(ring===rings.length){ring=0;finish=1.6;plane.x=950;plane.z=450;plane.h=210;plane.yaw=0}}
-for(let p of sparks){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}sparks=sparks.filter(p=>p.life>0).slice(-180);finish=Math.max(0,finish-dt);frames++}
-function draw(){let view=drawTerrain();if(rings[ring+1])drawRing(view,rings[ring+1],.28);if(rings[ring])drawRing(view,rings[ring]);targetIndicator(view);
-// Cockpit-free tracked sprite stack: the plane is drawn from horizontal slices.
-let px=W*.5,py=H*.79+Math.sin(t*5)*1.4,scale=Math.max(1.1,Math.min(2.05,W/290));g.save();g.translate(px,py);g.scale(scale,scale);g.fillStyle='#133d5377';g.beginPath();g.ellipse(2,9,40,7,0,0,TAU);g.fill();planeStack(0,0,roll);g.restore();
-for(let p of sparks){g.globalAlpha=clamp(p.life,0,1);g.fillStyle=impact?'#ffb6a8':'#fff1af';g.fillRect(px+p.x,py+p.y,2+Math.abs(p.life*3),2+Math.abs(p.life*3))}g.globalAlpha=1;
-// Ring progress and altitude are drawn as symbols, no text labels.
-for(let i=0;i<rings.length;i++){g.fillStyle=i<ring?'#fbf0b4':'#264d65';let x=W*.5+(i-3.5)*18,y=17;g.beginPath();g.arc(x,y,4,0,TAU);g.fill();g.strokeStyle='#e5efe3';g.lineWidth=.8;g.stroke()}
-let vx=W-22,gy=H*.28,gh=Math.min(67,H*.23);g.globalAlpha=.67;g.fillStyle='#13475d';g.fillRect(vx-5,gy-3,10,gh+6);g.strokeStyle='#d8f5dc';g.strokeRect(vx-5,gy-3,10,gh+6);let fill=clamp((plane.h-52)/378,0,1);g.fillStyle='#ffe7b6';g.fillRect(vx-3,gy+gh*(1-fill),6,Math.max(2,gh*fill));g.globalAlpha=1;
-let cx=W*.5,cy=H*.46;g.strokeStyle='#c9f2e399';g.lineWidth=1;g.beginPath();g.moveTo(cx-16,cy);g.lineTo(cx-6,cy);g.moveTo(cx+6,cy);g.lineTo(cx+16,cy);g.moveTo(cx,cy-10);g.lineTo(cx,cy-4);g.stroke();
-if(finish){g.fillStyle=`rgba(255,245,203,${Math.min(.24,finish*.22)})`;g.fillRect(0,0,W,H)}if(impact){g.fillStyle=`rgba(243,112,92,${impact*.24})`;g.fillRect(0,0,W,H)}}
-function tick(ms){let dt=Math.min(.045,(ms-last)/1000||.016);last=ms;update(dt);draw();requestAnimationFrame(tick)}requestAnimationFrame(tick);window.pixelTechDiagnostics=()=>({frame:frames,scene:'voxel-space',heightmap:MAP*MAP,ring,plane:{x:plane.x,z:plane.z,altitude:plane.h,heading:plane.yaw},viewport:[W,H]});})();
+
+function update(dt){
+  t+=dt;
+  if(autoSequence&&t>1.2){viewTarget=1;autoSequence=false}
+  const aim=keys.boost?1:0;boostStrength+=(aim-boostStrength)*Math.min(1,dt*2.0);
+  const yawInput=(+keys.turnR)-(+keys.turnL),climb=(+keys.climb)-(+keys.dive);
+  const yawRate=.98/(1+boostStrength*.34);plane.yaw+=yawInput*yawRate*dt;
+  roll=lerp(roll,yawInput*(.39+boostStrength*.12),clamp(dt*4.5,0,1));
+  plane.h=clamp(plane.h+climb*(103+boostStrength*24)*dt,44,470);
+  const cruise=148,fast=415;plane.speed+=((cruise+(fast-cruise)*boostStrength)-plane.speed)*Math.min(1,dt*(boostStrength>0.35?2.4:1.8));
+  let oldX=plane.x,oldZ=plane.z;
+  plane.x=(plane.x+Math.sin(plane.yaw)*plane.speed*dt+WORLD)%WORLD;
+  plane.z=(plane.z+Math.cos(plane.yaw)*plane.speed*dt+WORLD)%WORLD;
+  trail.push({x:plane.x,z:plane.z,time:t});trail=trail.filter(p=>t-p.time<1.8).slice(-85);
+  const h=height(plane.x,plane.z);
+  if(plane.h<h+18){impact=1;plane.h=h+52;plane.speed*=.58;for(let i=0;i<42;i++)sparks.push({x:rand(-25,25),y:rand(-15,15),vx:rand(-100,100),vy:rand(-100,100),life:rand(.4,1)})}
+  impact=Math.max(0,impact-dt*1.65);
+  let a=rings[ring];
+  if(a){let dx=a.x-plane.x,dz=a.z-plane.z;
+    // Swept closest approach avoids missing a ring at boost speed.
+    const sx=plane.x-oldX,sz=plane.z-oldZ;
+    let along=clamp(((a.x-oldX)*sx+(a.z-oldZ)*sz)/(sx*sx+sz*sz||1),0,1);
+    let nearest=Math.hypot(a.x-(oldX+sx*along),a.z-(oldZ+sz*along));
+    if(Math.min(Math.hypot(dx,dz),nearest)<65&&Math.abs(a.h-plane.h)<68){
+      ring++;finish=.85;
+      for(let i=0;i<64;i++)sparks.push({x:rand(-23,23),y:rand(-40,40),vx:rand(-150,150),vy:rand(-150,150),life:rand(.6,1.2)});
+      if(ring===rings.length){ring=0;finish=1.6;plane.x=950;plane.z=450;plane.h=210;plane.yaw=0;trail.length=0}
+    }
+  }
+  for(let p of sparks){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}
+  sparks=sparks.filter(p=>p.life>0).slice(-180);
+  finish=Math.max(0,finish-dt);
+  // Smooth camera blend, duration approximately 1.1 sec at full speed.
+  viewMix+=(viewTarget-viewMix)*Math.min(1,dt*3.25);
+  if(Math.abs(viewMix-viewTarget)<.001)viewMix=viewTarget;
+  frames++;
+}
+function drawChase(){
+  let view=drawTerrain();
+  if(rings[ring+1])drawRing(view,rings[ring+1],.28);
+  if(rings[ring])drawRing(view,rings[ring]);targetIndicator(view);
+  let px=W*.5,py=H*.8+Math.sin(t*7)*1.7+roll*5,scale=Math.max(1.1,Math.min(2.15,W/265));
+  g.save();g.translate(px,py);g.scale(scale,scale);
+  g.fillStyle='#133d5377';g.beginPath();g.ellipse(2,9,40,7,0,0,TAU);g.fill();planeStack(0,0,roll);g.restore();
+  drawSpeedLines(px,py);
+  for(let p of sparks){g.globalAlpha=clamp(p.life,0,1);g.fillStyle=impact?'#ffb6a8':'#fff1af';g.fillRect(px+p.x,py+p.y,2+Math.abs(p.life*3),2+Math.abs(p.life*3))}g.globalAlpha=1;
+}
+function drawSpeedLines(px,py){
+  if(boostStrength<.03)return;
+  g.save();g.globalAlpha=boostStrength*.42;const ox=W*.5,oy=H*.46;
+  const shift=t*(.48+boostStrength*1.8);
+  for(let i=0;i<80;i++){
+    let a=i*2.3999632,frac=(i*.6180339887+shift) % 1;
+    let radius=Math.pow(frac,1.3)*Math.max(W,H)*.74;
+    let r2=radius+boostStrength*(10+frac*95);
+    let x1=ox+Math.cos(a)*radius,y1=oy+Math.sin(a)*radius*.68;
+    let x2=ox+Math.cos(a)*r2,y2=oy+Math.sin(a)*r2*.68;
+    g.strokeStyle=i%6===0?'#ffeab9':'#d6fffa';g.lineWidth=i%9===0?2:1;
+    g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();
+  }g.restore();
+}
+function drawHUD(){
+  // Progress dots, height gauge, speed bar. Never display in-game text.
+  for(let i=0;i<rings.length;i++){g.fillStyle=i<ring?'#fbf0b4':'#264d65';let x=W*.5+(i-3.5)*17,y=17;g.beginPath();g.arc(x,y,3.8,0,TAU);g.fill();g.strokeStyle='#e5efe3';g.lineWidth=.8;g.stroke()}
+  let vx=W-19,gy=H*.28,gh=Math.min(67,H*.23);g.globalAlpha=.78;g.fillStyle='#133e59';g.fillRect(vx-5,gy-3,10,gh+6);g.strokeStyle='#d8f5dc';g.strokeRect(vx-5,gy-3,10,gh+6);let fill=clamp((plane.h-44)/426,0,1);g.fillStyle='#ffe7b6';g.fillRect(vx-3,gy+gh*(1-fill),6,Math.max(2,gh*fill));g.globalAlpha=1;
+  let n=16,cur=clamp((plane.speed-90)/360,0,1);for(let i=0;i<n;i++){
+    let w=5,x=W*.5+(i-n/2)*(w+3)+2,y=H-13;
+    g.fillStyle=i/n<cur?(i>n*.62?'#ffd29c':'#abfce7'):'#245567';g.fillRect(x,y-((i%4===0)?3:0),w,5)}
+  // Switch icon halo conveys active viewpoint without labels.
+  const cx=W-46,cy=41;g.strokeStyle='#e9ffda99';g.lineWidth=2;g.beginPath();g.arc(cx,cy,25,0,TAU*viewMix);g.stroke();
+  if(finish){g.fillStyle=`rgba(255,245,203,${Math.min(.24,finish*.22)})`;g.fillRect(0,0,W,H)}
+  if(impact){g.fillStyle=`rgba(243,112,92,${impact*.24})`;g.fillRect(0,0,W,H)}
+}
+function draw(){
+  if(viewMix<.997){g=topG;g.setTransform(1,0,0,1,0,0);drawOverhead()}
+  if(viewMix>.003){g=chaseG;g.setTransform(1,0,0,1,0,0);drawChase()}
+  g=mainG;g.setTransform(1,0,0,1,0,0);
+  if(viewMix<=.003)g.drawImage(overhead,0,0);
+  else if(viewMix>=.997){
+    g.save();let angle=-roll*.16*boostStrength;g.translate(W*.5,H*.5);g.rotate(angle);let z=1+.018*boostStrength;g.scale(z,z);g.drawImage(chase,-W*.5,-H*.5);g.restore();
+  }else{
+    const a=viewMix*viewMix*(3-2*viewMix);
+    g.drawImage(overhead,0,0);
+    g.globalAlpha=a;g.drawImage(chase,0,0);g.globalAlpha=1;
+    // Camera change visual signature: a moving scanning band, no flash.
+    g.fillStyle='rgba(221,255,240,.13)';g.fillRect(0,H*(1-a)-1,W,2);
+  }
+  drawHUD();
+}
+function tick(ms){let dt=Math.min(.045,(ms-last)/1000||.016);last=ms;update(dt);draw();requestAnimationFrame(tick)}requestAnimationFrame(tick);window.pixelTechDiagnostics=()=>({frame:frames,scene:'voxel-space-cinematic',heightmap:MAP*MAP,ring,camera:{mix:viewMix,target:viewTarget,mode:viewMix<.15?'overhead':viewMix>.85?'chase':'transition'},boost:boostStrength,plane:{x:plane.x,z:plane.z,altitude:plane.h,heading:plane.yaw,speed:plane.speed},viewport:[W,H]});})();
 </script></body></html>
