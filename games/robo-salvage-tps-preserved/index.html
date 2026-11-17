@@ -3172,6 +3172,7 @@ function tpsEnsureField(){const idx=Math.max(0,depth)%TPS_FIELDS.length;if(idx==
   tpsFieldProps.push({x,y,h,size,kind:bio.props,variant:i%5,depth:0});
  }
  if(bio.id==='city'||bio.id==='arena')for(let i=0;i<18;i++){const x=-140+i*73,y=i%2===0?-155:740;tpsFieldProps.push({x,y,h:45+(i%5)*32,size:30,kind:bio.props,variant:i%5,depth:0})}
+ for(let i=0;i<13;i++){const x=185+i*65,y=i%2===0?-85:680;tpsFieldProps.push({x,y,h:48+(i%4)*22,size:26+(i%3)*13,kind:bio.props,variant:i%5,depth:0});}
 }
 // Elevation varies visually, while the pre-existing 2D battle/cover hitboxes remain untouched.
 tpsGround=function(x,y){const bio=tpsBiome(),f=(Math.sin(x*.008+y*.004)+Math.cos(y*.012-x*.003))*5;
@@ -3266,11 +3267,11 @@ function tpsWaterCell(x,y,sz){const g=tpsGround(x,y),h=g+.8;const u=.5*sz;
 tpsDrawGround=function(){tpsEnsureField();const b=tpsBiome();tpsBackdrop();const cells=[],sz=112;
  const bx=Math.floor((tpsCam.x-1450)/sz)*sz,by=Math.floor((tpsCam.y-1450)/sz)*sz;
  for(let x=bx;x<tpsCam.x+1450;x+=sz)for(let y=by;y<tpsCam.y+1450;y+=sz){const rel=(x+sz*.5-tpsCam.x)*Math.cos(tpsYaw)+(y+sz*.5-tpsCam.y)*Math.sin(tpsYaw),dist=Math.hypot(x+sz*.5-tpsCam.x,y+sz*.5-tpsCam.y);
-  if(rel < -sz||rel>1450||dist>1550)continue;cells.push({x,y,rel});}
+  if(rel < -sz||rel>1060||dist>1180)continue;cells.push({x,y,rel,dist});}
  cells.sort((a,b)=>b.rel-a.rel);
- for(const {x,y} of cells){const g00=tpsGround(x,y),g10=tpsGround(x+sz,y),g11=tpsGround(x+sz,y+sz),g01=tpsGround(x,y+sz);
+ for(const {x,y,dist} of cells){const g00=tpsGround(x,y),g10=tpsGround(x+sz,y),g11=tpsGround(x+sz,y+sz),g01=tpsGround(x,y+sz);
   const ix=Math.floor(x/sz),iy=Math.floor(y/sz),noise=tpsHash(ix,iy,tpsFieldIndex);
-  let tint=noise>.72?b.floor[2]:noise>.3?b.floor[1]:b.floor[0];
+  let tint=noise>.72?b.floor[2]:noise>.3?b.floor[1]:b.floor[0];tint=tpsHexMix(tint,b.sky[2],clamp((dist-740)/400,0,.9));
   // River follows a curved east-west channel. Water remains visually passable in this prototype.
   const river=b.id==='river'&&Math.abs(y-(296+55*Math.sin(x*.006)))<82;
   if(river)tpsWaterCell(x,y,sz);
@@ -3336,7 +3337,7 @@ update=function(dt){const live=state==='fight'&&!menuOpen&&player;const beforeX=
   // Lengthen original dash impulse within its existing collision resolution.
   if(player.dashLeft>0&&beforeX!==null){const dx=player.x-beforeX,dy=player.y-beforeY;
    moveRobot(player,dx*.30,dy*.30);}
-  player.angle=tpsYaw;
+  player.angle=tpsYaw+.18+clamp(joy.x,-1,1)*.18;
   tpsTraceMovement(dt);
  }else{tpsPreviouslyUpdate(dt);tpsFast=0;tpsDashKick=0;tpsTrailTick=0;tpsPrevX=tpsPrevY=null;}
 };
@@ -3371,13 +3372,13 @@ if(navigator.webdriver)Object.defineProperty(window,'__roboTPSV04',{get:()=>({fi
 
 // v0.4.1: fix battle screenshot composition; stronger 2D-authored silhouette from TPS.
 // The player is framed three-quarters from above instead of cut off at the bottom.
-tpsPitch=-.44;
+tpsPitch=-.39;
 tpsCamUpdate=function(){if(!player)return;
  const fx=Math.cos(tpsYaw),fy=Math.sin(tpsYaw),rightX=-fy,rightY=fx;
- const back=187+tpsDashKick*10,shoulder=41;
+ const back=190+tpsDashKick*10,shoulder=41;
  tpsCam.x=player.x-fx*back+rightX*shoulder;
  tpsCam.y=player.y-fy*back+rightY*shoulder;
- tpsCam.z=tpsGround(player.x,player.y)+tpsAir+114;
+ tpsCam.z=tpsGround(player.x,player.y)+tpsAir+108;
  tpsCam.f=canvas.width*.88;
 };
 const tpsBackgroundDrawV04=tpsDrawGround;
