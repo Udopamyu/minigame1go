@@ -45,4 +45,6 @@ jobs:
           name: robo-tps-original-ui-screens
           retention-days: 14
           if-no-files-found: warn
-          path: evaluation/robo-tps-preserved/
+          path: |
+            evaluation/robo-tps-preserved/
+            games/robo-salvage-tps-preserved/index.html
