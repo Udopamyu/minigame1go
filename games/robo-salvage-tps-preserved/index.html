@@ -3141,6 +3141,233 @@ update=function(dt){tpsActive=state==='fight'&&!menuOpen;
 render=function(){if(state==='fight'&&!menuOpen){tpsBattleRender();return}originalGameRender()};
 if(navigator.webdriver)Object.defineProperty(window,'__roboTPS',{get:()=>({active:tpsActive,state,depth,routeCandidates:routeCandidates.length,speed:player?.stats?.speed,player:player?{x:player.x,y:player.y,air:tpsAir,hp:player.hp}:null,enemy:enemy?{x:enemy.x,y:enemy.y,hp:enemy.hp}:null,aim:{yaw:tpsYaw,pitch:tpsPitch,locked:!!tpsLock},meshCache:tpsMeshes.size,menuOpen})});
 
+// v0.4 combat-only visual/handling upgrade. The ORIGINAL hangar, map, salvage,
+// equipment definitions, progression and DOM/CSS remain completely unchanged.
+const tpsThemeCSS=document.createElement('style');
+tpsThemeCSS.textContent=`
+.shell.tpsBattle #tpsLook{border-color:#72e8ecba;background:#0c213bb0;box-shadow:0 0 17px #28eaf124,inset 0 0 19px #3cf2f518}
+.shell.tpsBattle #tpsLookThumb{background:radial-gradient(circle,#68cacaaf,#225878cc);border-color:#c6faff}
+.shell.tpsBattle #tpsRise{background:#123447e6;box-shadow:0 0 12px #40daf82c}
+.shell.tpsBattle #dashTouch{background:linear-gradient(145deg,#135978,#14324e);box-shadow:0 0 18px #43e5fa44}
+`;document.head.appendChild(tpsThemeCSS);
+const TPS_FIELDS=[
+ {id:'waste',name:'荒野',sky:['#432b31','#9b6560','#dba477'],floor:['#695346','#786052','#9c785a'],accent:'#cda078',far:'#60444d',props:'mesa'},
+ {id:'desert',name:'砂原',sky:['#40567b','#ebad79','#f9d4a0'],floor:['#997449','#b7925d','#d3b77a'],accent:'#f8d49e',far:'#9a735e',props:'dune'},
+ {id:'snow',name:'雪山',sky:['#142941','#3d7795','#a7d6e0'],floor:['#819da8','#b7d1d4','#e2eeeb'],accent:'#ffffff',far:'#527b9a',props:'pine'},
+ {id:'mountain',name:'山岳',sky:['#152a43','#517c8a','#b9b7a2'],floor:['#435a53','#587269','#829c89'],accent:'#b8d8ad',far:'#3d5264',props:'rock'},
+ {id:'city',name:'市街地',sky:['#13192e','#674e70','#e89b84'],floor:['#373b49','#4a5360','#69717b'],accent:'#8bebf7',far:'#2f3448',props:'tower'},
+ {id:'river',name:'川',sky:['#183653','#6b9f9a','#d5c78f'],floor:['#315d55','#48776e','#85a28b'],accent:'#7dd9ee',far:'#436a74',props:'reed'},
+ {id:'arena',name:'スタジアム',sky:['#071326','#17293d','#4b6e78'],floor:['#142637','#203e50','#34566a'],accent:'#64ddeb',far:'#20394e',props:'stand'}
+];
+let tpsFieldIndex=-1,tpsFieldProps=[],tpsSpeedTrail=[],tpsFast=0,tpsRoadPulse=0,tpsDashKick=0,tpsTrailTick=0,tpsPrevX=null,tpsPrevY=null,tpsQualityDraw=0;
+const tpsHash=(x,y,seed=0)=>{let v=Math.sin(x*127.1+y*311.7+seed*71.5)*43758.5453123;return v-Math.floor(v)};
+const tpsBlend=(a,b,t)=>Math.max(0,Math.min(255,Math.round(a+(b-a)*t)));
+function tpsHexMix(a,b,t){let x=a.replace('#',''),y=b.replace('#','');return '#'+[0,2,4].map(i=>{let v=tpsBlend(parseInt(x.slice(i,i+2),16),parseInt(y.slice(i,i+2),16),t);return v.toString(16).padStart(2,'0')}).join('')}
+function tpsBiome(){return TPS_FIELDS[(Math.max(0,depth))%TPS_FIELDS.length]}
+function tpsEnsureField(){const idx=Math.max(0,depth)%TPS_FIELDS.length;if(idx===tpsFieldIndex)return; tpsFieldIndex=idx;tpsSpeedTrail.length=0;tpsPrevX=tpsPrevY=null;tpsFieldProps=[];
+ const bio=TPS_FIELDS[idx];let seed=idx*13+arenaIndex()*7;
+ for(let i=0;i<46;i++){
+  const angle=i*2.39996+seed*.6,r=550+(i%6)*88+110*tpsHash(i,seed),x=500+Math.cos(angle)*r,y=295+Math.sin(angle)*r;
+  const h=20+120*tpsHash(i+25,seed+3),size=20+65*tpsHash(i+7,seed);
+  tpsFieldProps.push({x,y,h,size,kind:bio.props,variant:i%5,depth:0});
+ }
+ if(bio.id==='city'||bio.id==='arena')for(let i=0;i<18;i++){const x=-140+i*73,y=i%2===0?-155:740;tpsFieldProps.push({x,y,h:45+(i%5)*32,size:30,kind:bio.props,variant:i%5,depth:0})}
+}
+// Elevation varies visually, while the pre-existing 2D battle/cover hitboxes remain untouched.
+tpsGround=function(x,y){const bio=tpsBiome(),f=(Math.sin(x*.008+y*.004)+Math.cos(y*.012-x*.003))*5;
+ const big=Math.sin(x*.004)*Math.cos(y*.006)*11;
+ if(bio.id==='snow')return 16+f*.8+big*.65;
+ if(bio.id==='mountain')return 12+f+big*1.25;
+ if(bio.id==='desert')return 4+f*.6+Math.sin(x*.017+y*.009)*8;
+ if(bio.id==='river')return 7+f*.55+big*.3;
+ if(bio.id==='city'||bio.id==='arena')return 8+f*.24;
+ return 7+f*.65+big*.65;
+};
+// Source artwork comes directly from the 2D game's EQUIPMENT renderers.
+// Each authored pixel block is raised into shaded top, front and lateral faces.
+// Region-dependent heights keep weapon housings, armored chassis and treads legible in TPS.
+tpsBuildOriginalSprite=function(o){const id=Object.values(o.load).map(a=>a.id).join('|')+(o.enemy?'|red':'|blue');if(tpsMeshes.has(id))return tpsMeshes.get(id);
+ const oldW=canvas.width,oldH=canvas.height;canvas.width=280;canvas.height=260;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,280,260);ctx.save();ctx.translate(121,130);ctx.scale(MECH_SCALE,MECH_SCALE);
+ const d=o.stats,red=o.enemy,tint=c=>hostileShade(c,red),trim=red?'#eac0c0':'#b6e9ea';
+ drawLegEquipment(o.load.legs.id,tint(d.legs.color),trim);drawArmorEquipment(o.load.armor.id,tint(d.armor.color),trim);drawCoreEquipment(o.load.core.id,tint(d.core.color),trim);drawWeaponEquipment(o.load.weapon.id,tint(d.weapon.color),trim);ctx.restore();
+ const pix=ctx.getImageData(0,0,280,260).data,cellSize=6,cells=new Map();
+ for(let yy=28;yy<232;yy+=cellSize)for(let xx=0;xx<280;xx+=cellSize){let n=0,R=0,G=0,B=0;
+  for(let sy=1;sy<cellSize;sy+=2)for(let sx=1;sx<cellSize;sx+=2){const k=((yy+sy)*280+xx+sx)*4;if(pix[k+3]>110){R+=pix[k];G+=pix[k+1];B+=pix[k+2];n++}}
+  if(n<3)continue;const f=(xx-121)*.50,l=(yy-130)*.50;
+  // Palette hues and silhouettes stay source-authentic. This is not a humanoid proxy model.
+  const chassis=clamp(1-Math.hypot(f*.78,l*.86)/49,0,1),gun=f>10&&Math.abs(l)<23,outer=Math.abs(l)>31;
+  let ht=6+chassis*25+(gun?8:0)+(Math.abs(f)<21&&Math.abs(l)<17?8:0);
+  if(outer)ht*=.62;
+  if(o.load.armor.id==='fortress'&&chassis>.3)ht+=7;
+  if(o.load.armor.id==='feather')ht-=4;
+  const col=[Math.round(R/n),Math.round(G/n),Math.round(B/n)];
+  cells.set(xx+','+yy,{xx,yy,f,l,ht:Math.max(4,ht),col});
+ }
+ const faces=[];const s=cellSize*.50;
+ const cshade=(col,m)=>'#'+col.map(v=>clamp(Math.round(v*m),0,255).toString(16).padStart(2,'0')).join('');
+ for(const c of cells.values()){
+  const {xx,yy,f,l,ht:h,col}=c;
+  faces.push({p:[[f,l,h],[f+s,l,h],[f+s,l+s,h],[f,l+s,h]],col:cshade(col,1.08),key:f});
+  // Only exposed side strips (or strips higher than neighbors) are generated.
+  for(const side of [[1,0,.55],[-1,0,.8],[0,1,.69],[0,-1,.92]]){
+   const dx=side[0],dy=side[1],adj=cells.get((xx+dx*cellSize)+','+(yy+dy*cellSize)),low=adj?Math.min(h,adj.ht):0;
+   if(low>=h-.5)continue;
+   const p=dx===1?[[f+s,l,low],[f+s,l+s,low],[f+s,l+s,h],[f+s,l,h]]:
+    dx===-1?[[f,l+s,low],[f,l,low],[f,l,h],[f,l+s,h]]:
+    dy===1?[[f+s,l+s,low],[f,l+s,low],[f,l+s,h],[f+s,l+s,h]]:
+    [[f,l,low],[f+s,l,low],[f+s,l,h],[f,l,h]];
+   faces.push({p,col:cshade(col,side[2]),key:f});
+  }
+ }
+ canvas.width=oldW;canvas.height=oldH;ctx.imageSmoothingEnabled=false;
+ if(tpsMeshes.size>60)tpsMeshes.clear();tpsMeshes.set(id,faces);return faces;
+};
+// Geometry helpers: world-space terrain, angular cliffs, towers and pines.
+function tpsBox(x,y,z,w,d,h,colors){const X=x+w,Y=y+d,H=z+h;
+ const a=[[[x,y,H],[X,y,H],[X,Y,H],[x,Y,H]],[[x,y,z],[X,y,z],[X,y,H],[x,y,H]],[[x,Y,z],[X,Y,z],[X,Y,H],[x,Y,H]],[[x,y,z],[x,Y,z],[x,Y,H],[x,y,H]],[[X,y,z],[X,Y,z],[X,Y,H],[X,y,H]]];
+ // Depth / simple viewpoint face selection avoids painting through the object's rear.
+ const fx=(tpsCam.x-(x+X)/2),fy=tpsCam.y-(y+Y)/2;
+ tpsPoly(a[0],colors[0]);if(fy<0)tpsPoly(a[1],colors[1]);else tpsPoly(a[2],colors[2]);if(fx<0)tpsPoly(a[3],colors[3]);else tpsPoly(a[4],colors[4]);
+}
+function tpsPyramid(x,y,z,r,h,palette){const A=[x-r,y-r,z],B=[x+r,y-r,z],C=[x+r,y+r,z],D=[x-r,y+r,z],T=[x,y,z+h];
+ tpsPoly([A,B,T],palette[0]);tpsPoly([B,C,T],palette[1]);tpsPoly([C,D,T],palette[2]);tpsPoly([D,A,T],palette[3]);}
+function tpsDrawProp(p){const t=tpsBiome(),x=p.x,y=p.y,g=tpsGround(x,y),q=p.size,h=p.h;
+ if(p.kind==='mesa'){tpsBox(x-q*.48,y-q*.3,g,q*.96,q*.63,h*.68,['#bd8366','#7b514d','#a07059','#71464a','#a47557']);tpsBox(x-q*.60,y-q*.35,g+h*.68,q*1.2,q*.73,h*.16,['#e3a378','#97685e','#c58769','#8b5956','#c58769']);}
+ else if(p.kind==='dune'){tpsPyramid(x,y,g,q,h*.38,['#e6ba80','#ad875d','#c99c68','#f0cf98']);if(p.variant%2===0)tpsBox(x-4,y-3,g,8,6,h*.27,['#b9a37d','#8a7759','#a99372','#786851','#a99372']);}
+ else if(p.kind==='pine'){tpsBox(x-3,y-3,g,6,6,h*.34,['#7e766f','#5a595c','#787e83','#5b696d','#819099']);for(let j=0;j<3;j++)tpsPyramid(x,y,g+8+j*h*.19,q*(.56-j*.12),h*.52,['#d8e9e6','#476d6c','#94b7b9','#5d8984']);}
+ else if(p.kind==='rock'){tpsPyramid(x,y,g,q,h*.58,['#859b91','#3e4f52','#5f7068','#435b65']);tpsPyramid(x+q*.4,y-q*.27,g,q*.6,h*.38,['#a5b3ac','#53665c','#6c847a','#4f646a']);}
+ else if(p.kind==='tower'){tpsBox(x-q*.4,y-q*.4,g,q*.8,q*.8,h,['#8396a1','#394f61','#647487','#303e52','#6c8190']);for(let v=1;v<5;v++){const z=g+h*v/5;tpsBox(x-q*.43,y-q*.44,z,q*.86,q*.87,3,['#d1a97d','#758da1','#9b8790','#596f85','#a6b5a6'])}}
+ else if(p.kind==='reed'){tpsBox(x-3,y-3,g,6,6,h*.5,['#a8ca7e','#547961','#76ab7f','#426a64','#83ae84']);if(p.variant%3===0)tpsPyramid(x+14,y-6,g,24,h*.23,['#c1c19b','#497d76','#649181','#587568']);}
+ else if(p.kind==='stand'){tpsBox(x-q*.56,y-q*.4,g,q*1.12,q*.85,h*.65,['#627f93','#224356','#466579','#1c374a','#537287']);tpsBox(x-q*.68,y-q*.50,g+h*.64,q*1.34,q*1.05,9,['#add6d8','#467887','#568b9a','#33536b','#66a6b0']);}
+}
+function tpsBackdrop(){const cw=canvas.width,ch=canvas.height,b=tpsBiome(),sky=ctx.createLinearGradient(0,0,0,ch);sky.addColorStop(0,b.sky[0]);sky.addColorStop(.62,b.sky[1]);sky.addColorStop(1,b.sky[2]);ctx.fillStyle=sky;ctx.fillRect(0,0,cw,ch);
+ const horizon=clamp(ch*(.56+tpsPitch*.36),ch*.12,ch*.89);let scroll=tpsYaw*45;
+ // Five-pixel ridge steps, distinct horizon silhouettes for the terrain themes.
+ for(let layer=0;layer<2;layer++){
+  ctx.fillStyle=layer===0?b.far:tpsHexMix(b.far,b.floor[0],.46);ctx.beginPath();ctx.moveTo(-2,ch);
+  for(let x=-5;x<cw+10;x+=5){const ix=Math.floor((x+scroll*(layer+1))/12),noise=tpsHash(ix,layer*8,tpsFieldIndex),next=tpsHash(ix+1,layer*8,tpsFieldIndex);
+   let peaks=(Math.sin(ix*.33)+Math.cos(ix*.19))*9+(noise*.65+next*.35)*22;
+   if(b.id==='snow'||b.id==='mountain')peaks*=2.1;
+   else if(b.id==='desert')peaks*=.52;
+   else if(b.id==='city'||b.id==='arena')peaks=Math.floor(noise*4)*10+(layer?10:25);
+   ctx.lineTo(x,horizon+layer*18-peaks);
+  }ctx.lineTo(cw+5,ch);ctx.closePath();ctx.fill();
+ }
+ if(b.id==='desert'||b.id==='waste'||b.id==='river'){
+  const sx=cw*.78+Math.sin(tpsYaw*.6)*42,sy=horizon-61;
+  ctx.fillStyle=b.id==='river'?'#f6e3a8':'#ffe1a8';ctx.fillRect(sx-12,sy-12,24,24);ctx.fillStyle=b.sky[1]+'99';ctx.fillRect(sx-5,sy-12,3,24);
+ }
+}
+function tpsWaterCell(x,y,sz){const g=tpsGround(x,y),h=g+.8;const u=.5*sz;
+ tpsPoly([[x,y,h],[x+sz,y,h],[x+sz,y+sz,h],[x,y+sz,h]],((Math.floor(x/90)+Math.floor(y/90))%2===0)?'#2b8296':'#267b91');
+ for(let k=0;k<2;k++){const z=y+15+k*sz*.39+tpsRoadPulse*4%9;tpsPoly([[x+8,z,h+1.5],[x+sz*.55,z,h+1.5],[x+sz*.55,z+4,h+1.5],[x+8,z+4,h+1.5]],'#8dcbd2');}
+}
+// Terrain coordinates extend beyond the original arena so outdoors actually look open.
+tpsDrawGround=function(){tpsEnsureField();const b=tpsBiome();tpsBackdrop();const cells=[],sz=112;
+ const bx=Math.floor((tpsCam.x-1450)/sz)*sz,by=Math.floor((tpsCam.y-1450)/sz)*sz;
+ for(let x=bx;x<tpsCam.x+1450;x+=sz)for(let y=by;y<tpsCam.y+1450;y+=sz){const rel=(x+sz*.5-tpsCam.x)*Math.cos(tpsYaw)+(y+sz*.5-tpsCam.y)*Math.sin(tpsYaw),dist=Math.hypot(x+sz*.5-tpsCam.x,y+sz*.5-tpsCam.y);
+  if(rel < -sz||rel>1450||dist>1550)continue;cells.push({x,y,rel});}
+ cells.sort((a,b)=>b.rel-a.rel);
+ for(const {x,y} of cells){const g00=tpsGround(x,y),g10=tpsGround(x+sz,y),g11=tpsGround(x+sz,y+sz),g01=tpsGround(x,y+sz);
+  const ix=Math.floor(x/sz),iy=Math.floor(y/sz),noise=tpsHash(ix,iy,tpsFieldIndex);
+  let tint=noise>.72?b.floor[2]:noise>.3?b.floor[1]:b.floor[0];
+  // River follows a curved east-west channel. Water remains visually passable in this prototype.
+  const river=b.id==='river'&&Math.abs(y-(296+55*Math.sin(x*.006)))<82;
+  if(river)tpsWaterCell(x,y,sz);
+  else {tpsPoly([[x,y,g00],[x+sz,y,g10],[x+sz,y+sz,g11],[x,y+sz,g01]],tint);
+   if(b.id==='city'||b.id==='arena'){
+    tpsPoly([[x+4,y+3,g00+1],[x+sz-5,y+3,g00+1],[x+sz-5,y+6,g00+1],[x+4,y+6,g00+1]],'#88949a');
+    tpsPoly([[x+4,y+sz-8,g00+1],[x+sz-5,y+sz-8,g00+1],[x+sz-5,y+sz-5,g00+1],[x+4,y+sz-5,g00+1]],'#203344');
+   }else if(noise>.56){const line=b.id==='snow'?'#f2f7ee':b.id==='desert'?'#e4c58b':b.accent;
+    tpsPoly([[x+14,y+sz*.52,g00+1],[x+sz*.62,y+sz*.52,g00+1],[x+sz*.62,y+sz*.54,g00+1],[x+14,y+sz*.54,g00+1]],line,.40);}
+  }
+  const edge=Math.max(g00,g10,g11,g01)-Math.min(g00,g10,g11,g01);
+  if(edge>8 && (b.id==='mountain'||b.id==='snow'||b.id==='waste'))tpsPoly([[x,y,g00-18],[x,y,g00],[x,y+sz,g01],[x,y+sz,g01-18]],tpsHexMix(b.floor[0],'#182c40',.48));
+ }
+};
+// A dash visually punches forward but never turns movement into inertia.
+function tpsTraceMovement(dt){if(!player)return;const x=player.x,y=player.y;const dx=tpsPrevX===null?0:x-tpsPrevX,dy=tpsPrevY===null?0:y-tpsPrevY,dist=Math.hypot(dx,dy),moving=dist>.16;
+ tpsPrevX=x;tpsPrevY=y;tpsRoadPulse+=dt*3;
+ const dashing=player.dashLeft>0;
+ tpsDashKick=Math.max(0,tpsDashKick-dt*4.0);if(dashing)tpsDashKick=Math.max(tpsDashKick,.85);
+ tpsFast+=(Math.min(1,(dist/Math.max(dt,.005)-190)/700)+(dashing?.35:0)-tpsFast)*Math.min(1,dt*10);
+ if(moving){tpsTrailTick+=dist;const spacing=dashing?7:16;
+  if(tpsTrailTick>spacing){tpsTrailTick=0;const back=Math.atan2(dy,dx),side=Math.sin(back),cy=Math.cos(back),gt=tpsGround(x,y);
+   const life=dashing?.62:.24;
+   for(const sideSign of [-1,1])tpsSpeedTrail.push({x:x+side*sideSign*16,y:y-cy*sideSign*16,z:gt+(tpsAir>2?12:4),vx:-dx/Math.max(dt,.005)*.055,vy:-dy/Math.max(dt,.005)*.055,life,max:life,boost:dashing});
+  }
+ }
+ for(let i=tpsSpeedTrail.length-1;i>=0;i--){const t=tpsSpeedTrail[i];t.life-=dt;t.x+=t.vx*dt*.2;t.y+=t.vy*dt*.2;if(t.life<=0)tpsSpeedTrail.splice(i,1)}
+ if(tpsSpeedTrail.length>65)tpsSpeedTrail.splice(0,tpsSpeedTrail.length-65);
+}
+function tpsDrawTrails(){for(const t of tpsSpeedTrail){const p=tpsCameraPoint(t.x,t.y,t.z),q=tpsCameraPoint(t.x+t.vx*.1,t.y+t.vy*.1,t.z+.6);if(!p||!q)continue;
+ const a=clamp(t.life/t.max,0,1);ctx.globalAlpha=a*(t.boost?.82:.38);ctx.strokeStyle=t.boost?'#aafffb':'#68cfe8';ctx.lineWidth=clamp(p.k*(t.boost?2.8:1.8),1,5);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();
+ if(t.boost){ctx.fillStyle='#e5fff3';ctx.fillRect(p.x-1.5,p.y-1.5,3,3);}ctx.globalAlpha=1;
+ }}
+function tpsDrawSpeedLines(){if(tpsDashKick<.10)return;const cw=canvas.width,ch=canvas.height,alpha=tpsDashKick*.55;
+ ctx.save();ctx.strokeStyle='#c8fff4';ctx.globalAlpha=alpha;ctx.lineWidth=1;
+ for(let i=0;i<18;i++){const th=i*2.399+clock*1.9,r0=.20+(i%4)*.06,r1=r0+.16+tpsDashKick*.14;
+ const x0=cw*.5+Math.cos(th)*cw*r0,y0=ch*.49+Math.sin(th)*ch*r0;
+ const x1=cw*.5+Math.cos(th)*cw*r1,y1=ch*.49+Math.sin(th)*ch*r1;
+ ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();}ctx.restore();}
+// Same 2D-authored pixels, now with properly raised mechanical silhouettes and
+// underbody shadows/exhaust, not generic humanoid models.
+const tpsPreviouslyDrawRobot=tpsDrawRobot;
+tpsDrawRobot=function(o){if(!o||o.dead)return;const gz=tpsGround(o.x,o.y),air=o===player?tpsAir:0,center=tpsCameraPoint(o.x,o.y,gz+.5);
+ if(center&&center.dep<1000){ctx.fillStyle=o.enemy?'#1e111c8d':'#071927aa';ctx.beginPath();ctx.ellipse(center.x,center.y,Math.min(42,30*center.k),Math.min(20,12*center.k),0,0,Math.PI*2);ctx.fill();}
+ tpsPreviouslyDrawRobot(o);
+ const b=tpsCameraPoint(o.x-26*Math.cos(o.angle),o.y-26*Math.sin(o.angle),gz+air+7);
+ if(b&&(o===player&&(player.dashLeft>0||air>3))){const l=(player.dashLeft>0?19:13)*b.k;
+ ctx.fillStyle='#b3faff';ctx.fillRect(b.x-2,b.y-l*.45,4,Math.max(4,l));ctx.fillStyle='#4bcaff';ctx.fillRect(b.x-5,b.y-l*.22,2,Math.max(3,l*.7));}
+};
+const tpsPreviouslyDrawBullets=tpsDrawBullets;
+tpsDrawBullets=function(){for(const b of bullets){if(!Number.isFinite(b.x)||!Number.isFinite(b.y))continue;
+ const x=b.x,y=b.y,px=Number.isFinite(b.px)?b.px:x,py=Number.isFinite(b.py)?b.py:y;
+ const s=tpsCameraPoint(px,py,tpsGround(px,py)+20),e=tpsCameraPoint(x,y,tpsGround(x,y)+20);
+ if(!s||!e)continue;ctx.strokeStyle=b.color;ctx.globalAlpha=.75;ctx.lineWidth=clamp(2*e.k,1,4);ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(e.x,e.y);ctx.stroke();ctx.globalAlpha=1;}tpsPreviouslyDrawBullets();};
+// Preserve the original bullet logic and input, but restore the fast, responsive
+// movement sensation of the original top-down game; a larger dash has no drift.
+const tpsPreviouslyUpdate=update;
+update=function(dt){const live=state==='fight'&&!menuOpen&&player;const beforeX=live?player.x:null,beforeY=live?player.y:null;
+ if(live){
+  const base=player.stats.speed;player.stats.speed=base*1.25;
+  tpsPreviouslyUpdate(dt);
+  player.stats.speed=base;
+  // Lengthen original dash impulse within its existing collision resolution.
+  if(player.dashLeft>0&&beforeX!==null){const dx=player.x-beforeX,dy=player.y-beforeY;
+   moveRobot(player,dx*.30,dy*.30);}
+  player.angle=tpsYaw;
+  tpsTraceMovement(dt);
+ }else{tpsPreviouslyUpdate(dt);tpsFast=0;tpsDashKick=0;tpsTrailTick=0;tpsPrevX=tpsPrevY=null;}
+};
+// Greater camera responsiveness; no acceleration/inertia is applied to steering.
+// Replaces only the aiming control logic of the previous TPS adapter.
+const tpsPriorPadDown=tpsLookEvent;
+canvas.addEventListener('pointermove',e=>{if(tpsMouse&&state==='fight'){/* previous handler tracks aim; the added velocity visuals do not affect it */}});
+// Draw outdoor landscapes and arena architecture in one perspective, without
+// changing map selection, UI, 2D AI physics, equipment or progression.
+tpsBattleRender=function(){
+ const rect=canvas.getBoundingClientRect(),cw=Math.max(190,Math.round(rect.width/2.48)),ch=Math.max(150,Math.round(rect.height/2.48));
+ if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch}
+ ctx.setTransform(1,0,0,1,0,0);ctx.imageSmoothingEnabled=false;
+ tpsEnsureField();for(const o of [player,enemy])if(o)tpsBuildOriginalSprite(o);
+ tpsCamUpdate();tpsCam.f=cw*(.95-.12*tpsDashKick);
+ tpsDrawGround();
+ const yawCos=Math.cos(tpsYaw),yawSin=Math.sin(tpsYaw);
+ const objects=[...tpsFieldProps.map(p=>({d:(p.x-tpsCam.x)*yawCos+(p.y-tpsCam.y)*yawSin,type:'decor',p})),
+ ...blocks.map(b=>({d:(b.x-tpsCam.x)*yawCos+(b.y-tpsCam.y)*yawSin,type:'cover',b})),
+ ...([player,enemy].filter(Boolean).map(o=>({d:(o.x-tpsCam.x)*yawCos+(o.y-tpsCam.y)*yawSin,type:'robot',o})))];
+ objects.sort((a,b)=>b.d-a.d);
+ tpsDrawTrails();
+ for(const obj of objects){if(obj.d>1550||obj.d<-110)continue;
+  if(obj.type==='robot')tpsDrawRobot(obj.o);
+  else if(obj.type==='cover')tpsDrawCover(obj.b);
+  else tpsDrawProp(obj.p);
+ }
+ tpsDrawBullets();tpsDrawSpeedLines();tpsReticle();renderPixelFrame();
+};
+if(navigator.webdriver)Object.defineProperty(window,'__roboTPSV04',{get:()=>({field:tpsBiome().name,fieldIndex:tpsFieldIndex,fields:TPS_FIELDS.map(x=>x.name),trailCount:tpsSpeedTrail.length,dashKick:tpsDashKick,playerSpeed:player?.stats?.speed,player:player?{x:player.x,y:player.y,dashLeft:player.dashLeft,air:tpsAir}:null,originalUI:!!$('menuBtn')&&!!$('sidePanel')&&typeof renderRouteMap==='function'})});
+
 const previewLoad=initial();
 player=createRobot(previewLoad,240,295);
 enemy=createRobot(makeEnemyLoadout(1),760,295,true);
