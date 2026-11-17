@@ -3193,9 +3193,9 @@ tpsBuildOriginalSprite=function(o){const id=Object.values(o.load).map(a=>a.id).j
  const pix=ctx.getImageData(0,0,280,260).data,cellSize=6,cells=new Map();
  for(let yy=28;yy<232;yy+=cellSize)for(let xx=0;xx<280;xx+=cellSize){let n=0,R=0,G=0,B=0;
   for(let sy=1;sy<cellSize;sy+=2)for(let sx=1;sx<cellSize;sx+=2){const k=((yy+sy)*280+xx+sx)*4;if(pix[k+3]>110){R+=pix[k];G+=pix[k+1];B+=pix[k+2];n++}}
-  if(n<3)continue;const f=(xx-121)*.50,l=(yy-130)*.50;
+  if(n<3)continue;const f=(xx-121)*.40,l=(yy-130)*.40;
   // Palette hues and silhouettes stay source-authentic. This is not a humanoid proxy model.
-  const chassis=clamp(1-Math.hypot(f*.78,l*.86)/49,0,1),gun=f>10&&Math.abs(l)<23,outer=Math.abs(l)>31;
+  const chassis=clamp(1-Math.hypot(f*.78,l*.86)/39,0,1),gun=f>10&&Math.abs(l)<23,outer=Math.abs(l)>31;
   let ht=6+chassis*25+(gun?8:0)+(Math.abs(f)<21&&Math.abs(l)<17?8:0);
   if(outer)ht*=.62;
   if(o.load.armor.id==='fortress'&&chassis>.3)ht+=7;
@@ -3203,7 +3203,7 @@ tpsBuildOriginalSprite=function(o){const id=Object.values(o.load).map(a=>a.id).j
   const col=[Math.round(R/n),Math.round(G/n),Math.round(B/n)];
   cells.set(xx+','+yy,{xx,yy,f,l,ht:Math.max(4,ht),col});
  }
- const faces=[];const s=cellSize*.50;
+ const faces=[];const s=cellSize*.40;
  const cshade=(col,m)=>'#'+col.map(v=>clamp(Math.round(v*m),0,255).toString(16).padStart(2,'0')).join('');
  for(const c of cells.values()){
   const {xx,yy,f,l,ht:h,col}=c;
@@ -3370,13 +3370,13 @@ if(navigator.webdriver)Object.defineProperty(window,'__roboTPSV04',{get:()=>({fi
 
 // v0.4.1: fix battle screenshot composition; stronger 2D-authored silhouette from TPS.
 // The player is framed three-quarters from above instead of cut off at the bottom.
-tpsPitch=-.29;
+tpsPitch=-.52;
 tpsCamUpdate=function(){if(!player)return;
  const fx=Math.cos(tpsYaw),fy=Math.sin(tpsYaw),rightX=-fy,rightY=fx;
- const back=142+tpsDashKick*10,shoulder=37;
+ const back=183+tpsDashKick*10,shoulder=41;
  tpsCam.x=player.x-fx*back+rightX*shoulder;
  tpsCam.y=player.y-fy*back+rightY*shoulder;
- tpsCam.z=tpsGround(player.x,player.y)+tpsAir+100;
+ tpsCam.z=tpsGround(player.x,player.y)+tpsAir+114;
  tpsCam.f=canvas.width*.88;
 };
 const tpsBackgroundDrawV04=tpsDrawGround;
