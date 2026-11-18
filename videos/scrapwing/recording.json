@@ -1,0 +1,61 @@
+{
+  "game": "scrapwing",
+  "build": "public index.html (no tuning UI)",
+  "source_sha256": "ccbcaa62a2fbb7b064c5ca9283bd64fce8ad8a767e49d10b9560d89e7a9b2e72",
+  "recorded_at_utc": "2026-11-18T23:32:08+00:00",
+  "capture": {
+    "viewport_css": [
+      432,
+      768
+    ],
+    "device_scale_factor": 2.5,
+    "fps": 30,
+    "time": "frame-stepped 2×1/60 s per frame",
+    "renderer": "Headless Chrome + SwiftShader (software WebGL2)",
+    "audio": "none (headless capture; the game itself has sound)"
+  },
+  "honesty": {
+    "save": "fresh (localStorage cleared)",
+    "weapon": "pulse",
+    "route": "first fight node clicked on the route map",
+    "cheats": "none — no HP/gold/unlock/weapon/placement changes",
+    "input": "keyboard only (scripted pilot); auto-fire = game default"
+  },
+  "fight": {
+    "biome": "waste",
+    "seconds": 8.8,
+    "player_hp_end": 170.7,
+    "player_hp_max": 250,
+    "ended_with": {
+      "state": "winCard",
+      "hp": 245.74239999999986,
+      "dialog": "OK"
+    }
+  },
+  "edit": {
+    "opening": [
+      0.0,
+      2.97
+    ],
+    "climax": [
+      3.0,
+      8.73
+    ],
+    "jump_cut": false,
+    "finisher_frames": 60,
+    "result_frames": 36,
+    "title_frames": 45
+  },
+  "video": {
+    "file": "gameplay.mp4",
+    "seconds": 13.53,
+    "stream": {
+      "codec_name": "h264",
+      "width": 1080,
+      "height": 1920,
+      "r_frame_rate": "30/1"
+    },
+    "sha256": "a8c7e5ad1e899b972bbf1456d861db80bb3bffe1cf2ee359f50fd8f689310074"
+  },
+  "page_errors": []
+}

@@ -6,3 +6,7 @@ __pycache__/
 !.env.example
 videos/**/.capture/
 videos/**/*.webm
+# Developer-only builds (e.g. tuning panel), never published
+dist/
+# Rebuilt by scripts/record_scrapwing.py (kept out of git for size)
+videos/scrapwing/gameplay.mp4
