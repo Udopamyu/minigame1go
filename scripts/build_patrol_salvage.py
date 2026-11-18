@@ -19,7 +19,7 @@ def build() -> str:
     js = "\n".join((SRC / p).read_text(encoding="utf-8") for p in PARTS)
     tail = (SRC / "tail.html").read_text(encoding="utf-8")
     out = core.rstrip("\n") + "\n" + js.rstrip("\n") + "\n" + tail
-    out = re.sub(r"<title>.*?</title>", "<title>PATROL × ROBO SALVAGE — HOVER COMBAT v0.6</title>", out, count=1)
+    out = re.sub(r"<title>.*?</title>", "<title>PATROL × ROBO SALVAGE — HOVER COMBAT v0.6.1</title>", out, count=1)
     return out
 
 def main() -> int:

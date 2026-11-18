@@ -525,13 +525,12 @@ const SLOT={weapon:'WEAPON / 武器',armor:'ARMOR / 装甲',legs:'LEGS / 脚部'
 const DEF={
  weapon:[
   {id:'pulse',name:'パルスガン',detail:'連射に優れる標準銃',damage:14,cool:.32,velocity:810,count:1,spread:0,mag:12,reload:1.6,idealRange:345,color:'#63eff3'},
-  {id:'shot',name:'スプレッド砲',detail:'近距離で強烈な散弾',damage:8,cool:.78,velocity:740,count:5,spread:.19,mag:5,reload:2.35,idealRange:190,color:'#ffce78'},
+  {id:'shot',name:'スプレッド砲',detail:'中央と四隅に5発の散弾',damage:8,cool:.78,velocity:740,count:5,spread:.19,mag:5,reload:2.35,idealRange:190,color:'#ffce78'},
   {id:'rail',name:'レールランサー',detail:'壁を貫くが低火力・遅い連射',damage:18,cool:1.35,velocity:1160,count:1,spread:0,mag:3,reload:3.2,idealRange:485,color:'#c1acff',pierce:true},
   {id:'missile',name:'ホーミング弾',detail:'追尾する低速ミサイル',damage:25,cool:1.02,velocity:425,count:1,spread:0,mag:4,reload:2.75,idealRange:400,color:'#ff867d',homing:true},
   {id:'micro',name:'ニードルガン',detail:'低威力・高速連射',damage:7,cool:.19,velocity:960,count:1,spread:.015,mag:30,reload:2.15,idealRange:295,color:'#82f5bb'},
   {id:'burst',name:'バーストライフル',detail:'3発同時射撃の中距離型',damage:8,cool:.62,velocity:920,count:3,spread:.072,mag:9,reload:2.35,idealRange:345,color:'#8ab5fa'},
   {id:'slug',name:'グラビティスラグ',detail:'遅い連射の一撃重視型',damage:49,cool:1.5,velocity:950,count:1,spread:0,mag:3,reload:2.9,idealRange:375,color:'#e5bcff'},
-  {id:'bounce',name:'リコシェットガン',detail:'障害物と外壁で最大3回反射する弾',damage:17,cool:.66,velocity:740,count:1,spread:0,mag:7,reload:2.15,idealRange:385,color:'#f6d46b',ricochet:3}
  ],
  armor:[
   {id:'mesh',name:'メッシュ装甲',detail:'軽量で基本的な防御',hp:125,guard:.025,color:'#65e1e9'},
@@ -566,8 +565,7 @@ const WEAPON_TRAITS={
  missile:{name:'爆風',splash:68},
  micro:{name:'装甲削り',sunder:1.25},
  burst:{name:'炎上',burn:1.65},
- slug:{name:'強制停止',stun:.42,push:64},
- bounce:{name:'壁面反射'}
+ slug:{name:'強制停止',stun:.42,push:64}
 };
 const RAR=['','STANDARD','ADVANCED','RARE','LEGEND'],RARCOL=['','#a9bbc9','#65dece','#b9a5ff','#ffca7b'];
 const part=(slot,id,lv=1,tier=1)=>({slot,id,lv,tier});
@@ -912,12 +910,17 @@ const META_UPGRADES={
  drive:{name:'駆動制御',effect:'移動 +3% / Lv.'},
  recovery:{name:'自己補修',effect:'戦闘勝利後回復 +4% / Lv.'}
 };
+// The SP save is shared with the 2D release (same key). Weapons this 3D build
+// does not offer (the retired ricochet gun) stay in the stored record untouched.
+const metaForeign={unlocks:[],starter:null,starterChosen:false};
 function loadMeta(){
  const fallback={points:0,runs:0,earned:0,starter:'pulse',unlockedWeapons:['pulse'],upgrades:{hull:0,power:0,drive:0,recovery:0}};
  try{
   const saved=JSON.parse(localStorage.getItem(META_KEY)||'null');
   if(!saved||typeof saved!=='object')return fallback;
   const safeInt=(v,max)=>Number.isFinite(v)?clamp(Math.floor(v),0,max):0;
+  if(Array.isArray(saved.unlockedWeapons))metaForeign.unlocks=saved.unlockedWeapons.filter(id=>typeof id==='string'&&!DEF.weapon.some(w=>w.id===id));
+  if(typeof saved.starter==='string'&&!DEF.weapon.some(w=>w.id===saved.starter))metaForeign.starter=saved.starter;
   return {
    points:safeInt(saved.points,1000000),runs:safeInt(saved.runs,100000),earned:safeInt(saved.earned,10000000),
    unlockedWeapons:['pulse',...DEF.weapon.filter(w=>w.id!=='pulse'&&Array.isArray(saved.unlockedWeapons)&&saved.unlockedWeapons.includes(w.id)).map(w=>w.id)],
@@ -927,7 +930,8 @@ function loadMeta(){
  }catch(_e){return fallback}
 }
 let metaState=loadMeta(),runSettled=true;
-function saveMeta(){try{localStorage.setItem(META_KEY,JSON.stringify(metaState))}catch(_e){}}
+function saveMeta(){try{const out={...metaState,unlockedWeapons:[...metaState.unlockedWeapons,...metaForeign.unlocks.filter(id=>!metaState.unlockedWeapons.includes(id))]};
+ if(metaForeign.starter&&!metaForeign.starterChosen)out.starter=metaForeign.starter;localStorage.setItem(META_KEY,JSON.stringify(out))}catch(_e){}}
 function earnedPointsForRun(completed=false){
  // Average five-node run with three victories = 104 SP. Six = 624 SP.
  return 45+depth*7+encountersWon*8+(completed?60:0);
@@ -1683,7 +1687,7 @@ function renderHangar(){
   const affordable=metaState.points>=STARTER_UNLOCK_COST;
   html+='<button type="button" class="starterOption'+(selected?' selected':'')+(unlocked?'':' locked')+'" data-starter="'+w.id+'" aria-pressed="'+selected+'"'
    +(unlocked||affordable?'':' disabled')+' aria-label="'+w.name+(unlocked?'':'：'+STARTER_UNLOCK_COST+' SPで解放')+'">'
-   +'<span class="starterGlyph" style="color:'+w.color+'">'+({pulse:'⌁',shot:'▥',rail:'═',missile:'▣',micro:'⋮',burst:'≡',slug:'▰',bounce:'⟐'}[w.id])+'</span>'
+   +'<span class="starterGlyph" style="color:'+w.color+'">'+({pulse:'⌁',shot:'⚄',rail:'═',missile:'▣',micro:'⋮',burst:'≡',slug:'▰'}[w.id])+'</span>'
    +'<strong>'+w.name+'</strong><small>'+w.detail+'</small>'
    +'<span class="starterStatus">'+(selected?'SELECTED':unlocked?'解放済み':'UNLOCK 40 SP')+'</span></button>';
  }
@@ -1703,7 +1707,7 @@ function renderHangar(){
    if(metaState.points<STARTER_UNLOCK_COST)return;
    metaState.points-=STARTER_UNLOCK_COST;metaState.unlockedWeapons.push(id);beep(860,.12,.028);
   }
-  metaState.starter=id;saveMeta();renderHangar();
+  metaState.starter=id;metaForeign.starterChosen=true;saveMeta();renderHangar();
  }));
  document.querySelectorAll('[data-meta]').forEach(b=>b.addEventListener('click',()=>{
   if(state!=='menu'||b.disabled)return;
@@ -3006,7 +3010,7 @@ window.__roboQA=()=>({
  rail:{damage:DEF.weapon.find(w=>w.id==='rail').damage,cooldown:DEF.weapon.find(w=>w.id==='rail').cool,penetratesCover:true},
  spriteSilhouettes:Object.fromEntries(Object.entries(SPRITE_SILHOUETTES).map(([slot,parts])=>[slot,Object.values(parts)])),
  coreProfiles:Object.fromEntries(DEF.core.map(core=>{
-  const s=specs({...initial(),weapon:part('weapon','bounce'),legs:part('legs','tank'),core:part('core',core.id)},true);
+  const s=specs({...initial(),weapon:part('weapon','pulse'),legs:part('legs','tank'),core:part('core',core.id)},true);
   return [core.id,{hp:s.hp,speed:s.speed,dmg:s.dmg,dashCooldown:s.dashCooldown,mag:s.mag,reloadTime:s.reloadTime}];
  })),
  depth,gold,encountersWon,currentNode,eventVariant:activeEventVariant,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,

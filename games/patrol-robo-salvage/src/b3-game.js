@@ -1,6 +1,8 @@
 // ------------------------------------------------------------- state -----
-const HOVER=26,MECH_R=20,HIT_R=25,CEIL_REL=330,CEIL_ABS=720,SHOT_SPEED=1.4;
-const B3_RANGE={pulse:900,shot:560,rail:1350,missile:1200,micro:820,burst:920,slug:1000,bounce:950,boss:1300};
+const HOVER=40,MECH_R=20,HIT_R=25,CEIL_REL=330,CEIL_ABS=720,SHOT_SPEED=1.4;
+const B3_RANGE={pulse:900,shot:560,rail:1350,missile:1200,micro:820,burst:920,slug:1000,boss:1300};
+// Spread gun: five pellets in a dice-five pattern (centre + four corners), radians.
+const SHOT_DICE=[[0,0],[-1,1],[1,1],[-1,-1],[1,-1]],SHOT_DICE_SPREAD=.075;
 const BS={enemyRef:null,camYaw:0,camPitch:-.05,camRoll:0,manualUntil:-1,manualActive:false,fov:1,dist:118,
  lock:false,inReticle:false,los:false,inRange:false,reticleR:40,enemyScr:null,enemyScrR:0,firing:false,track:'none',
  parts:[],fx:[],debris:null,hitMark:0,dmgDirs:[],lockBeep:0,warnT:0,panelT:0,shake:0,fade:0,idleT:0,
@@ -119,16 +121,14 @@ function b3Animate(o,dt){
  if(tgt){const d=Math.hypot(tgt.x-o.x,tgt.y-o.y);o.gunPitch+=(clamp(Math.atan2(tgt.h-o.h,d),-.7,.7)-o.gunPitch)*b3Damp(8,dt);}
  o.hitFlash=Math.max(0,(o.hitFlash||0)-dt);
 }
+function b3Scale(o){return o.enemy?(currentNode==='boss'?1.6:1.1):B3.tune.modelScale;}
 function b3Pose(o){
- const sc=o.enemy?(currentNode==='boss'?1.32:1):B3.tune.modelScale;
+ const sc=b3Scale(o);
  return {x:o.x,y:o.h+Math.sin(clock*2.3+(o.enemy?2:0))*1.4,z:o.y,yaw:o.yaw,pitch:o.lean,roll:o.bank,scale:sc,legSwing:o.legSwing,gunPitch:o.gunPitch,flash:o.hitFlash>0?.65:0};
 }
-// Muzzle in world space (right-arm weapon), used for shots and visuals.
-function b3Muzzle(o){const m=b3BuildMech(o.load,o.enemy),pose=b3Pose(o);
- const id=o.load.weapon.id,z=id==='rail'?60:id==='slug'?50:id==='missile'?22:40;
- if(id==='missile')return b3MechWorldPoint(m,pose,[20,26,10]);
- const piv=m.pivot.armR,a=-o.gunPitch,y=-7-piv[1],zz=z-piv[2];
- return b3MechWorldPoint(m,pose,[19,piv[1]+y*Math.cos(a)-zz*Math.sin(a),piv[2]+y*Math.sin(a)+zz*Math.cos(a)]);}
+// Shots leave from the nose between the two side cannons; flashes show at both cannon tips.
+function b3Muzzle(o){return b3MechWorldPoint(null,b3Pose(o),[0,3,24]);}
+function b3CannonTips(o){const m=b3BuildMech(o.load,o.enemy),pose=b3Pose(o);return m.muzzles.map(p=>b3MechWorldPoint(m,pose,p));}
 
 // ----------------------------------------------------------- enemy AI -----
 // Engagement bands (approach / strafe / retreat / flank / cover / peek),
@@ -149,7 +149,7 @@ function b3EnemyAI(dt){
   else if(los&&ai.coverCD<=0&&((reloading&&Math.random()<({sniper:.75,guardian:.6,boss:.35,charger:.15}[e.role]??.4))||hpFrac<.35&&Math.random()<.5)&&(ai.cover=b3FindCover(e))){ai.mode='cover';ai.hideT=0;ai.coverCD=6+Math.random()*4;}
   else if(ai.mode==='cover'){ai.mode='peek';}
   else if(dh>pref*1.35||ai.noLos>1.6)ai.mode='approach';
-  else if(dh<pref*.6)ai.mode='retreat';
+  else if(dh<pref*.66)ai.mode='retreat';
   else if((e.role==='flanker'||e.role==='skirmisher')&&Math.random()<.35)ai.mode='flank';
   else ai.mode='strafe';
   if(ai.mode!==prev)ai.modeT=0;
@@ -158,7 +158,7 @@ function b3EnemyAI(dt){
  const lat=[-uz*ai.side,ux*ai.side];
  switch(ai.mode){
   case 'approach':vx=ux+lat[0]*.4;vz=uz+lat[1]*.4;break;
-  case 'retreat':vx=-ux+lat[0]*.7;vz=-uz+lat[1]*.7;spd*=.92;break;
+  case 'retreat':vx=-ux+lat[0]*.6;vz=-uz+lat[1]*.6;spd*=1.06;break;
   case 'flank':{const a=Math.atan2(-uz,-ux)+ai.side*1.25,tx=player.x+Math.cos(a)*pref,tz=player.y+Math.sin(a)*pref,l=Math.hypot(tx-e.x,tz-e.y)||1;vx=(tx-e.x)/l;vz=(tz-e.y)/l;break;}
   case 'cover':{const c=ai.cover;if(!c){ai.mode='strafe';break;}
    const ax=c.x-player.x,az=c.z-player.y,al=Math.hypot(ax,az)||1,hx=c.x+ax/al*(c.br+46),hz=c.z+az/al*(c.br+46),l=Math.hypot(hx-e.x,hz-e.y);
@@ -236,13 +236,19 @@ function b3Fire(o,tgt,aim,err=[0,0]){
  shoot(o,tgt,ang);
  if(bullets.length===n0)return false;
  const hd=Math.hypot(aim[0]-m[0],aim[2]-m[2]),pitch=Math.atan2(aim[1]-m[1],hd)+err[1],w=o.stats.weapon;
- for(let i=n0;i<bullets.length;i++){const b=bullets[i];b3Lift(b,m,pitch,w.id==='shot'?(Math.random()-.5)*.12:w.id==='burst'?(i-n0-1)*.012:0);}
+ if(w.id==='shot'){
+  // Dice-five pattern around the aim line, square in the shooter's view.
+  const f=[Math.cos(pitch)*Math.cos(ang),Math.sin(pitch),Math.cos(pitch)*Math.sin(ang)];let r=v3.cross(f,[0,1,0]);r=v3.norm(v3.len(r)<1e-4?[1,0,0]:r);const u=v3.cross(r,f);
+  for(let i=n0;i<bullets.length;i++){const q=SHOT_DICE[(i-n0)%5],d=v3.norm(v3.add(f,v3.add(v3.mul(r,q[0]*SHOT_DICE_SPREAD),v3.mul(u,q[1]*SHOT_DICE_SPREAD))));
+   b3LiftDir(bullets[i],m,d);}
+ }else for(let i=n0;i<bullets.length;i++){const b=bullets[i];b3Lift(b,m,pitch,w.id==='burst'?(i-n0-1)*.012:0);}
  if(o===player)BS.stats.shotsP++;else BS.stats.shotsE++;
  // Muzzle flash, rail beam.
- const col=b3Hex(w.color);b3Burst(m,col,w.id==='shot'?10:4,150,.12,w.id==='slug'?16:9,true);
- BS.fx.push({k:'flash',p:m,t:0,life:.06,r:w.id==='slug'?34:20,c:col});
+ const col=b3Hex(w.color);for(const tp of b3CannonTips(o)){b3Burst(tp,col,w.id==='shot'?6:3,150,.12,w.id==='slug'?14:8,true);BS.fx.push({k:'flash',p:tp,t:0,life:.06,r:w.id==='slug'?30:17,c:col});}
  if(w.id==='rail'){const dir=[Math.cos(pitch)*Math.cos(ang),Math.sin(pitch),Math.cos(pitch)*Math.sin(ang)],L=B3_RANGE.rail,e=[m[0]+dir[0]*L,m[1]+dir[1]*L,m[2]+dir[2]*L];
-  const h=b3Ray(m[0],m[1],m[2],e[0],e[1],e[2],{ignoreObstacles:true});const t=h?h.t:1;
+  const h=b3Ray(m[0],m[1],m[2],e[0],e[1],e[2],{ignoreObstacles:true});let t=h?h.t:1;
+  // Draw the beam only a little past its target so a miss never sweeps through the camera.
+  const along=(tgt.x-m[0])*dir[0]+(tgt.h-m[1])*dir[1]+(tgt.y-m[2])*dir[2];if(along>0)t=Math.min(t,(along+70)/L);
   BS.fx.push({k:'beam',a:m,b:[m[0]+(e[0]-m[0])*t,m[1]+(e[1]-m[1])*t,m[2]+(e[2]-m[2])*t],t:0,life:.38,c:o.enemy?[1,.55,.6]:col});}
  if(w.id==='slug')BS.shake=Math.max(BS.shake,o===player?5:2);
  return true;
@@ -251,10 +257,13 @@ function b3Lift(b,m,pitch,vSpread=0){
  const ang=Math.atan2(b.vy,b.vx),sp=(b.spd||Math.hypot(b.vx,b.vy))*SHOT_SPEED,p=pitch+vSpread;
  b.x=m[0];b.y=m[2];b.h=m[1];b.px=b.x;b.py=b.y;b.ph=b.h;
  b.vx=Math.cos(ang)*Math.cos(p)*sp;b.vy=Math.sin(ang)*Math.cos(p)*sp;b.vh=Math.sin(p)*sp;b.spd=sp;
- const range=B3_RANGE[b.kind]||900;b.life=Math.min(b.kind==='bounce'?3.2:2.6,range*1.12/sp+(b.homing?.6:0));
+ const range=B3_RANGE[b.kind]||900;b.life=Math.min(2.6,range*1.12/sp+(b.homing?.6:0));
  if(b.homing){b.vh+=sp*.32;b.smokeT=0;}
  b.b3=true;b.trail=[[b.x,b.h,b.y]];
 }
+function b3LiftDir(b,m,d){const sp=(b.spd||Math.hypot(b.vx,b.vy))*SHOT_SPEED;
+ b.x=m[0];b.y=m[2];b.h=m[1];b.px=b.x;b.py=b.y;b.ph=b.h;b.vx=d[0]*sp;b.vh=d[1]*sp;b.vy=d[2]*sp;b.spd=sp;
+ b.life=Math.min(2.6,(B3_RANGE[b.kind]||900)*1.12/sp);b.b3=true;b.trail=[[b.x,b.h,b.y]];}
 // Boss pattern shots are created by the core in 2D; lift them from the boss.
 function b3LiftLoose(b){
  const s=b.source||enemy,tgt=s===player?enemy:player;
@@ -280,7 +289,7 @@ function b3Projectiles(dt){
   b.trail.push([b.x,b.h,b.y]);if(b.trail.length>9)b.trail.shift();
   const a=[b.px,b.ph,b.py],c=[b.x,b.h,b.y];
   const wh=b3Ray(a[0],a[1],a[2],c[0],c[1],c[2],{ignoreObstacles:b.kind==='rail',water:true});
-  let th=null;if(tgt&&!tgt.dead&&!b.hitDone)th=b3SegSphere(a,c,[tgt.x,tgt.h+2,tgt.y],HIT_R*(tgt.enemy&&currentNode==='boss'?1.3:1)+b.r);
+  let th=null;if(tgt&&!tgt.dead&&!b.hitDone)th=b3SegSphere(a,c,[tgt.x,tgt.h+2,tgt.y],HIT_R*b3Scale(tgt)+b.r);
   if(th!==null&&(!wh||th<=wh.t)){
    const hp=[a[0]+(c[0]-a[0])*th,a[1]+(c[1]-a[1])*th,a[2]+(c[2]-a[2])*th];
    if(b.homing){b3Explosion(hp,.7,b3Hex(b.color));}
@@ -292,9 +301,6 @@ function b3Projectiles(dt){
   }
   if(wh){
    const hp=[a[0]+(c[0]-a[0])*wh.t,a[1]+(c[1]-a[1])*wh.t,a[2]+(c[2]-a[2])*wh.t];
-   if(b.kind==='bounce'&&b.bouncesLeft>0){const n=wh.n,v=[b.vx,b.vh,b.vy],dn=v3.dot(v,n);
-    b.vx=v[0]-2*dn*n[0];b.vh=v[1]-2*dn*n[1];b.vy=v[2]-2*dn*n[2];b.x=hp[0]+n[0]*2;b.h=hp[1]+n[1]*2;b.y=hp[2]+n[2]*2;
-    b.bouncesLeft--;b.bounceCount=(b.bounceCount||0)+1;b.damage*=.88;b3Burst(hp,[1,.92,.5],8,200,.2,4,true);beep(980,.03,.01);continue;}
    if(b.homing){b3Explosion(hp,.75,b3Hex(b.color));
     const splash=(WEAPON_TRAITS.missile.splash||68)*1.4*(b.source.stats?.modifiers?.splash||1);
     if(tgt&&!tgt.dead&&Math.hypot(tgt.x-hp[0],tgt.h-hp[1],tgt.y-hp[2])<splash&&!b3Ray(hp[0]+wh.n[0]*4,hp[1]+wh.n[1]*4,hp[2]+wh.n[2]*4,tgt.x,tgt.h,tgt.y))damage(tgt,b.damage*.6);
@@ -347,9 +353,9 @@ function b3CameraUpdate(dt,size){
  // Zoom: narrower FOV and longer distance at long range, wider in portrait.
  const far=b3Smooth(260,1150,gap);let fovDeg=b3Mix(t.fovNear,t.fovFar,far);
  if(aspect<1)fovDeg=Math.min(84,fovDeg*(1+.42*(1-aspect)));
- const fovT=fovDeg*Math.PI/180;BS.fov+=(fovT-BS.fov)*b3Damp(3,dt);
+ const fovT=fovDeg*Math.PI/180,zk=b3Damp(Math.max(.5,t.followSpeed)*1.5,dt);BS.fov+=(fovT-BS.fov)*zk;
  const distT=t.camDistance*Math.tan(t.fovNear*Math.PI/360)/Math.tan(BS.fov/2)*(aspect<1?1+.95*(1-aspect):1)*(currentNode==='boss'?1.1:1);
- BS.dist+=(distT-BS.dist)*b3Damp(3,dt);
+ BS.dist+=(distT-BS.dist)*zk;
  const cy=Math.cos(BS.camYaw),sy=Math.sin(BS.camYaw),cp=Math.cos(BS.camPitch),sp=Math.sin(BS.camPitch);
  const f=[cy*cp,sp,sy*cp],u=[-cy*sp,cp,-sy*sp];
  const lift=(t.playerScreenY-.5)*2*Math.tan(BS.fov/2)*BS.dist;
@@ -357,9 +363,12 @@ function b3CameraUpdate(dt,size){
  // Terrain between camera and player pulls the camera in; buildings/rocks
  // there stay in place but are drawn see-through (camera keeps its framing).
  const hit=b3Ray(pc[0],pc[1]+8,pc[2],eye[0],eye[1],eye[2],{ignoreObstacles:true});
- if(hit){const k=Math.max(.18,hit.t-.08);eye=[pc[0]+(eye[0]-pc[0])*k,pc[1]+8+(eye[1]-pc[1]-8)*k,pc[2]+(eye[2]-pc[2])*k];}
+ const pullT=hit?Math.max(.18,hit.t-.08):1;BS.pull=BS.pull==null?pullT:BS.pull+(pullT-BS.pull)*b3Damp(pullT<BS.pull?25:4,dt);
+ if(BS.pull<.999)eye=[pc[0]+(eye[0]-pc[0])*BS.pull,pc[1]+8+(eye[1]-pc[1]-8)*BS.pull,pc[2]+(eye[2]-pc[2])*BS.pull];
  const gy=b3Ground(eye[0],eye[2])+14;if(eye[1]<gy)eye[1]=gy;
- if(!BS.camEye)BS.camEye=eye.slice();else{const kk=b3Damp(t.followSpeed*3,dt);for(let i=0;i<3;i++)BS.camEye[i]+=(eye[i]-BS.camEye[i])*kk;}
+ // The eye sits exactly where the pilot stays low-centre; yaw/pitch are already
+ // smoothed by tracking, and followSpeed smooths zoom / distance changes.
+ BS.camEye=eye.slice();
  const occ=new Set(),E0=BS.camEye;
  for(let i=0;i<W3.obs.length;i++){const o=W3.obs[i];if(b3Inside(o,E0[0],E0[1],E0[2],4)||b3SegObstacle(o,E0[0],E0[1],E0[2],pc[0],pc[1]+6,pc[2]))occ.add(i);}
  R3.occluders=occ;
@@ -374,7 +383,7 @@ function b3EvaluateLock(){
  const H=canvas.height,W=canvas.width;BS.reticleR=Math.max(14,B3.tune.aimTolerance*H*(player.stats.weapon.id==='missile'?1.35:player.stats.weapon.id==='shot'?1.2:1));
  if(!e||e.dead)return;
  const p=b3Project(e.x,e.h+2,e.y);
- if(p){const pr=b3Project(e.x+R3.cam.r[0]*HIT_R,e.h+2+R3.cam.r[1]*HIT_R,e.y+R3.cam.r[2]*HIT_R);
+ if(p){const er=HIT_R*b3Scale(e),pr=b3Project(e.x+R3.cam.r[0]*er,e.h+2+R3.cam.r[1]*er,e.y+R3.cam.r[2]*er);
   BS.enemyScr=p;BS.enemyScrR=pr?Math.max(6,Math.hypot(pr.x-p.x,pr.y-p.y)):8;
   const on=p.x>0&&p.x<W&&p.y>0&&p.y<H;BS.track=BS.manualActive?'manual':on?'tracking':'offscreen';
   BS.inReticle=Math.hypot(p.x-W/2,p.y-H/2)<=BS.reticleR+BS.enemyScrR*.6;}
@@ -407,9 +416,9 @@ startFinisher=function(target){
  const m=b3BuildMech(target.load,target.enemy),pose=b3Pose(target);
  const pieces={};
  m.parts.forEach((name,i)=>{const pv=m.pivot[name]||[0,0,0],dir=b3MechWorldDir(pose,v3.norm([pv[0]||(Math.random()-.5),pv[1]*.5+6,pv[2]||(Math.random()-.5)]));
-  const sp=name==='body'?60:160+Math.random()*120;
+  const sp=name==='hull'?60:160+Math.random()*120;
   pieces[i]={off:[0,0,0],vel:[dir[0]*sp+target.v3[0]*.3,Math.abs(dir[1])*sp*.6+120+Math.random()*110,dir[2]*sp+target.v3[2]*.3],
-   axis:v3.norm([Math.random()-.5,Math.random()-.5,Math.random()-.5]),ang:0,av:(Math.random()-.5)*(name==='body'?3:12),smoke:Math.random()<.6};});
+   axis:v3.norm([Math.random()-.5,Math.random()-.5,Math.random()-.5]),ang:0,av:(Math.random()-.5)*(name==='hull'?3:12),smoke:Math.random()<.6};});
  pose.flash=0;BS.debris={target,model:m,pose,pieces,t:0,booms:[.32,.7,1.05],camA:BS.camYaw+Math.PI*.75};
  b3Explosion([pose.x,pose.y,pose.z],1.6,target.enemy?[1,.55,.3]:[.5,.85,1]);BS.shake=9;
  beep(110,.5,.06,'sawtooth');setTimeout(()=>beep(70,.6,.05,'square'),120);

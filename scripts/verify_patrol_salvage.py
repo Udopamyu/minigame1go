@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Browser verification for PATROL x ROBO SALVAGE — HOVER COMBAT (v0.6).
+"""Browser verification for PATROL x ROBO SALVAGE — HOVER COMBAT (v0.6.1).
 
 Runs the real game in Chromium (WebGL2; SwiftShader is fine), drives it through
 the normal flow and frame-stepped combat scenarios, and writes
@@ -20,8 +20,13 @@ OUT = GAME / "qa"
 SHOTS = OUT / "screenshots"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 BIOMES = ["waste", "desert", "snow", "mountain", "city", "river", "arena", "night"]
-WEAPONS = ["pulse", "shot", "rail", "missile", "micro", "burst", "slug", "bounce"]
+WEAPONS = ["pulse", "shot", "rail", "missile", "micro", "burst", "slug"]
 results = []
+# Parameters the user defined on 2026-11-18 (hover-lab JSON) — must be the shipped defaults.
+USER_TUNE = {"moveSpeed": 1.5, "moveResponse": 9, "stopResponse": 21, "verticalSpeed": 230, "climbDeadzone": 0.14, "dashPower": 1.5,
+             "lookSpeed": 1.75, "lookPitchSpeed": 1.5, "mouseSensitivity": 1.5, "invertY": False, "camDistance": 235, "playerScreenY": 0.7,
+             "fovNear": 68, "fovFar": 44, "followSpeed": 2, "enemyTracking": True, "trackSpeed": 14, "trackBox": 0.35, "manualReturn": 0.9,
+             "modelScale": 1, "autoFire": True, "aimTolerance": 0.035, "renderScale": 1.5, "autoQuality": False, "weapon": "pulse", "biome": 0}
 
 
 def check(cid, title, ok, detail):
@@ -38,10 +43,12 @@ def serve():
     return srv, f"http://127.0.0.1:{srv.server_address[1]}/games/patrol-robo-salvage/index.html"
 
 
-async def open_page(p, url, w=1280, h=720, mobile=False, args=ARGS, scale=.5):
+async def open_page(p, url, w=1280, h=720, mobile=False, args=ARGS, scale=.5, init=None):
     exe = os.environ.get("CHROMIUM_EXECUTABLE") or ("/usr/bin/google-chrome" if pathlib.Path("/usr/bin/google-chrome").exists() else None)
     b = await p.chromium.launch(executable_path=exe, headless=True, args=args)
     ctx = await b.new_context(viewport={"width": w, "height": h}, is_mobile=mobile, has_touch=mobile, device_scale_factor=1)
+    if init:
+        await ctx.add_init_script(init)
     pg = await ctx.new_page()
     errs = []
     pg.on("pageerror", lambda e: errs.append(str(e)))
@@ -67,7 +74,7 @@ async def to_fight(pg, tap=False):
     await click("#phaseContinue"); await step(pg, 20)
 
 
-async def shot(pg, name, scale=1.0):
+async def shot(pg, name, scale=1.5):
     await pg.evaluate(f"()=>window.__b3QA.setTune('renderScale',{scale})")
     await step(pg, 1)
     await pg.screenshot(path=str(SHOTS / name))
@@ -121,6 +128,38 @@ async def controls(p, url):
     s10 = await step(pg, 120); fr = await frame(pg)
     check("look_return", "右スティック左＝左を向く、離すと滑らかに敵追従へ戻る", turned < -.3 and not s10["cam"]["manual"] and fr["enemyNearCenter"], {"yaw_change": round(turned, 2), "manual_after_2s": s10["cam"]["manual"], "frame": fr})
     check("no_errors_controls", "操作テスト中のJS例外なし", not errs, errs)
+    await b.close()
+
+
+async def roster(p, url):
+    b, pg, errs = await open_page(p, url)
+    tune = await pg.evaluate("()=>window.__b3QA.defaults()")
+    diff = {k: [tune.get(k), v] for k, v in USER_TUNE.items() if tune.get(k) != v}
+    check("tune_defaults", "初期パラメータ＝指定JSON（2026-11-18）", not diff, diff or "all 26 values match")
+    await pg.click("#titleEnter"); await pg.wait_for_timeout(200)
+    starters = await pg.evaluate("()=>[...document.querySelectorAll('[data-starter]')].map(b=>b.dataset.starter)")
+    check("no_ricochet", "リコシェット弾を撤去（格納庫・敵・ショップの武器は7種）", "bounce" not in starters and len(starters) == 7, starters)
+    await pg.evaluate("()=>{window.__b3QA.biome(4);window.__b3QA.freezeAI(true);window.__b3QA.setTune('autoFire',false);window.__b3QA.setWeapon('shot');window.__b3QA.place('player',-700,0,40);window.__b3QA.place('enemy',600,0,40)}")
+    await step(pg, 40)
+    await pg.evaluate("()=>window.__b3QA.fireAt('player')")
+    await step(pg, 14)
+    info = await pg.evaluate("()=>window.__b3QA.bulletsInfo()")
+    ps = [(q["x"], q["h"], q["z"]) for q in info if q["kind"] == "shot" and q["src"] == "p"]
+    offs = sorted((round(q[2] - ps[0][2]), round(q[1] - ps[0][1])) for q in ps) if ps else []
+    a = abs(offs[0][0]) if offs else 0
+    dice = len(ps) == 5 and a > 5 and all(abs(abs(x) - a) <= 1.5 and abs(abs(y) - a) <= 1.5 for x, y in offs if (x, y) != (0, 0)) and (0, 0) in offs
+    await shot(pg, "31_spread_dice_five.jpg".replace(".jpg", ".png"))
+    check("shot_dice", "スプレッド砲：横一列ではなくサイコロの5（中央＋四隅）", dice, {"pellet_offsets_right_up": offs})
+    await b.close()
+    # Shared save with the 2D release: a 2D-only unlock (ricochet) must survive a 3D save.
+    init = "if(!sessionStorage.getItem('seeded')){localStorage.setItem('roboSalvageMetaV1',JSON.stringify({points:5,runs:1,earned:5,starter:'bounce',unlockedWeapons:['pulse','bounce','rail'],upgrades:{hull:1,power:0,drive:0,recovery:0}}));sessionStorage.setItem('seeded','1')}"
+    b, pg, errs = await open_page(p, url, init=init)
+    await pg.click("#titleEnter"); await pg.click("#startBtn"); await pg.wait_for_timeout(150)
+    await pg.evaluate("()=>window.__roboQATest.selectNode('fight')"); await pg.wait_for_timeout(150); await pg.click("#phaseContinue"); await step(pg, 10)
+    await pg.evaluate("()=>window.__b3QA.finish('lose')"); await step(pg, 140); await pg.wait_for_timeout(150)
+    stored = await pg.evaluate("()=>JSON.parse(localStorage.getItem('roboSalvageMetaV1'))")
+    ok = stored["points"] > 5 and "bounce" in stored["unlockedWeapons"] and "rail" in stored["unlockedWeapons"] and stored["starter"] == "bounce" and stored["upgrades"]["hull"] == 1
+    check("shared_save", "2D版と共有のセーブ：3D側で保存しても2D側のリコシェット解放・初期武器が残る", ok, stored)
     await b.close()
 
 
@@ -184,14 +223,13 @@ async def ai_fields(p, url):
         await pg.evaluate(f"()=>window.__b3QA.biome({bi})")
         await step(pg, 10)
         n = vis = close = los = still = 0; lat = []; modes = collections.Counter(); prev = None; dist = []
+        # The pilot only strafes (never chases), so closeness measures the AI, not the player.
         keys = ["KeyA", "KeyD"]
         for i in range(40):
             if i % 6 == 0:
-                for k in keys + ["KeyW"]:
+                for k in keys:
                     await pg.keyboard.up(k)
                 await pg.keyboard.down(keys[(i // 6) % 2])
-                if i % 18 == 0:
-                    await pg.keyboard.down("KeyW")
             s = await step(pg, 30)
             if s["state"] != "fight":
                 break
@@ -202,7 +240,7 @@ async def ai_fields(p, url):
                 mx, mz = E["x"] - prev[0], E["z"] - prev[1]; ux, uz = (E["x"] - P["x"]) / d, (E["z"] - P["z"]) / d
                 lat.append(abs(-uz * mx + ux * mz)); still += math.hypot(mx, mz) < 10
             prev = (E["x"], E["z"])
-        for k in keys + ["KeyW"]:
+        for k in keys:
             await pg.keyboard.up(k)
         await shot(pg, f"2{bi}_field_{name}.png")
         dist.sort()
@@ -211,7 +249,7 @@ async def ai_fields(p, url):
              "lateral_per_0.5s": round(sum(lat) / max(len(lat), 1)), "still_ratio": round(still / max(len(lat), 1), 3), "modes": dict(modes),
              "obstacles": s["obstacles"], "enemy_shots": s["stats"]["shotsE"], "enemy_hits": s["stats"]["hitsE"], "blocked_by_cover": s["stats"]["blocked"]}
         summary[name] = m
-        check(f"ai_{name}", f"敵AI（{name}）：張り付かず横移動し、両機が画面内", m["hug_lt180"] < .1 and m["both_on_screen"] > .85 and m["lateral_per_0.5s"] > 20 and m["still_ratio"] < .3 and len(m["modes"]) >= 2, m)
+        check(f"ai_{name}", f"敵AI（{name}）：自機が追わない時に張り付かず、横移動し、両機が画面内", m["hug_lt180"] < .1 and m["both_on_screen"] > .85 and m["lateral_per_0.5s"] > 20 and m["still_ratio"] < .3 and len(m["modes"]) >= 2, m)
     check("no_errors_ai", "AIテスト中のJS例外なし", not errs, errs)
     await b.close()
     return summary
@@ -230,11 +268,11 @@ async def weapons(p, url):
         await shot(pg, f"3x_weapon_{w}.png")
         z = await step(pg, 70)
         hits[w] = z["stats"]["hitsP"] - a["stats"]["hitsP"]
-    check("weapons", "8武器すべてが3D弾として発射・命中", all(v > 0 for v in hits.values()), hits)
+    check("weapons", "7武器すべてが3D弾として発射・命中", all(v > 0 for v in hits.values()), hits)
     try:
         from PIL import Image
         tiles = [Image.open(SHOTS / f"3x_weapon_{w}.png").crop((330, 150, 630, 420)) for w in WEAPONS]
-        sheet = Image.new("RGB", (1200, 540))
+        sheet = Image.new("RGB", (1200, 540), "#000")
         for i, t in enumerate(tiles):
             sheet.paste(t, ((i % 4) * 300, (i // 4) * 270))
         sheet.save(SHOTS / "30_weapons_sheet.png")
@@ -360,7 +398,7 @@ async def main():
     t0 = time.time(); ai = None
     only = set(sys.argv[1:])
     async with async_playwright() as p:
-        for name, fn in (("controls", controls), ("firing", firing), ("ai", ai_fields), ("weapons", weapons), ("finisher", finisher), ("boss", boss), ("mobile", mobile), ("fallback", fallback)):
+        for name, fn in (("roster", roster), ("controls", controls), ("firing", firing), ("ai", ai_fields), ("weapons", weapons), ("finisher", finisher), ("boss", boss), ("mobile", mobile), ("fallback", fallback)):
             if only and name not in only:
                 continue
             r = await fn(p, url)
@@ -375,7 +413,7 @@ async def main():
     except ImportError:
         pass
     ok = all(r["ok"] for r in results)
-    report = {"game": "patrol-robo-salvage", "version": "0.6.0", "passed": ok, "checks": results, "ai_fields": ai,
+    report = {"game": "patrol-robo-salvage", "version": "0.6.1", "passed": ok, "checks": results, "ai_fields": ai,
               "environment": "Headless Chrome + SwiftShader (software WebGL2). Real-GPU frame rate and real phones are NOT covered.",
               "seconds": round(time.time() - t0)}
     (OUT / "results.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

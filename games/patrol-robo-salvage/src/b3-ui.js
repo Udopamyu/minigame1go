@@ -22,7 +22,6 @@ function b3EmitProjectile(b){
  if(k==='shot'){b3EmitBox(G3.dyn,p,dir,null,3.6,3.6,7,c,1);ribbon(3.6,.7);G3.ptAdd.push8(p[0],p[1],p[2],c[0],c[1],c[2],.7,11);return;}
  if(k==='micro'){b3EmitBox(G3.dyn,p,dir,null,1.4,1.4,28,c,1);ribbon(2.2,.8);G3.ptAdd.push8(p[0],p[1],p[2],c[0],c[1],c[2],.6,8);return;}
  if(k==='slug'){b3EmitBox(G3.dyn,p,dir,null,11,11,22,c,.8);b3EmitBox(G3.dyn,v3.sub(p,v3.mul(v3.norm(dir),10)),dir,null,6,6,6,[1,.95,.8],1);ribbon(16,.55);G3.ptAdd.push8(p[0],p[1],p[2],c[0],c[1],c[2],.9,44);return;}
- if(k==='bounce'){const s=7;b3EmitBox(G3.dyn,p,[Math.cos(clock*30),0,Math.sin(clock*30)],null,s*1.6,2.4,s*1.6,c,1);ribbon(4,.6);G3.ptAdd.push8(p[0],p[1],p[2],c[0],c[1],c[2],.9,20);return;}
  if(k==='burst'){b3EmitBox(G3.dyn,p,dir,null,2.8,2.8,18,c,1);ribbon(3.8,.8,[1,.6,.3]);G3.ptAdd.push8(p[0],p[1],p[2],1,.6,.3,.7,12);return;}
  if(k==='boss'){G3.ptAdd.push8(p[0],p[1],p[2],c[0],c[1],c[2],1,30);G3.ptAdd.push8(p[0],p[1],p[2],1,1,1,1,10);ribbon(8,.5);return;}
  // pulse
@@ -48,6 +47,11 @@ function b3EmitWorldFx(){
 }
 function b3EmitActors(){
  const draw=o=>{if(!o||o.dead||o.h==null)return;const m=b3BuildMech(o.load,o.enemy),pose=b3Pose(o);b3EmitMech(G3.dyn,m,pose);
+  const sp=Math.hypot(o.v3[0],o.v3[2]),boost=(o.dashT>0?1:0)+(o.v3[1]>40?.5:0),fc=m.flame;
+  for(const em of m.emit){if(!em.engine)continue;const p=b3MechWorldPoint(m,pose,em.p),d=b3MechWorldDir(pose,em.d);
+   const L=(9+Math.sin(clock*24+em.p[0])*1.3+sp*.03+boost*28)*pose.scale,w=5.2*pose.scale,tip=v3.add(p,v3.mul(d,L)),mid=v3.add(p,v3.mul(d,L*.55));
+   b3Ribbon(G3.unAdd,p,mid,w,w*.7,[fc[0],fc[1],fc[2],.85],[fc[0],fc[1],fc[2],.45]);b3Ribbon(G3.unAdd,mid,tip,w*.7,0,[fc[0],fc[1],fc[2],.45],[fc[0],fc[1],fc[2],0]);
+   b3Ribbon(G3.unAdd,p,v3.add(p,v3.mul(d,L*.5)),w*.42,0,[.95,1,.9,.9],[.95,1,.9,0]);G3.ptAdd.push8(p[0],p[1],p[2],fc[0],fc[1],fc[2],.9,13*pose.scale);}
   const g=b3Ground(o.x,o.y),alt=o.h-g,a=.5*(1-clamp(alt/360,0,.85));b3Disc(G3.unA,o.x,o.y,26*(1-clamp(alt/400,0,.45))*pose.scale,[0,0,0],a);
   if(W3.water&&g<W3.water.y){b3Disc(G3.unAdd,o.x,o.y,30,[.6,.9,1],.12*(1-clamp(alt/200,0,1)),W3.water.y-g+.5);}};
  draw(player);draw(enemy);
@@ -346,6 +350,7 @@ if(navigator.webdriver)window.__b3QA={
  setCam:(yaw,pitch)=>{BS.camYaw=yaw;if(pitch!=null)BS.camPitch=pitch;BS.camEye=null;},
  setTune:(k,v)=>{B3.tune[k]=v;return B3.tune[k];},
  tune:()=>({...B3.tune}),
+ defaults:()=>({...B3_DEFAULT}),
  lab:()=>{b3StartLab();return state;},
  biome:i=>{B3.tune.biome=i;b3StartLab();return W3.biome.id;},
  finish:(kind='win')=>{if(state!=='fight')return false;damage(kind==='win'?enemy:player,99999);return state;},

@@ -9,35 +9,36 @@
 //   b3-game.js   : input → movement physics → enemy AI → camera → shooting →
 //                  projectiles → finisher → integration with the core game
 // ============================================================================
-const B3_VERSION='0.6.0';
+const B3_VERSION='0.6.1';
 // The core 2D combat loop (kept as the no-WebGL2 fallback) still checks these.
 let flightMode=false;const flightBulletStep=()=>{},flightHits=()=>false;
-const B3_TUNE_KEY='patrolSalvageHoverTuneV06';
-// Tuning defaults. Every value is live-editable from the tuning panel (T / ⚙).
+const B3_TUNE_KEY='patrolSalvageHoverTuneV061';
+// Tuning defaults = the values the user defined on 2026-11-18 (hover-lab JSON).
+// Every value is live-editable from the tuning panel (T / ⚙).
 const B3_DEFAULT=Object.freeze({
- moveSpeed:1.15,moveResponse:9,stopResponse:14,verticalSpeed:230,climbDeadzone:.14,dashPower:1,
- lookSpeed:2.1,lookPitchSpeed:1.5,mouseSensitivity:1,invertY:false,
- camDistance:215,playerScreenY:.70,fovNear:64,fovFar:44,followSpeed:9,
- enemyTracking:true,trackSpeed:5.5,trackBox:.16,manualReturn:.45,modelScale:1,
- autoFire:true,aimTolerance:.065,renderScale:1,autoQuality:true,
+ moveSpeed:1.5,moveResponse:9,stopResponse:21,verticalSpeed:230,climbDeadzone:.14,dashPower:1.5,
+ lookSpeed:1.75,lookPitchSpeed:1.5,mouseSensitivity:1.5,invertY:false,
+ camDistance:235,playerScreenY:.7,fovNear:68,fovFar:44,followSpeed:2,
+ enemyTracking:true,trackSpeed:14,trackBox:.35,manualReturn:.9,modelScale:1,
+ autoFire:true,aimTolerance:.035,renderScale:1.5,autoQuality:false,
  weapon:'pulse',biome:0
 });
 const B3_FIELDS=[
  ['移動',[
-  ['moveSpeed','移動速度の倍率',.5,2,.05,'×'],['moveResponse','加速の応答',2,20,.5,''],
-  ['stopResponse','手を離した時の停止の速さ',3,30,.5,''],['verticalSpeed','上昇・下降の速さ',80,420,10,''],
-  ['climbDeadzone','視線で上昇する角度のあそび',0,.4,.01,'rad'],['dashPower','ダッシュの強さ',.5,1.8,.05,'×']]],
+  ['moveSpeed','移動速度の倍率',.5,3,.05,'×'],['moveResponse','加速の応答',1,30,.5,''],
+  ['stopResponse','手を離した時の停止の速さ',1,40,.5,''],['verticalSpeed','上昇・下降の速さ',60,450,5,''],
+  ['climbDeadzone','視線で上昇する角度のあそび',0,.4,.01,'rad'],['dashPower','ダッシュの強さ',.5,2.5,.05,'×']]],
  ['カメラ',[
-  ['camDistance','自機からカメラまでの距離',100,380,5,''],['playerScreenY','自機の画面上の高さ（下ほど大）',.55,.84,.01,''],
-  ['fovNear','視野角（敵が近い時）',40,90,1,'°'],['fovFar','視野角（敵が遠い時）',26,80,1,'°'],
-  ['followSpeed','カメラ追従の速さ',2,30,.5,''],['enemyTracking','敵を自動で追うカメラ','bool'],
-  ['trackSpeed','敵へ向き直る速さ',1,14,.5,''],['trackBox','追従のあそび（画面比）',0,.35,.01,''],
+  ['camDistance','自機からカメラまでの距離',100,500,5,''],['playerScreenY','自機の画面上の高さ（下ほど大）',.54,.84,.01,''],
+  ['fovNear','視野角（敵が近い時）',35,110,1,'°'],['fovFar','視野角（敵が遠い時）',26,105,1,'°'],
+  ['followSpeed','カメラ追従の速さ',.5,25,.5,''],['enemyTracking','敵を自動で追うカメラ','bool'],
+  ['trackSpeed','敵へ向き直る速さ',1,30,.5,''],['trackBox','追従のあそび（画面比）',0,.5,.01,''],
   ['manualReturn','右スティックを離してから戻るまで',0,2,.05,'秒'],
-  ['lookSpeed','右スティック左右',.5,4,.05,'×'],['lookPitchSpeed','右スティック上下',.3,3,.05,'×'],
-  ['mouseSensitivity','マウス感度',.2,3,.05,'×'],['invertY','上下操作の反転','bool'],['modelScale','機体の表示倍率',.6,1.5,.05,'×']]],
+  ['lookSpeed','右スティック左右',.25,4,.05,'×'],['lookPitchSpeed','右スティック上下',.25,3,.05,'×'],
+  ['mouseSensitivity','マウス感度',.25,3,.05,'×'],['invertY','上下操作の反転','bool'],['modelScale','機体の表示倍率',.5,1.5,.025,'×']]],
  ['射撃・表示',[
-  ['autoFire','自動射撃','bool'],['aimTolerance','中央照準の判定半径（画面比）',.02,.15,.005,''],
-  ['renderScale','3D描画の解像度',.4,1.5,.05,'×'],['autoQuality','重い時に自動で解像度を下げる','bool'],
+  ['autoFire','自動射撃','bool'],['aimTolerance','中央照準の判定半径（画面比）',.015,.12,.001,''],
+  ['renderScale','3D描画の解像度（画面の何倍か）',.5,2,.05,'×'],['autoQuality','重い時に自動で解像度を下げる','bool'],
   ['weapon','試験用の武器','weapon'],['biome','試験用のフィールド','biome']]]
 ];
 const B3={tune:{...B3_DEFAULT}};
@@ -62,24 +63,20 @@ const b3Hex=s=>{const h=(s||'#888888').replace('#','');return [0,2,4].map(i=>par
 
 // --------------------------------------------------------------- biomes ---
 // Each field changes the terrain topology and the cover, not just the palette.
+const B3_SUN=[.48,.42,1];
 const B3_BIOMES=[
- {id:'waste',name:'荒野',sky:['#2a2238','#8c5a62','#e2a57c'],fog:'#c9917a',fogDensity:.00030,sun:[-.55,.5,.66],sunColor:'#ffd2a1',
-  ground:['#7a5a45','#a27a58','#c79a6d'],rock:'#6b4c43',accent:'#e6b07e',ambient:['#b9a0a8','#5a3f36']},
- {id:'desert',name:'砂原',sky:['#2c4a74','#d79a6c','#f6d6a4'],fog:'#efcf9f',fogDensity:.00026,sun:[.5,.62,-.6],sunColor:'#fff0c8',
-  ground:['#b58552','#d6aa6c','#ecc98c'],rock:'#8d6247',accent:'#f8dfaa',ambient:['#c8c0b6','#7b5a3c']},
- {id:'snow',name:'雪山',sky:['#10284a','#477fa5','#b9dbe5'],fog:'#c4dce4',fogDensity:.00032,sun:[-.4,.42,.8],sunColor:'#fff6e8',
-  ground:['#8fa8b6','#c8d9df','#f1f6f6'],rock:'#57677a',accent:'#ffffff',ambient:['#b9d2e6','#55697a']},
- {id:'mountain',name:'山岳',sky:['#15304d','#5f8c96','#d0c8a6'],fog:'#a7b5a6',fogDensity:.00030,sun:[.62,.55,.55],sunColor:'#fff0d0',
-  ground:['#465e4f','#6b8466','#93a882'],rock:'#5d5a52',accent:'#c8d8ad',ambient:['#a8bfc2','#3e4a3a']},
- {id:'city',name:'市街地',sky:['#141a33','#6a4f73','#ee9c80'],fog:'#9a7286',fogDensity:.00034,sun:[-.6,.32,-.7],sunColor:'#ffc39a',
-  ground:['#3f4450','#545b68','#6d7480'],rock:'#4b5260',accent:'#8de9f6',ambient:['#9a8fb0','#2e3240']},
- {id:'river',name:'川',sky:['#1b3b58','#72a3a0','#e3d49a'],fog:'#b4c4a8',fogDensity:.00028,sun:[.45,.58,.68],sunColor:'#fff2cc',
-  ground:['#3d6a55','#5c8a6c','#8fae84'],rock:'#5e6458',accent:'#83dbe9',ambient:['#aac8c4','#3a4a3c']},
- {id:'arena',name:'スタジアム',sky:['#060f22','#16304a','#4e7c8c'],fog:'#28485c',fogDensity:.00030,sun:[.2,.8,.3],sunColor:'#d8f4ff',
-  ground:['#1d3346','#2a4a60','#3b627a'],rock:'#2a3d52',accent:'#64e3f0',ambient:['#5c87a8','#0f1c28']},
- {id:'night',name:'夜間',sky:['#030916','#0d1d40','#1e3462'],fog:'#14243f',fogDensity:.00042,sun:[.3,.45,-.84],sunColor:'#9fb8ff',
-  ground:['#1b2c3e','#26384a','#33475a'],rock:'#1d2a3a',accent:'#ffcf8a',ambient:['#4d6488','#0b1220']}
+ {id:'waste',name:'赤錆の荒野',sky:['#26394b','#b77b72','#ffcd99'],ground:['#906655','#ba8266','#dea17a'],rock:'#955c50',accent:'#e8aa78',sunColor:'#fff1c3',fogDensity:.00026},
+ {id:'desert',name:'砂海の観測所',sky:['#44647d','#c9b59f','#ffdf9e'],ground:['#b18755','#d5a665','#efd194'],rock:'#aa714e',accent:'#f6cc89',sunColor:'#fff6ca',fogDensity:.00024},
+ {id:'snow',name:'白嶺の峡谷',sky:['#254369','#75a9c5','#dcebe9'],ground:['#6e8fa3','#aec9d0','#eff4e8'],rock:'#849aa8',accent:'#e6f1ea',sunColor:'#fff8d8',fogDensity:.00026},
+ {id:'mountain',name:'風切の尾根',sky:['#294754','#7a9892','#e1c9a0'],ground:['#536956','#829073','#abb08c'],rock:'#666d61',accent:'#b9b49c',sunColor:'#fff0b4',fogDensity:.00026},
+ {id:'city',name:'高架都市',sky:['#343349','#966f83','#efa98e'],ground:['#454c58','#5d6370','#75767a'],rock:'#566371',accent:'#98d7dd',sunColor:'#ffdfb3',fogDensity:.00028},
+ {id:'river',name:'碧流の水門',sky:['#345766','#8bbbb6','#efe0b7'],ground:['#507e77','#85a895','#b2bc96'],rock:'#687d75',accent:'#aed6cd',sunColor:'#fff4ce',fogDensity:.00025},
+ {id:'arena',name:'環状競技場',sky:['#17263b','#364a65','#a2adb2'],ground:['#384b55','#495c63','#64757a'],rock:'#4b5d6c',accent:'#f5bc70',sunColor:'#ece6db',fogDensity:.00026},
+ {id:'night',name:'夜間精錬区',sky:['#0c1429','#263044','#745463'],ground:['#273441','#394852','#55616a'],rock:'#354453',accent:'#ff9e5b',sunColor:'#e5eddc',fogDensity:.00032}
 ];
+const b3HexOf=c=>'#'+c.map(v=>Math.round(clamp(v,0,1)*255).toString(16).padStart(2,'0')).join('');
+const b3ShadeHex=(h,k)=>b3HexOf(b3Hex(h).map(v=>v*k));
+const b3MixHex=(a,b,t)=>{const A=b3Hex(a),B=b3Hex(b);return b3HexOf(A.map((v,i)=>v+(B[i]-v)*t));};
 
 // ---------------------------------------------------------------- world ---
 // W3 is rebuilt at the start of every battle. Rendering and collision both
@@ -160,27 +157,27 @@ function b3Generate(fieldIndex,seed){
  const s=n+1,H=new Float32Array(s*s);
  for(let i=0;i<=n;i++)for(let j=0;j<=n;j++)H[i*s+j]=b3RawHeight(bi,-e+i*c,-e+j*c,seed%1000);
  W3.hgt=H;
- const obs=W3.obs,R=W3.radius,g=(x,z)=>b3Ground(x,z);
+ const obs=W3.obs,g=(x,z)=>b3Ground(x,z),R=bi.rock,T=bi.accent,RAD=W3.radius;
  const clearOf=(x,z,r)=>Math.hypot(x-W3.spawnP.x,z-W3.spawnP.z)>r+110&&Math.hypot(x-W3.spawnE.x,z-W3.spawnE.z)>r+110;
- const freeSpot=(x,z,r)=>clearOf(x,z,r)&&Math.hypot(x,z)<R-r-60&&!obs.some(o=>Math.hypot(o.x-x,o.z-z)<o.br+r+38);
- const scatter=(count,maker,minR=0,maxR=R-80,tries=40)=>{for(let k=0;k<count;k++)for(let t=0;t<tries;t++){
+ const freeSpot=(x,z,r)=>clearOf(x,z,r)&&Math.hypot(x,z)<RAD-r-60&&!obs.some(o=>Math.hypot(o.x-x,o.z-z)<o.br+r+38);
+ const scatter=(count,maker,minR=0,maxR=RAD-80,tries=40)=>{for(let k=0;k<count;k++)for(let t=0;t<tries;t++){
   const a=rnd()*Math.PI*2,rr=minR+(maxR-minR)*Math.sqrt(rnd()),x=Math.cos(a)*rr,z=Math.sin(a)*rr;const o=maker(x,z);
   if(o&&freeSpot(x,z,o.br)){obs.push(o);if(o.extra)for(const q of o.extra)obs.push(q);delete o.extra;break;}}};
  switch(bi.id){
   case 'waste':
-   scatter(9,(x,z)=>{const r=70+rnd()*80,h=110+rnd()*150,b=g(x,z)-20;return b3Cyl(x,z,r,r*.78,b,b+h,'#9a6a4e',{mat:'mesa',sides:9,band:'#7a4c3b'})},180);
-   scatter(16,(x,z)=>{const r=18+rnd()*26,b=g(x,z)-8;return b3Cyl(x,z,r,r*.55,b,b+r*1.5+10,'#8a6553',{mat:'rock',sides:7})},120);
+   scatter(9,(x,z)=>{const r=70+rnd()*80,h=110+rnd()*150,b=g(x,z)-20;return b3Cyl(x,z,r,r*.78,b,b+h,R,{mat:'mesa',sides:9,band:b3MixHex(R,T,.35),cap:b3MixHex(R,T,.55)})},180);
+   scatter(16,(x,z)=>{const r=18+rnd()*26,b=g(x,z)-8;return b3Cyl(x,z,r,r*.55,b,b+r*1.5+10,b3ShadeHex(R,.85),{mat:'rock',sides:7})},120);
    break;
   case 'desert':
-   scatter(7,(x,z)=>{const r=34+rnd()*30,h=150+rnd()*170,b=g(x,z)-25;return b3Cyl(x,z,r,r*.35,b,b+h,'#a8775a',{mat:'spire',sides:7,band:'#8d5e45'})},160);
-   scatter(6,(x,z)=>{const L=150+rnd()*170,yaw=rnd()*Math.PI,b=g(x,z)-10;return b3Box(x,z,L,22,b,b+70+rnd()*40,yaw,'#b49270',{mat:'ruin'})},150);
+   scatter(7,(x,z)=>{const r=34+rnd()*30,h=150+rnd()*170,b=g(x,z)-25;return b3Cyl(x,z,r,r*.35,b,b+h,R,{mat:'spire',sides:7,band:b3MixHex(R,T,.3)})},160);
+   scatter(6,(x,z)=>{const L=150+rnd()*170,yaw=rnd()*Math.PI,b=g(x,z)-10;return b3Box(x,z,L,22,b,b+70+rnd()*40,yaw,b3MixHex(R,T,.45),{mat:'ruin'})},150);
    break;
   case 'snow':
-   scatter(10,(x,z)=>{if(b3Ground(x,z)>120)return null;const r=22+rnd()*20,h=90+rnd()*130,b=g(x,z)-10;return b3Cyl(x,z,r,r*.25,b,b+h,'#9fd2e8',{mat:'ice',sides:6})},100,1300);
-   scatter(9,(x,z)=>{if(b3Ground(x,z)>110)return null;const r=40+rnd()*40,b=g(x,z)-14;return b3Cyl(x,z,r,r*.6,b,b+r*1.3,'#6d7d8e',{mat:'rock',sides:8,cap:'#eef6f8'})},100,1300);
+   scatter(10,(x,z)=>{if(b3Ground(x,z)>120)return null;const r=22+rnd()*20,h=90+rnd()*130,b=g(x,z)-10;return b3Cyl(x,z,r,r*.25,b,b+h,'#bfe0ea',{mat:'ice',sides:6})},100,1300);
+   scatter(9,(x,z)=>{if(b3Ground(x,z)>110)return null;const r=40+rnd()*40,b=g(x,z)-14;return b3Cyl(x,z,r,r*.6,b,b+r*1.3,b3ShadeHex(R,.9),{mat:'rock',sides:8,cap:'#eef6f8'})},100,1300);
    break;
   case 'mountain':
-   scatter(12,(x,z)=>{const r=45+rnd()*55,h=90+rnd()*120,b=g(x,z)-24;return b3Cyl(x,z,r,r*.45,b,b+h,'#6f6a5e',{mat:'crag',sides:7,cap:'#9fb08d'})},150);
+   scatter(12,(x,z)=>{const r=45+rnd()*55,h=90+rnd()*120,b=g(x,z)-24;return b3Cyl(x,z,r,r*.45,b,b+h,R,{mat:'crag',sides:7,cap:b3MixHex(R,bi.ground[2],.5)})},150);
    break;
   case 'city':{
    // Street grid with tall blocks, a plaza, and an elevated highway that
@@ -188,14 +185,14 @@ function b3Generate(fieldIndex,seed){
    const blk=230;
    for(let ix=-6;ix<=6;ix++)for(let iz=-6;iz<=6;iz++){
     const cx=ix*blk+(rnd()-.5)*30,cz=iz*blk+(rnd()-.5)*30;
-    if(Math.hypot(cx,cz)>R-120||Math.abs(iz*blk-0)<40||!clearOf(cx,cz,95))continue;
+    if(Math.hypot(cx,cz)>RAD-120||Math.abs(iz*blk-0)<40||!clearOf(cx,cz,95))continue;
     if(rnd()<.26)continue;
     const w=90+rnd()*70,d=90+rnd()*70,h=70+Math.pow(rnd(),1.6)*300,b=g(cx,cz)-6;
-    obs.push(b3Box(cx,cz,w,d,b,b+h,0,['#5d6a7c','#6e6a80','#4f6070','#7a7484'][Math.floor(rnd()*4)],{mat:'tower',windows:true}));
+    obs.push(b3Box(cx,cz,w,d,b,b+h,0,[R,b3ShadeHex(R,.85),b3ShadeHex(R,1.15),b3MixHex(R,'#7a7484',.5)][Math.floor(rnd()*4)],{mat:'tower',windows:true}));
    }
    const hz=-300,hy=110;
-   obs.push(b3Box(0,hz,2*R-260,64,hy,hy+16,0,'#6f7786',{mat:'deck'}));
-   for(let x=-R+200;x<=R-200;x+=230)obs.push(b3Box(x,hz,22,22,g(x,hz)-5,hy,0,'#59606e',{mat:'pillar'}));
+   obs.push(b3Box(0,hz,2*W3.radius-260,64,hy,hy+16,0,b3ShadeHex(R,1.2),{mat:'deck'}));
+   for(let x=-W3.radius+200;x<=W3.radius-200;x+=230)obs.push(b3Box(x,hz,22,22,g(x,hz)-5,hy,0,b3ShadeHex(R,.8),{mat:'pillar'}));
    for(let i=W3.obs.length-1;i>=0;i--){const o=W3.obs[i];if(o.mat==='tower'&&Math.abs(o.z-hz)<o.hd+50)W3.obs.splice(i,1);}
    break;}
   case 'river':{
@@ -203,25 +200,25 @@ function b3Generate(fieldIndex,seed){
    W3.water={y:-20,color:'#3f8fa3'};
    for(const bx of [-700,40,760]){const z0=cz(bx),slope=(cz(bx+5)-cz(bx-5))/10,yaw=Math.atan(slope)+Math.PI/2;
     const deck=g(bx,z0+200)+4,dy=deck+46;
-    obs.push(b3Box(bx,z0,420,58,dy,dy+12,yaw,'#8a7f70',{mat:'bridge'}));
-    for(const k of [-1,1])obs.push(b3Box(bx+Math.cos(yaw)*k*110,z0+Math.sin(yaw)*k*110,20,46,-40,dy,yaw,'#6d665c',{mat:'pillar'}));}
-   scatter(14,(x,z)=>{if(Math.abs(z-cz(x))<200)return null;const r=26+rnd()*30,b=g(x,z)-12;return b3Cyl(x,z,r,r*.6,b,b+r*1.6+20,'#6b7466',{mat:'rock',sides:8,cap:'#8aa080'})},120);
-   scatter(8,(x,z)=>{if(Math.abs(z-cz(x))<210)return null;const b=g(x,z)-6;return b3Cyl(x,z,10,4,b,b+150+rnd()*80,'#4d6b4b',{mat:'pylon',sides:6})},200);
+    obs.push(b3Box(bx,z0,420,58,dy,dy+12,yaw,b3ShadeHex(R,1.25),{mat:'bridge'}));
+    for(const k of [-1,1])obs.push(b3Box(bx+Math.cos(yaw)*k*110,z0+Math.sin(yaw)*k*110,20,46,-40,dy,yaw,b3ShadeHex(R,.85),{mat:'pillar'}));}
+   scatter(14,(x,z)=>{if(Math.abs(z-cz(x))<200)return null;const r=26+rnd()*30,b=g(x,z)-12;return b3Cyl(x,z,r,r*.6,b,b+r*1.6+20,R,{mat:'rock',sides:8,cap:b3MixHex(R,bi.ground[2],.4)})},120);
+   scatter(8,(x,z)=>{if(Math.abs(z-cz(x))<210)return null;const b=g(x,z)-6;return b3Cyl(x,z,10,4,b,b+150+rnd()*80,b3ShadeHex(R,.7),{mat:'pylon',sides:6,glow:T})},200);
    break;}
   case 'arena':{
    // Stadium: ring of stands marks the boundary; symmetric cover inside.
-   const ringR=R-60;
+   const ringR=RAD-60;
    for(let i=0;i<40;i++){const a=i/40*Math.PI*2,x=Math.cos(a)*ringR,z=Math.sin(a)*ringR;
-    obs.push(b3Box(x,z,250,80,g(x,z)-10,g(x,z)+120,a+Math.PI/2,'#22384f',{mat:'stand'}));}
+    obs.push(b3Box(x,z,250,80,g(x,z)-10,g(x,z)+120,a+Math.PI/2,R,{mat:'stand',glow:T}));}
    for(let i=0;i<6;i++){const a=i/6*Math.PI*2+Math.PI/6,x=Math.cos(a)*560,z=Math.sin(a)*560;
-    obs.push(b3Cyl(x,z,46,46,g(x,z)-6,g(x,z)+170,'#2e5872',{mat:'column',sides:12,glow:'#64e3f0'}));}
+    obs.push(b3Cyl(x,z,46,46,g(x,z)-6,g(x,z)+170,b3ShadeHex(R,1.15),{mat:'column',sides:12,glow:T}));}
    for(let i=0;i<4;i++){const a=i/4*Math.PI*2,x=Math.cos(a)*900,z=Math.sin(a)*900;
-    obs.push(b3Box(x,z,260,26,g(x,z)-4,g(x,z)+64,a+Math.PI/2,'#355d78',{mat:'barrier',glow:'#64e3f0'}));}
+    obs.push(b3Box(x,z,260,26,g(x,z)-4,g(x,z)+64,a+Math.PI/2,b3ShadeHex(R,1.25),{mat:'barrier',glow:T}));}
    break;}
   case 'night':{
-   scatter(9,(x,z)=>{const w=150+rnd()*120,d=100+rnd()*80,b=g(x,z)-6,h=70+rnd()*60;return b3Box(x,z,w,d,b,b+h,Math.floor(rnd()*4)*Math.PI/2,'#2f3d4f',{mat:'hall',windows:true})},160);
-   scatter(8,(x,z)=>{const r=44+rnd()*24,b=g(x,z)-4;return b3Cyl(x,z,r,r,b,b+90+rnd()*50,'#3c4b5c',{mat:'tank',sides:14,glow:'#ffcf8a'})},140);
-   scatter(6,(x,z)=>{const b=g(x,z)-4;return b3Cyl(x,z,16,12,b,b+260+rnd()*90,'#46505c',{mat:'stack',sides:10,glow:'#ff7f5a'})},140);
+   scatter(9,(x,z)=>{const w=150+rnd()*120,d=100+rnd()*80,b=g(x,z)-6,h=70+rnd()*60;return b3Box(x,z,w,d,b,b+h,Math.floor(rnd()*4)*Math.PI/2,R,{mat:'hall',windows:true})},160);
+   scatter(8,(x,z)=>{const r=44+rnd()*24,b=g(x,z)-4;return b3Cyl(x,z,r,r,b,b+90+rnd()*50,b3ShadeHex(R,1.15),{mat:'tank',sides:14,glow:T})},140);
+   scatter(6,(x,z)=>{const b=g(x,z)-4;return b3Cyl(x,z,16,12,b,b+260+rnd()*90,b3ShadeHex(R,1.3),{mat:'stack',sides:10,glow:T})},140);
    break;}
  }
  // Precompute vertical bounds for quick rejection.

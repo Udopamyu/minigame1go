@@ -49,13 +49,24 @@ const R3={gl:null,ok:false,err:null,canvas:null,progs:{},bufs:{},static:null,fra
  const VS_SKY=`#version 300 es
  in vec2 aPos;out vec2 vUv;void main(){vUv=aPos;gl_Position=vec4(aPos,.9999,1.);}`;
  const FS_SKY=`#version 300 es
- precision highp float;in vec2 vUv;uniform vec3 uF,uR,uU,uTop,uMid,uHor,uSun,uSunCol;uniform float uTan,uAsp,uStars;out vec4 o;
+ precision highp float;in vec2 vUv;uniform vec3 uF,uR,uU,uTop,uMid,uHor,uSun,uSunCol,uRidge;uniform float uTan,uAsp,uStars,uRidgeAmp;out vec4 o;
  float h1(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
- void main(){vec3 rd=normalize(uF+uR*vUv.x*uTan*uAsp+uU*vUv.y*uTan);float y=rd.y;
-  vec3 c=y<.0?mix(uHor,uHor*.82,clamp(-y*4.,0.,1.)):(y<.22?mix(uHor,uMid,smoothstep(0.,.22,y)):mix(uMid,uTop,smoothstep(.22,.85,y)));
-  float s=max(dot(rd,uSun),0.);c+=uSunCol*(smoothstep(.9994,.9997,s)*1.4+pow(s,60.)*.22+pow(s,5.)*.07);
+ void main(){vec3 rd=normalize(uF+uR*vUv.x*uTan*uAsp+uU*vUv.y*uTan);float y=rd.y,az=atan(rd.x,rd.z);
+  // painted dusk gradient: horizon -> mid -> top
+  vec3 c=mix(uHor,uMid,smoothstep(-.02,.30,y));c=mix(c,uTop,smoothstep(.30,.95,y));
   if(uStars>0.&&y>.02){vec2 g=floor(rd.xz/(y+.35)*260.);float st=step(.9965,h1(g));c+=vec3(.75,.85,1.)*st*uStars*(.4+.6*h1(g+7.))*smoothstep(.02,.2,y);}
-  float band=smoothstep(.0,.05,y)*(1.-smoothstep(.05,.18,y));c=mix(c,uHor*1.05,band*.25);
+  // large sun disc with soft glow
+  float s=max(dot(rd,uSun),0.);c+=uSunCol*(pow(s,6.)*.12+pow(s,70.)*.28);c=mix(c,uSunCol,smoothstep(.99855,.99885,s)*(uStars>0.?.75:1.));
+  // thin cloud streaks anchored to bearings
+  for(int k=0;k<3;k++){float kk=float(k),seg=floor(az*3.2+kk*7.);float on=step(.45,h1(vec2(seg,kk)));
+   float e=.06+.11*h1(vec2(seg,kk+3.))+.012*sin(az*9.+kk),w=.0035+.004*h1(vec2(seg,kk+5.));
+   float band=exp(-pow((y-e)/w,2.))*on*smoothstep(.0,.25,fract(az*3.2+kk*7.))*(1.-smoothstep(.7,1.,fract(az*3.2+kk*7.)));
+   c=mix(c,mix(uSunCol,vec3(1.),.4),band*(uStars>0.?.12:.32));}
+  // three layers of distant ridges (light to dark)
+  for(int k=0;k<3;k++){float kk=float(k);
+   float ridge=abs(sin(5.*az+kk*4.8)*.48+cos(13.*az-kk*4.8)*.24+sin(31.*az+kk*4.8)*.14+cos(57.*az-kk*4.8)*.07);
+   float top=((2.-kk)*.019+ridge*uRidgeAmp+.02)*1.25;
+   if(y<top)c=mix(uHor,uRidge,.13+kk*.13);}
   o=vec4(c,1.);}`;
  const compile=(t,s)=>{const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(sh));return sh;};
  const prog=(v,f,attrs,unis)=>{const p=gl.createProgram();gl.attachShader(p,compile(gl.VERTEX_SHADER,v));gl.attachShader(p,compile(gl.FRAGMENT_SHADER,f));
@@ -65,7 +76,7 @@ const R3={gl:null,ok:false,err:null,canvas:null,progs:{},bufs:{},static:null,fra
   R3.progs.lit=prog(VS_LIT,FS_LIT,['aPos','aNrm','aCol'],['uVP','uSun','uSunCol','uSkyAmb','uGndAmb','uFog','uEye','uFogDen','uDetail','uAlpha']);
   R3.progs.un=prog(VS_UN,FS_UN,['aPos','aCol'],['uVP','uFog','uEye','uFogDen','uAdd']);
   R3.progs.pt=prog(VS_PT,FS_PT,['aPos','aCol','aSize'],['uVP','uScale','uMax','uAdd']);
-  R3.progs.sky=prog(VS_SKY,FS_SKY,['aPos'],['uF','uR','uU','uTop','uMid','uHor','uSun','uSunCol','uTan','uAsp','uStars']);
+  R3.progs.sky=prog(VS_SKY,FS_SKY,['aPos'],['uF','uR','uU','uTop','uMid','uHor','uSun','uSunCol','uTan','uAsp','uStars','uRidge','uRidgeAmp']);
   const range=gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);R3.pointMax=Math.min(96,range?range[1]:64);
   const mk=(layout)=>{const vao=gl.createVertexArray(),buf=gl.createBuffer();gl.bindVertexArray(vao);gl.bindBuffer(gl.ARRAY_BUFFER,buf);
    let stride=layout.reduce((a,b)=>a+b,0)*4,off=0;layout.forEach((n,i)=>{gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,n,gl.FLOAT,false,stride,off);off+=n*4;});
@@ -166,13 +177,13 @@ function b3EmitObstacle(O,o){
   b3QuadOut(O,t[0],t[1],t[2],t[3],top,center);
   for(let k=0;k<4;k++){const k2=(k+1)%4;b3QuadOut(O,b[k],b[k2],t[k2],t[k],col,center);}
   // Windows: emissive strips placed 0.4 units outside the face (visually flush).
-  if(o.windows){const wcol=W3.biome.id==='night'?b3Hex('#ffcf8a'):b3Hex('#9fe6f2'),rows=Math.floor((o.y1-o.y0-14)/22);
+  if(o.windows){const wcol=W3.biome.id==='night'?b3Hex('#e7a466'):b3Hex('#a8b9ba'),rows=Math.floor((o.y1-o.y0-14)/22);
    for(let face=0;face<4;face++){const alongX=face%2===0,half=alongX?o.hw:o.hd,depth=(alongX?o.hd:o.hw)+.6,sign=face<2?1:-1;
     const cols=Math.max(1,Math.floor(half*2/26));
     for(let r=0;r<rows;r++){const y=o.y0+14+r*22;if(b3Hash(r,face,o.x|0)<.28)continue;
      for(let q=0;q<cols;q++){if(b3Hash(q,r+face*31,o.z|0)<.35)continue;const u=-half+13+q*(half*2-12)/cols;
       const P=(du,dy)=>alongX?pt(u+du,y+dy,sign*depth):pt(sign*depth,y+dy,u+du);
-      b3QuadOut(O,P(-7,0),P(7,0),P(7,9),P(-7,9),wcol,center,W3.biome.id==='night'?.9:.35);}}}}
+      b3QuadOut(O,P(-7,0),P(7,0),P(7,9),P(-7,9),wcol,center,W3.biome.id==='night'?.85:.2);}}}}
   if(o.glow){const gc=b3Hex(o.glow),y=o.y1-6;const P=(lx,lz,dy)=>pt(lx,y+dy,lz);
    for(const s of [-1,1]){b3QuadOut(O,P(-o.hw,s*(o.hd+.6),0),P(o.hw,s*(o.hd+.6),0),P(o.hw,s*(o.hd+.6),3),P(-o.hw,s*(o.hd+.6),3),gc,center,1);}}
   if(o.mat==='deck'||o.mat==='bridge'){const lc=b3Hex(W3.biome.accent);for(const s of [-1,1]){const P=(lx,dy)=>pt(lx,o.y1+dy,s*(o.hd-3));b3QuadOut(O,P(-o.hw,0),P(o.hw,0),P(o.hw,6),P(-o.hw,6),b3Shade(lc,.8),center,.3);}}
@@ -193,108 +204,104 @@ function b3EmitObstacle(O,o){
 }
 
 // ------------------------------------------------------------ mechs -----
-// Local frame: +x right, +y up, +z forward. Model ~46 units tall.
+// Airframe design follows the PATROL reference build (PATROL_Robo_Salvage v1.1):
+// faceted hull with canopy, swept wings, twin rear engines, short legs and a
+// pair of side cannons. Local frame: +x right, +y up, +z forward.
 const B3_MODELS=new Map();
-function b3MechPalette(enemyTint){
- return enemyTint?{main:'#7c4a54',light:'#d99c94',dark:'#2c1a20',trim:'#efc2b6',glow:'#ffab6e',visor:'#ff7a68'}
-  :{main:'#3f6f88',light:'#a8d8e2',dark:'#1a2834',trim:'#d6f4f6',glow:'#7ff3ff',visor:'#8cf9ff'};
-}
+const B3_MECH_PAL={
+ P:{light:'#dfddd0',mid:'#8a9da0',dark:'#242e36',metal:'#657780',trim:'#f28b48',glow:'#84e8da',visor:'#264753',visor2:'#50848c',canopy:'#b1dfd4',flame:[.45,.92,.88]},
+ E:{light:'#dd8068',mid:'#a94845',dark:'#242e36',metal:'#657780',trim:'#ffd087',glow:'#ffaf74',visor:'#2c2b36',visor2:'#7a5054',canopy:'#ffd9c2',flame:[1,.62,.36]}
+};
+const B3_CORE_GLOW={power:'#ffc379',speed:'#76d4fa',tactical:'#d5b7e4'};
 function b3BuildMech(load,isEnemy){
  const key=Object.values(load).map(p=>p.id).join('|')+(isEnemy?'|E':'|P');
  if(B3_MODELS.has(key))return B3_MODELS.get(key);
- const pal=b3MechPalette(isEnemy),C=k=>b3Hex(pal[k]);
- const tint=hex=>{const c=b3Hex(hex);return isEnemy?[c[0]*.75+.25,c[1]*.55,c[2]*.5]:c;};
- const ids={weapon:load.weapon.id,armor:load.armor.id,legs:load.legs.id,core:load.core.id};
- const cols={armor:tint(find(load.armor).color),legs:tint(find(load.legs).color),core:tint(find(load.core).color),weapon:tint(find(load.weapon).color)};
- const tris=[];const emit=[];let part='body';
- // Rotations: rx (pitch about x), ry (yaw), rz (roll).
- const rot=(p,r)=>{let [x,y,z]=p;if(r[2]){const c=Math.cos(r[2]),s=Math.sin(r[2]);[x,y]=[x*c-y*s,x*s+y*c];}
-  if(r[0]){const c=Math.cos(r[0]),s=Math.sin(r[0]);[y,z]=[y*c-z*s,y*s+z*c];}
-  if(r[1]){const c=Math.cos(r[1]),s=Math.sin(r[1]);[x,z]=[x*c+z*s,-x*s+z*c];}return [x,y,z];};
- // Tapered box: top face scaled (tx,tz) and shifted (ox,oz) for slanted panels.
- const box=(cx,cy,cz,sx,sy,sz,col,o={})=>{const tx=o.tx??1,tz=o.tz??1,ox=o.ox||0,oz=o.oz||0,r=o.r||[0,0,0],e=o.e||0,fz=o.fz??1;
-  const v=[];for(const [yy,kx,kz,dx,dz] of [[-sy/2,1,fz,0,0],[sy/2,tx,tz*fz,ox,oz]])for(const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]])
-   v.push(rot([a*sx/2*kx+dx,yy,(b>0?sz/2*kz:-sz/2*(yy<0?1:tz))+dz],r).map((q,i)=>q+[cx,cy,cz][i]));
-  const ctr=[cx,cy,cz],faces=[[4,5,6,7,1.12],[0,3,2,1,.55],[0,1,5,4,.78],[2,3,7,6,.98],[1,2,6,5,.86],[3,0,4,7,.86]];
-  for(const [a,b,c,d,k] of faces)tris.push({q:[v[a],v[b],v[c],v[d]],col:b3Shade(col,k),ctr,part,e});};
- const cyl=(cx,cy,cz,r0,r1,len,col,o={})=>{const N=o.n||8,r=o.r||[0,0,0],e=o.e||0,ctr=[cx,cy,cz];
-  const P=(t,rad,z)=>rot([Math.cos(t)*rad,Math.sin(t)*rad,z],r).map((q,i)=>q+ctr[i]);
-  for(let k=0;k<N;k++){const a=k/N*Math.PI*2,b=(k+1)/N*Math.PI*2;
-   tris.push({q:[P(a,r0,-len/2),P(b,r0,-len/2),P(b,r1,len/2),P(a,r1,len/2)],col:b3Shade(col,.75+.35*Math.max(0,Math.sin(a+.6))),ctr,part,e});}
-  if(o.cap!==false){const capc=o.capCol||b3Shade(col,.6),ce=o.capE||0;for(let k=0;k<N;k++){const a=k/N*Math.PI*2,b=(k+1)/N*Math.PI*2;
-   tris.push({t:[P(a,r1,len/2),P(b,r1,len/2),rot([0,0,len/2],r).map((q,i)=>q+ctr[i])],col:capc,ctr,part,e:ce});}}};
- const main=C('main'),light=C('light'),dark=C('dark'),trim=C('trim'),glow=C('glow');
- // ---- core / torso
- part='body';
- if(ids.core==='power'){box(0,7,0,32,22,22,main,{tx:.9,tz:.85});box(0,9,10,24,14,6,cols.core,{tx:.8});
-  for(const s of [-1,1])box(s*9,19,-7,7,5,9,dark),box(s*9,21.6,-7,6,.6,8,C('glow'),{e:1});}
- else if(ids.core==='speed'){box(0,7,0,22,18,24,main,{tx:.75,tz:.7,oz:3});box(0,8,12,14,10,8,cols.core,{tx:.5,tz:.4,oz:2});box(0,18,-5,3,9,18,light,{tz:.5,oz:-4});}
- else if(ids.core==='tactical'){box(0,7,0,26,20,20,main,{tx:.85,tz:.85});box(0,8,10,18,12,5,cols.core);cyl(-11,19,-2,4,3,6,light,{r:[-Math.PI/2,0,0],n:8,capCol:glow,capE:.8});
-  box(9,24,-6,1.2,14,1.2,trim);box(6,22,-8,1,10,1,trim);}
- else{box(0,7,0,26,20,20,main,{tx:.85,tz:.85});box(0,8,10,20,13,5,cols.core,{tx:.8});}
- box(0,-5,0,16,8,14,dark,{tx:1.2}); // waist
- box(0,8,10.5,8,3,1.5,C('glow'),{e:.9}); // chest light
- // head
- part='head';
- box(0,20,3,10,8,11,light,{tx:.8,tz:.8});box(0,20.5,8.8,8,2.2,1.2,C('visor'),{e:1});box(0,25,0,2,5,2,trim);
- // ---- shoulders & arms (armor decides the plates)
+ const P=isEnemy?B3_MECH_PAL.E:B3_MECH_PAL.P,weapon=load.weapon.id,armor=load.armor.id,legs=load.legs.id,core=load.core.id;
+ const coreCol=B3_CORE_GLOW[core]||P.glow,EMIT=new Set([P.glow,P.canopy,coreCol,'#d9ffee']);
+ const pos=[],nrm=[],col=[],em=[],prt=[],parts=[],pivot={},emit=[];
+ let origin=[0,0,0],pi=0;
+ const rgb=c=>Array.isArray(c)?c:b3Hex(c),tint=(c,k)=>b3Shade(rgb(c),k),isE=c=>typeof c==='string'&&EMIT.has(c)?1:0;
+ const tri=(a,b,c,cc,ctr,e)=>{let n=v3.cross(v3.sub(b,a),v3.sub(c,a));const l=v3.len(n);if(l<1e-7)return;n=v3.mul(n,1/l);
+  const fc=[(a[0]+b[0]+c[0])/3,(a[1]+b[1]+c[1])/3,(a[2]+b[2]+c[2])/3];if(v3.dot(n,v3.sub(fc,ctr))<0)n=v3.mul(n,-1);
+  const cr=rgb(cc);for(const p of [a,b,c]){pos.push(p[0]+origin[0],p[1]+origin[1],p[2]+origin[2]);nrm.push(n[0],n[1],n[2]);col.push(cr[0],cr[1],cr[2]);em.push(e);prt.push(pi);}};
+ const shell=(lower,upper,c,cap=c)=>{const all=lower.concat(upper),ctr=[0,1,2].map(i=>all.reduce((s,p)=>s+p[i],0)/all.length),n=lower.length,e=isE(c);
+  for(let i=0;i<n;i++){const j=(i+1)%n;tri(lower[i],upper[i],upper[j],c,ctr,e);tri(lower[i],upper[j],lower[j],c,ctr,e);}
+  for(let i=1;i<n-1;i++){tri(upper[0],upper[i],upper[i+1],cap,ctr,isE(cap));tri(lower[0],lower[i+1],lower[i],tint(c,.6),ctr,0);}};
+ const panel=(pts,lo,hi,c,cap=c)=>{const cx=pts.reduce((s,p)=>s+p[0],0)/pts.length,cz=pts.reduce((s,p)=>s+p[1],0)/pts.length;
+  shell(pts.map(([x,z])=>[x,lo,z]),pts.map(([x,z])=>[b3Mix(x,cx,.1),hi,b3Mix(z,cz,.1)]),c,cap);};
+ const tube=(a,b,r1,r2,c,tip=c,n=6)=>{const f=v3.norm(v3.sub(b,a)),r=v3.norm(v3.cross(Math.abs(f[1])>.9?[0,0,1]:[0,1,0],f)),u=v3.cross(f,r);
+  const ring=(ctr,sz)=>Array.from({length:n},(_,i)=>v3.add(ctr,v3.add(v3.mul(r,Math.cos(i*Math.PI*2/n)*sz),v3.mul(u,Math.sin(i*Math.PI*2/n)*sz))));shell(ring(a,r1),ring(b,r2),c,tip);};
+ const rect=(x,z,w,d,y)=>[[x-w/2,y,z-d/2],[x+w/2,y,z-d/2],[x+w/2,y,z+d/2],[x-w/2,y,z+d/2]];
+ const box=(x,y,z,w,h,d,c)=>shell(rect(x,z,w,d,y-h/2),rect(x,z,w,d,y+h/2),c,tint(c,1.13));
+ const asm=(name,p,make)=>{origin=p;pi=parts.length;parts.push(name);pivot[name]=p.slice();make();};
+ const {light,mid,dark,metal,trim,glow,visor}=P;
+ asm('hull',[0,0,0],()=>{
+  panel([[-10,-14],[-16,1],[-11,15],[0,30],[11,15],[16,1],[10,-14]],-4,8,metal,light);
+  panel([[-8,-8],[-9,5],[-5,16],[0,22],[5,16],[9,5],[8,-8]],8,11,dark,mid);
+  panel([[-6,-6],[-7,4],[-3,12],[0,16],[4,11],[7,3],[6,-6]],11,15,visor,P.visor2);
+  panel([[-2.5,-3],[-2.5,8],[0,13],[2.5,8],[2.5,-3]],15,15.6,glow,P.canopy);
+  for(const s of [-1,1]){box(s*10,9,-6,3,2,9,trim);for(let k=0;k<3;k++)box(s*11,8.7,1+k*2.4,3,1,1.1,dark);}
+  panel([[-11,-13],[-9,-22],[0,-26],[9,-22],[11,-13]],0,6,dark,mid);
+  box(0,7,-15,9,3,7,trim);for(let k=0;k<4;k++)box(0,8.7,-18+k*2,7.2,.8,.65,dark);
+  for(const s of [-1,1]){panel([[s*6,9],[s*9,12],[s*1.2,27],[s*.7,25]],8.3,9.4,mid,light);box(s*8,11,4,1.5,1,5,trim);}
+  tube([4,10,-8],[5.5,19,-11],.7,.32,metal);
+ });
+ const wingLength=({mesh:29,plated:33,fortress:37,reactive:28,composite:35,feather:42,prism:32})[armor]||31;
+ const long=legs==='jet'||legs==='booster',heavy=legs==='tank'||legs==='crawler',wide=legs==='spider';
  for(const s of [-1,1]){
-  part=s<0?'armL':'armR';
-  box(s*17,13,0,10,10,12,dark);
-  const A=ids.armor;
-  if(A==='fortress'){box(s*22,14,0,10,24,26,cols.armor,{tx:.85});box(s*26,14,0,2,20,22,light);}
-  else if(A==='plated'){box(s*20,17,0,14,6,16,cols.armor,{tx:.9});box(s*21,12,0,14,5,15,b3Shade(cols.armor,.85),{tx:.9});}
-  else if(A==='reactive'){for(let k=0;k<3;k++)for(let q=0;q<2;q++)box(s*21,10+k*5,-4+q*8,9,4.2,7,b3Shade(cols.armor,.9+.08*((k+q)%2)));}
-  else if(A==='composite'){box(s*20,16,0,13,10,18,cols.armor,{tx:.6,tz:.8,ox:s*2});}
-  else if(A==='feather'){box(s*20,16,-2,12,3,16,cols.armor,{tx:.4,tz:.6,ox:s*5,oz:-4});}
-  else if(A==='prism'){box(s*20,16,0,12,12,14,cols.armor,{tx:.05,tz:.3,e:.25});}
-  else{box(s*20,16,0,11,5,13,cols.armor,{tx:.85});}
-  box(s*19,3,2,6,12,7,main);box(s*19,-6,5,7,9,10,light,{tz:.9}); // upper / fore arm
+  asm(s<0?'wingL':'wingR',[s*12,3,-1],()=>{
+   panel([[0,8],[s*8,11],[s*wingLength,-12],[s*(wingLength-1),-19],[s*9,-11],[0,-9]],-2,2,mid,light);
+   panel([[s*4,5],[s*11,5],[s*(wingLength-3),-13],[s*(wingLength-6),-14]],2,2.7,trim);
+   panel([[s*8,-5],[s*16,-4],[s*27,-13],[s*12,-10]],2.1,3,dark,metal);
+   box(s*wingLength,2,-14,2.1,7,7,trim);
+   for(let j=0;j<4;j++){const a=11+j*3.8;panel([[s*a,1-j*2.1],[s*(a+.8),.5-j*2.1],[s*(a+3.5),-5-j*2.2],[s*(a+2.5),-4.8-j*2.2]],2.2,2.55,metal);}
+   box(s*(wingLength-.8),5,-15,1.7,1.3,3,glow);
+   panel([[s*1,-7],[s*6,-6],[s*18,-25],[s*13,-24]],-.8,1.5,metal,mid);
+   if(armor==='fortress'||armor==='plated'||armor==='composite'){box(s*8,4,1,12,4,13,light);box(s*11,6,-3,5,2,9,mid);}
+   else if(armor==='reactive'||armor==='prism'){for(let k=0;k<3;k++)box(s*(6+5*k),3.6,4-k*2.8,4,2.7,6,armor==='prism'?glow:metal);}
+   if(armor==='feather')panel([[s*6,-9],[s*10,-10],[s*30,-27],[s*17,-20]],-1,1.8,light);
+  });
+  emit.push({p:[s*(12+wingLength-.8),8,-16],d:[0,0,-1],k:.3});
+  asm(s<0?'engineL':'engineR',[s*12,-1,-12],()=>{
+   tube([0,0,-13],[0,0,11],5.6,5,dark,mid,8);tube([0,0,-7],[0,0,7],6.1,5.3,mid,light,8);
+   for(const t of [-11,-8,-5])tube([0,0,t],[0,0,t+1],5.7,5.7,metal,metal,8);
+   tube([0,0,-13.3],[0,0,-14],4.6,4.5,metal,dark,10);tube([0,0,-14.1],[0,0,-14.5],3.5,3.2,glow,glow,10);
+   tube([0,0,-14.6],[0,0,-15],1.75,1.4,dark,'#d9ffee',8);
+   for(const side of [-1,1])box(side*4.7,3,-3,1.3,2,15,light);
+   panel([[s*1,-3],[s*3,6],[s*7,-12],[s*6,-20]],3.5,9,mid,light);
+  });
+  emit.push({p:[s*12,-1,-27.5],d:[0,0,-1],k:1,engine:true});
+  const lx=s*(wide?10:3),len=long?21:heavy?10:15;
+  asm(s<0?'legL':'legR',[s*(wide?15:8),-5,-3],()=>{
+   tube([0,0,2],[lx,-9,-5],3.7,2.8,dark,mid);box(lx,-9,-5,heavy?10:7,6,8,mid);
+   panel([[lx-3,-8],[lx-3,0],[lx+3,3],[lx+4,-8],[lx+2,-17]],-len-3,-9,mid,light);
+   box(lx,-len-3,-5,heavy?10:6,3.5,long?21:13,dark);
+   if(heavy){for(let k=0;k<4;k++)box(lx,-len-5,-10+k*3,9,1.4,1.5,metal);}
+   else tube([lx,-len,-7],[lx,-len-5,-9],3,2.1,dark,glow);
+   if(legs==='ranger'||wide)box(lx+s*3,-13,-2,2,8,3,trim);
+  });
+  if(!heavy)emit.push({p:[s*(wide?15:8)+lx,-5-len-5,-12],d:[0,-.7,-.7],k:.45});
+  asm(s<0?'gunL':'gunR',[s*16,0,7],()=>{
+   box(0,0,0,7.8,6.3,13,metal);box(0,3.8,-1,6,2.2,9,light);
+   switch(weapon){
+    case 'missile':box(s*3,2,6,12,9,18,mid);for(const x of [-3,3])for(const y of [0,4])tube([s*3+x,y,14],[s*3+x,y,17],1.55,1.1,trim);break;
+    case 'rail':for(const x of [-2.1,2.1])box(x,1,22,1.9,3,39,light);box(0,1,18,1.1,1.1,26,glow);break;
+    case 'shot':for(const x of [-2.7,0,2.7])tube([x,0,3],[x,0,19],1.9,1.8,mid,dark);break;
+    case 'burst':for(const x of [-2.2,2.2])tube([x,0,4],[x,0,25],1.7,1.2,light,dark);break;
+    case 'slug':tube([0,0,3],[0,0,24],4.2,3.6,dark,trim);tube([0,0,12],[0,0,17],4.6,4.5,light);break;
+    case 'micro':tube([0,1,3],[0,1,31],2.3,.8,light,dark);box(s*3,-1,2,4,5,9,trim);break;
+    default:box(0,0,12,4,4,18,dark);box(0,1,18,3.5,2.8,13,light);box(0,2.5,15,1,1,8,trim);
+   }
+  });
  }
- // ---- weapon on the right arm (+ shoulder pods)
- part='gun';const W=ids.weapon,wc=cols.weapon,gx=19,gy=-7,gz=14;
- if(W==='rail'){box(gx-2.2,gy,gz+14,1.8,3,40,dark);box(gx+2.2,gy,gz+14,1.8,3,40,dark);box(gx,gy,gz+14,1.2,1.2,38,wc,{e:1});
-  for(const z of [4,14,24])box(gx,gy,gz+z,7,6,2,light);}
- else if(W==='shot'){box(gx,gy,gz+6,10,8,16,dark);cyl(gx-2.5,gy,gz+16,2.6,2.6,8,wc,{r:[0,0,0],n:6,capCol:[.05,.05,.05]});cyl(gx+2.5,gy,gz+16,2.6,2.6,8,wc,{n:6,capCol:[.05,.05,.05]});}
- else if(W==='missile'){box(gx,gy,gz+4,6,6,14,dark);cyl(gx,gy,gz+12,2,2,6,wc,{n:6});
-  part='pod';box(20,26,-2,14,10,18,b3Shade(wc,.8));for(let i=0;i<2;i++)for(let j=0;j<2;j++)box(16+i*7,24+j*5,7.2,3,3,1,C('visor'),{e:1});}
- else if(W==='micro'){box(gx,gy,gz+2,7,7,10,dark);for(let k=0;k<6;k++){const a=k/6*Math.PI*2;box(gx+Math.cos(a)*2.4,gy+Math.sin(a)*2.4,gz+15,1.2,1.2,20,k%2?wc:light);}}
- else if(W==='burst'){box(gx,gy,gz+5,7,10,14,dark);for(const dy of [-3,0,3])box(gx,gy+dy,gz+16,2,2,14,wc);}
- else if(W==='slug'){box(gx,gy,gz+2,10,10,12,dark);cyl(gx,gy,gz+18,5,4,30,wc,{n:10,capCol:[.06,.05,.05]});box(gx,gy+6,gz+6,6,3,10,light);}
- else if(W==='bounce'){box(gx,gy,gz+4,6,6,12,dark);cyl(gx,gy,gz+12,6,6,5,wc,{n:12,capCol:C('glow'),capE:.7});box(gx,gy,gz+18,3,3,10,light);}
- else{box(gx,gy,gz+8,4.5,5,24,wc);box(gx,gy-4,gz+3,3,6,4,dark);box(gx,gy+3.5,gz+3,2,2,8,light);}
- // left arm: compact shield
- part='armL';box(-21,-6,6,4,14,14,b3Shade(cols.armor,.9),{tz:.8});
- // ---- back unit: thrusters + wings (legs decide wing size)
- part='back';const L=ids.legs;
- box(0,10,-13,18,16,10,dark,{tx:.9});
- for(const s of [-1,1]){cyl(s*6,6,-19,4.2,3.2,8,light,{n:10,r:[0,Math.PI,0],capCol:b3Shade(glow,.7),capE:.45});emit.push({p:[s*6,6,-24],d:[0,0,-1],k:1});}
- const wingSpan=L==='jet'||L==='booster'?34:L==='crawler'||L==='tank'?16:26;
- for(const s of [-1,1]){part=s<0?'wingL':'wingR';
-  box(s*(10+wingSpan/2),15,-14,wingSpan,2.4,12,b3Shade(main,1.05),{tx:.55,tz:.55,ox:s*wingSpan*.15,oz:-6});
-  box(s*(10+wingSpan),17,-19,3,7,5,trim);emit.push({p:[s*(10+wingSpan),16,-22],d:[0,0,-1],k:.45});
-  box(s*(8+wingSpan*.6),9,-15,wingSpan*.6,1.8,8,dark,{tx:.6,oz:-3});}
- // ---- legs
- for(const s of [-1,1]){part=s<0?'legL':'legR';const lc=cols.legs;
-  if(L==='spider'){for(const f of [-1,1]){box(s*12,-12,f*8,4,4,18,dark,{r:[0,f*.5*s,s*.5]});box(s*19,-22,f*13,3,14,3,lc,{r:[0,0,-s*.25]});}}
-  else if(L==='tank'||L==='crawler'){box(s*9,-14,0,9,14,12,main);box(s*10,-25,1,13,8,26,lc,{tz:.9});
-   for(const z of [-8,0,8])box(s*16.8,-25,z+1,1.2,6,5,dark);emit.push({p:[s*10,-30,0],d:[0,-1,0],k:.6});}
-  else if(L==='jet'){box(s*9,-12,1,7,12,8,main);box(s*9,-22,-3,6,11,7,lc,{r:[.45,0,0]});box(s*9,-29,2,7,4,11,dark);
-   cyl(s*9,-24,-9,3.6,2.6,7,light,{r:[0,Math.PI,0],capCol:b3Shade(glow,.7),capE:.45});emit.push({p:[s*9,-25,-13],d:[0,-.4,-1],k:.9});}
-  else if(L==='booster'){box(s*9,-12,0,7,12,8,main);box(s*10,-23,0,10,12,12,lc,{tx:.8});cyl(s*10,-29,-2,4,3,5,light,{r:[Math.PI/2,0,0],capCol:b3Shade(glow,.7),capE:.45});emit.push({p:[s*10,-32,-2],d:[0,-1,0],k:1});}
-  else if(L==='ranger'){box(s*8,-12,0,6,13,7,main);box(s*8,-23,1,5,11,6,lc);box(s*12,-21,-4,1.4,9,9,trim,{tz:.4,oz:-3});box(s*8,-29,3,6,3,10,dark);}
-  else{box(s*8,-12,0,7,13,8,main);box(s*8,-23,1,7,11,8,lc);cyl(s*8,-29,3,3.5,3.5,6,dark,{r:[0,Math.PI/2,0],n:10});emit.push({p:[s*8,-31,0],d:[0,-1,0],k:.5});}
- }
- // Flatten to arrays: positions, normals, colors, emissive, part index.
- const partNames=['body','head','armL','armR','gun','pod','back','wingL','wingR','legL','legR'];
- const out={pos:[],nrm:[],col:[],em:[],part:[],emit,parts:partNames,key,height:52,radius:24};
- const addTri=(a,b,c,col,ctr,pi,e)=>{let n=v3.norm(v3.cross(v3.sub(b,a),v3.sub(c,a)));const fc=v3.mul(v3.add(v3.add(a,b),c),1/3);if(v3.dot(n,v3.sub(fc,ctr))<0)n=v3.mul(n,-1);
-  for(const p of [a,b,c]){out.pos.push(...p);out.nrm.push(...n);out.col.push(...col);out.em.push(e);out.part.push(pi);}};
- for(const t of tris){const pi=Math.max(0,partNames.indexOf(t.part));
-  if(t.q){addTri(t.q[0],t.q[1],t.q[2],t.col,t.ctr,pi,t.e);addTri(t.q[0],t.q[2],t.q[3],t.col,t.ctr,pi,t.e);}else addTri(t.t[0],t.t[1],t.t[2],t.col,t.ctr,pi,t.e);}
- out.pos=new Float32Array(out.pos);out.nrm=new Float32Array(out.nrm);out.col=new Float32Array(out.col);out.em=new Float32Array(out.em);out.part=new Uint8Array(out.part);
- // Part pivots for animation / break-apart.
- out.pivot={body:[0,4,0],head:[0,18,2],armL:[-17,13,0],armR:[17,13,0],gun:[19,-6,8],pod:[20,26,-2],back:[0,10,-13],wingL:[-12,15,-14],wingR:[12,15,-14],legL:[-9,-6,0],legR:[9,-6,0]};
+ asm('generator',[0,5,-14],()=>{
+  const count=core==='power'?2:core==='tactical'?3:1;
+  for(let i=0;i<count;i++){const x=(i-(count-1)/2)*6;tube([x,1,-3],[x,5,-5],core==='balance'?4.8:2.8,core==='balance'?4.3:2.5,dark,coreCol);}
+  if(core==='speed')for(const s of [-1,1])panel([[s*3,-1],[s*4,-10],[s*11,-14],[s*7,-1]],2,5,mid,coreCol);
+ });
+ const tip={rail:41,micro:34,slug:24,burst:29,shot:22,missile:17}[weapon]||30;
+ const out={pos:new Float32Array(pos),nrm:new Float32Array(nrm),col:new Float32Array(col),em:new Float32Array(em),part:new Uint8Array(prt),
+  parts,pivot,emit,key,height:48,radius:26,muzzles:[[-16,1,7+tip],[16,1,7+tip]],flame:P.flame};
  B3_MODELS.set(key,out);return out;
 }
 // Basis for a mech: yaw (facing), pitch (lean), roll (bank).
@@ -318,7 +325,7 @@ function b3EmitMech(buf,m,pose){
   const pn=m.parts[PI[i]];let v=[P[k],P[k+1],P[k+2]],n=[N[k],N[k+1],N[k+2]];
   let a=0,piv=null;
   if(pn==='legL'||pn==='legR'){a=legA*(pn==='legL'?1:.85);piv=m.pivot[pn];}
-  else if(pn==='gun'||pn==='armR'){a=-gunA;piv=m.pivot.armR;}
+  else if(pn==='gunL'||pn==='gunR'){a=-gunA;piv=m.pivot[pn];}
   if(a){v=rotX(v,piv,a);n=rotXn(n,a);}
   let wx=pose.x+(B.r[0]*v[0]+B.u[0]*v[1]+B.f[0]*v[2])*S,wy=pose.y+(B.r[1]*v[0]+B.u[1]*v[1]+B.f[1]*v[2])*S,wz=pose.z+(B.r[2]*v[0]+B.u[2]*v[1]+B.f[2]*v[2])*S;
   let nx=B.r[0]*n[0]+B.u[0]*n[1]+B.f[0]*n[2],ny=B.r[1]*n[0]+B.u[1]*n[1]+B.f[1]*n[2],nz=B.r[2]*n[0]+B.u[2]*n[1]+B.f[2]*n[2];
@@ -363,7 +370,7 @@ function b3CamSpace(p){const C=R3.cam,d=v3.sub(p,C.eye);return [v3.dot(d,C.r),v3
 // ------------------------------------------------------------- frame -----
 function b3ResizeCanvases(){
  const rect=R3.canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
- const sc=clamp(B3.tune.renderScale*R3.autoScale,.3,2),w=Math.max(160,Math.round(rect.width*dpr*sc)),h=Math.max(120,Math.round(rect.height*dpr*sc));
+ const sc=clamp(B3.tune.renderScale*(B3.tune.autoQuality?R3.autoScale:1),.3,2),w=Math.max(160,Math.round(Math.min(rect.width*sc,8192))),h=Math.max(120,Math.round(Math.min(rect.height*sc,8192)));
  if(R3.canvas.width!==w||R3.canvas.height!==h){R3.canvas.width=w;R3.canvas.height=h;}
  const hw=Math.max(160,Math.round(rect.width*Math.min(dpr,1.5))),hh=Math.max(120,Math.round(rect.height*Math.min(dpr,1.5)));
  if(canvas.width!==hw||canvas.height!==hh){canvas.width=hw;canvas.height=hh;}
@@ -374,12 +381,14 @@ function b3DrawScene(){
  if(R3.builtWorld!==W3.version)b3BuildWorldMesh();
  gl.viewport(0,0,R3.canvas.width,R3.canvas.height);
  gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
- const sky=bi.sky.map(b3Hex),sun=v3.norm(bi.sun),sunC=b3Hex(bi.sunColor),fog=b3Hex(bi.fog),amb=bi.ambient.map(b3Hex);
+ const sky=bi.sky.map(b3Hex),sun=v3.norm(B3_SUN),sunC=b3Hex(bi.sunColor),fog=sky[2];
+ const amb=[sky[1].map(v=>v+(1-v)*.3),b3Hex(bi.ground[0]).map(v=>v*.55)];
+ const ridgeBase=bi.id==='snow'?b3Hex('#7898ae'):bi.id==='night'||bi.id==='arena'?b3Hex('#29374b'):b3Hex(bi.rock);
  // sky
  gl.depthMask(false);gl.disable(gl.DEPTH_TEST);
  const S=R3.progs.sky;gl.useProgram(S.p);
  gl.uniform3fv(S.u.uF,C.f);gl.uniform3fv(S.u.uR,C.r);gl.uniform3fv(S.u.uU,C.u);gl.uniform3fv(S.u.uTop,sky[0]);gl.uniform3fv(S.u.uMid,sky[1]);gl.uniform3fv(S.u.uHor,sky[2]);
- gl.uniform3fv(S.u.uSun,sun);gl.uniform3fv(S.u.uSunCol,sunC);gl.uniform1f(S.u.uTan,Math.tan(C.fov/2));gl.uniform1f(S.u.uAsp,C.aspect);gl.uniform1f(S.u.uStars,bi.id==='night'||bi.id==='arena'?1:0);
+ gl.uniform3fv(S.u.uSun,sun);gl.uniform3fv(S.u.uSunCol,sunC);gl.uniform1f(S.u.uTan,Math.tan(C.fov/2));gl.uniform1f(S.u.uAsp,C.aspect);gl.uniform1f(S.u.uStars,bi.id==='night'||bi.id==='arena'?1:0);gl.uniform3fv(S.u.uRidge,ridgeBase);gl.uniform1f(S.u.uRidgeAmp,bi.id==='snow'||bi.id==='mountain'?.22:.10);
  gl.bindVertexArray(R3.bufs.sky.vao);gl.drawArrays(gl.TRIANGLES,0,3);
  gl.enable(gl.DEPTH_TEST);gl.depthMask(true);
  // lit geometry

@@ -9,7 +9,7 @@
 <meta property="og:title" content="ロボ・サルベージ | ミニゲーム1GO #003">
 <meta property="og:description" content="敵のパーツを奪って強くなる。武器8種×コア4系統、装備コンボ、10マスの分岐マップとボス戦。">
 <meta name="twitter:card" content="summary">
-<title>PATROL × ROBO SALVAGE — HOVER COMBAT v0.6</title>
+<title>PATROL × ROBO SALVAGE — HOVER COMBAT v0.6.1</title>
 <style>
 :root{color-scheme:dark;--bg:#080d1c;--panel:#101a2d;--panel2:#14223a;--edge:#2c415e;--ink:#edf5ff;--muted:#91a8c1;--cyan:#66eaf0;--amber:#ffcc79;--red:#ff7789}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans JP","Yu Gothic",sans-serif}
@@ -525,13 +525,12 @@ const SLOT={weapon:'WEAPON / 武器',armor:'ARMOR / 装甲',legs:'LEGS / 脚部'
 const DEF={
  weapon:[
   {id:'pulse',name:'パルスガン',detail:'連射に優れる標準銃',damage:14,cool:.32,velocity:810,count:1,spread:0,mag:12,reload:1.6,idealRange:345,color:'#63eff3'},
-  {id:'shot',name:'スプレッド砲',detail:'近距離で強烈な散弾',damage:8,cool:.78,velocity:740,count:5,spread:.19,mag:5,reload:2.35,idealRange:190,color:'#ffce78'},
+  {id:'shot',name:'スプレッド砲',detail:'中央と四隅に5発の散弾',damage:8,cool:.78,velocity:740,count:5,spread:.19,mag:5,reload:2.35,idealRange:190,color:'#ffce78'},
   {id:'rail',name:'レールランサー',detail:'壁を貫くが低火力・遅い連射',damage:18,cool:1.35,velocity:1160,count:1,spread:0,mag:3,reload:3.2,idealRange:485,color:'#c1acff',pierce:true},
   {id:'missile',name:'ホーミング弾',detail:'追尾する低速ミサイル',damage:25,cool:1.02,velocity:425,count:1,spread:0,mag:4,reload:2.75,idealRange:400,color:'#ff867d',homing:true},
   {id:'micro',name:'ニードルガン',detail:'低威力・高速連射',damage:7,cool:.19,velocity:960,count:1,spread:.015,mag:30,reload:2.15,idealRange:295,color:'#82f5bb'},
   {id:'burst',name:'バーストライフル',detail:'3発同時射撃の中距離型',damage:8,cool:.62,velocity:920,count:3,spread:.072,mag:9,reload:2.35,idealRange:345,color:'#8ab5fa'},
   {id:'slug',name:'グラビティスラグ',detail:'遅い連射の一撃重視型',damage:49,cool:1.5,velocity:950,count:1,spread:0,mag:3,reload:2.9,idealRange:375,color:'#e5bcff'},
-  {id:'bounce',name:'リコシェットガン',detail:'障害物と外壁で最大3回反射する弾',damage:17,cool:.66,velocity:740,count:1,spread:0,mag:7,reload:2.15,idealRange:385,color:'#f6d46b',ricochet:3}
  ],
  armor:[
   {id:'mesh',name:'メッシュ装甲',detail:'軽量で基本的な防御',hp:125,guard:.025,color:'#65e1e9'},
@@ -566,8 +565,7 @@ const WEAPON_TRAITS={
  missile:{name:'爆風',splash:68},
  micro:{name:'装甲削り',sunder:1.25},
  burst:{name:'炎上',burn:1.65},
- slug:{name:'強制停止',stun:.42,push:64},
- bounce:{name:'壁面反射'}
+ slug:{name:'強制停止',stun:.42,push:64}
 };
 const RAR=['','STANDARD','ADVANCED','RARE','LEGEND'],RARCOL=['','#a9bbc9','#65dece','#b9a5ff','#ffca7b'];
 const part=(slot,id,lv=1,tier=1)=>({slot,id,lv,tier});
@@ -912,12 +910,17 @@ const META_UPGRADES={
  drive:{name:'駆動制御',effect:'移動 +3% / Lv.'},
  recovery:{name:'自己補修',effect:'戦闘勝利後回復 +4% / Lv.'}
 };
+// The SP save is shared with the 2D release (same key). Weapons this 3D build
+// does not offer (the retired ricochet gun) stay in the stored record untouched.
+const metaForeign={unlocks:[],starter:null,starterChosen:false};
 function loadMeta(){
  const fallback={points:0,runs:0,earned:0,starter:'pulse',unlockedWeapons:['pulse'],upgrades:{hull:0,power:0,drive:0,recovery:0}};
  try{
   const saved=JSON.parse(localStorage.getItem(META_KEY)||'null');
   if(!saved||typeof saved!=='object')return fallback;
   const safeInt=(v,max)=>Number.isFinite(v)?clamp(Math.floor(v),0,max):0;
+  if(Array.isArray(saved.unlockedWeapons))metaForeign.unlocks=saved.unlockedWeapons.filter(id=>typeof id==='string'&&!DEF.weapon.some(w=>w.id===id));
+  if(typeof saved.starter==='string'&&!DEF.weapon.some(w=>w.id===saved.starter))metaForeign.starter=saved.starter;
   return {
    points:safeInt(saved.points,1000000),runs:safeInt(saved.runs,100000),earned:safeInt(saved.earned,10000000),
    unlockedWeapons:['pulse',...DEF.weapon.filter(w=>w.id!=='pulse'&&Array.isArray(saved.unlockedWeapons)&&saved.unlockedWeapons.includes(w.id)).map(w=>w.id)],
@@ -927,7 +930,8 @@ function loadMeta(){
  }catch(_e){return fallback}
 }
 let metaState=loadMeta(),runSettled=true;
-function saveMeta(){try{localStorage.setItem(META_KEY,JSON.stringify(metaState))}catch(_e){}}
+function saveMeta(){try{const out={...metaState,unlockedWeapons:[...metaState.unlockedWeapons,...metaForeign.unlocks.filter(id=>!metaState.unlockedWeapons.includes(id))]};
+ if(metaForeign.starter&&!metaForeign.starterChosen)out.starter=metaForeign.starter;localStorage.setItem(META_KEY,JSON.stringify(out))}catch(_e){}}
 function earnedPointsForRun(completed=false){
  // Average five-node run with three victories = 104 SP. Six = 624 SP.
  return 45+depth*7+encountersWon*8+(completed?60:0);
@@ -1683,7 +1687,7 @@ function renderHangar(){
   const affordable=metaState.points>=STARTER_UNLOCK_COST;
   html+='<button type="button" class="starterOption'+(selected?' selected':'')+(unlocked?'':' locked')+'" data-starter="'+w.id+'" aria-pressed="'+selected+'"'
    +(unlocked||affordable?'':' disabled')+' aria-label="'+w.name+(unlocked?'':'：'+STARTER_UNLOCK_COST+' SPで解放')+'">'
-   +'<span class="starterGlyph" style="color:'+w.color+'">'+({pulse:'⌁',shot:'▥',rail:'═',missile:'▣',micro:'⋮',burst:'≡',slug:'▰',bounce:'⟐'}[w.id])+'</span>'
+   +'<span class="starterGlyph" style="color:'+w.color+'">'+({pulse:'⌁',shot:'⚄',rail:'═',missile:'▣',micro:'⋮',burst:'≡',slug:'▰'}[w.id])+'</span>'
    +'<strong>'+w.name+'</strong><small>'+w.detail+'</small>'
    +'<span class="starterStatus">'+(selected?'SELECTED':unlocked?'解放済み':'UNLOCK 40 SP')+'</span></button>';
  }
@@ -1703,7 +1707,7 @@ function renderHangar(){
    if(metaState.points<STARTER_UNLOCK_COST)return;
    metaState.points-=STARTER_UNLOCK_COST;metaState.unlockedWeapons.push(id);beep(860,.12,.028);
   }
-  metaState.starter=id;saveMeta();renderHangar();
+  metaState.starter=id;metaForeign.starterChosen=true;saveMeta();renderHangar();
  }));
  document.querySelectorAll('[data-meta]').forEach(b=>b.addEventListener('click',()=>{
   if(state!=='menu'||b.disabled)return;
@@ -3006,7 +3010,7 @@ window.__roboQA=()=>({
  rail:{damage:DEF.weapon.find(w=>w.id==='rail').damage,cooldown:DEF.weapon.find(w=>w.id==='rail').cool,penetratesCover:true},
  spriteSilhouettes:Object.fromEntries(Object.entries(SPRITE_SILHOUETTES).map(([slot,parts])=>[slot,Object.values(parts)])),
  coreProfiles:Object.fromEntries(DEF.core.map(core=>{
-  const s=specs({...initial(),weapon:part('weapon','bounce'),legs:part('legs','tank'),core:part('core',core.id)},true);
+  const s=specs({...initial(),weapon:part('weapon','pulse'),legs:part('legs','tank'),core:part('core',core.id)},true);
   return [core.id,{hp:s.hp,speed:s.speed,dmg:s.dmg,dashCooldown:s.dashCooldown,mag:s.mag,reloadTime:s.reloadTime}];
  })),
  depth,gold,encountersWon,currentNode,eventVariant:activeEventVariant,currentLane,routeOptions:routeOptions.slice(),routeCandidates:routeCandidates.map(c=>({...c})),routeGraph:routeGraph.map(r=>r.slice()),chosenNodes:chosenNodes.map(n=>({...n})),bossCleared,mapHistory:mapHistory.slice(),arenaLayout:arenaIndex(),arenaLayoutCount:15,
@@ -3043,35 +3047,36 @@ window.__roboQA=()=>({
 //   b3-game.js   : input → movement physics → enemy AI → camera → shooting →
 //                  projectiles → finisher → integration with the core game
 // ============================================================================
-const B3_VERSION='0.6.0';
+const B3_VERSION='0.6.1';
 // The core 2D combat loop (kept as the no-WebGL2 fallback) still checks these.
 let flightMode=false;const flightBulletStep=()=>{},flightHits=()=>false;
-const B3_TUNE_KEY='patrolSalvageHoverTuneV06';
-// Tuning defaults. Every value is live-editable from the tuning panel (T / ⚙).
+const B3_TUNE_KEY='patrolSalvageHoverTuneV061';
+// Tuning defaults = the values the user defined on 2026-11-18 (hover-lab JSON).
+// Every value is live-editable from the tuning panel (T / ⚙).
 const B3_DEFAULT=Object.freeze({
- moveSpeed:1.15,moveResponse:9,stopResponse:14,verticalSpeed:230,climbDeadzone:.14,dashPower:1,
- lookSpeed:2.1,lookPitchSpeed:1.5,mouseSensitivity:1,invertY:false,
- camDistance:215,playerScreenY:.70,fovNear:64,fovFar:44,followSpeed:9,
- enemyTracking:true,trackSpeed:5.5,trackBox:.16,manualReturn:.45,modelScale:1,
- autoFire:true,aimTolerance:.065,renderScale:1,autoQuality:true,
+ moveSpeed:1.5,moveResponse:9,stopResponse:21,verticalSpeed:230,climbDeadzone:.14,dashPower:1.5,
+ lookSpeed:1.75,lookPitchSpeed:1.5,mouseSensitivity:1.5,invertY:false,
+ camDistance:235,playerScreenY:.7,fovNear:68,fovFar:44,followSpeed:2,
+ enemyTracking:true,trackSpeed:14,trackBox:.35,manualReturn:.9,modelScale:1,
+ autoFire:true,aimTolerance:.035,renderScale:1.5,autoQuality:false,
  weapon:'pulse',biome:0
 });
 const B3_FIELDS=[
  ['移動',[
-  ['moveSpeed','移動速度の倍率',.5,2,.05,'×'],['moveResponse','加速の応答',2,20,.5,''],
-  ['stopResponse','手を離した時の停止の速さ',3,30,.5,''],['verticalSpeed','上昇・下降の速さ',80,420,10,''],
-  ['climbDeadzone','視線で上昇する角度のあそび',0,.4,.01,'rad'],['dashPower','ダッシュの強さ',.5,1.8,.05,'×']]],
+  ['moveSpeed','移動速度の倍率',.5,3,.05,'×'],['moveResponse','加速の応答',1,30,.5,''],
+  ['stopResponse','手を離した時の停止の速さ',1,40,.5,''],['verticalSpeed','上昇・下降の速さ',60,450,5,''],
+  ['climbDeadzone','視線で上昇する角度のあそび',0,.4,.01,'rad'],['dashPower','ダッシュの強さ',.5,2.5,.05,'×']]],
  ['カメラ',[
-  ['camDistance','自機からカメラまでの距離',100,380,5,''],['playerScreenY','自機の画面上の高さ（下ほど大）',.55,.84,.01,''],
-  ['fovNear','視野角（敵が近い時）',40,90,1,'°'],['fovFar','視野角（敵が遠い時）',26,80,1,'°'],
-  ['followSpeed','カメラ追従の速さ',2,30,.5,''],['enemyTracking','敵を自動で追うカメラ','bool'],
-  ['trackSpeed','敵へ向き直る速さ',1,14,.5,''],['trackBox','追従のあそび（画面比）',0,.35,.01,''],
+  ['camDistance','自機からカメラまでの距離',100,500,5,''],['playerScreenY','自機の画面上の高さ（下ほど大）',.54,.84,.01,''],
+  ['fovNear','視野角（敵が近い時）',35,110,1,'°'],['fovFar','視野角（敵が遠い時）',26,105,1,'°'],
+  ['followSpeed','カメラ追従の速さ',.5,25,.5,''],['enemyTracking','敵を自動で追うカメラ','bool'],
+  ['trackSpeed','敵へ向き直る速さ',1,30,.5,''],['trackBox','追従のあそび（画面比）',0,.5,.01,''],
   ['manualReturn','右スティックを離してから戻るまで',0,2,.05,'秒'],
-  ['lookSpeed','右スティック左右',.5,4,.05,'×'],['lookPitchSpeed','右スティック上下',.3,3,.05,'×'],
-  ['mouseSensitivity','マウス感度',.2,3,.05,'×'],['invertY','上下操作の反転','bool'],['modelScale','機体の表示倍率',.6,1.5,.05,'×']]],
+  ['lookSpeed','右スティック左右',.25,4,.05,'×'],['lookPitchSpeed','右スティック上下',.25,3,.05,'×'],
+  ['mouseSensitivity','マウス感度',.25,3,.05,'×'],['invertY','上下操作の反転','bool'],['modelScale','機体の表示倍率',.5,1.5,.025,'×']]],
  ['射撃・表示',[
-  ['autoFire','自動射撃','bool'],['aimTolerance','中央照準の判定半径（画面比）',.02,.15,.005,''],
-  ['renderScale','3D描画の解像度',.4,1.5,.05,'×'],['autoQuality','重い時に自動で解像度を下げる','bool'],
+  ['autoFire','自動射撃','bool'],['aimTolerance','中央照準の判定半径（画面比）',.015,.12,.001,''],
+  ['renderScale','3D描画の解像度（画面の何倍か）',.5,2,.05,'×'],['autoQuality','重い時に自動で解像度を下げる','bool'],
   ['weapon','試験用の武器','weapon'],['biome','試験用のフィールド','biome']]]
 ];
 const B3={tune:{...B3_DEFAULT}};
@@ -3096,24 +3101,20 @@ const b3Hex=s=>{const h=(s||'#888888').replace('#','');return [0,2,4].map(i=>par
 
 // --------------------------------------------------------------- biomes ---
 // Each field changes the terrain topology and the cover, not just the palette.
+const B3_SUN=[.48,.42,1];
 const B3_BIOMES=[
- {id:'waste',name:'荒野',sky:['#2a2238','#8c5a62','#e2a57c'],fog:'#c9917a',fogDensity:.00030,sun:[-.55,.5,.66],sunColor:'#ffd2a1',
-  ground:['#7a5a45','#a27a58','#c79a6d'],rock:'#6b4c43',accent:'#e6b07e',ambient:['#b9a0a8','#5a3f36']},
- {id:'desert',name:'砂原',sky:['#2c4a74','#d79a6c','#f6d6a4'],fog:'#efcf9f',fogDensity:.00026,sun:[.5,.62,-.6],sunColor:'#fff0c8',
-  ground:['#b58552','#d6aa6c','#ecc98c'],rock:'#8d6247',accent:'#f8dfaa',ambient:['#c8c0b6','#7b5a3c']},
- {id:'snow',name:'雪山',sky:['#10284a','#477fa5','#b9dbe5'],fog:'#c4dce4',fogDensity:.00032,sun:[-.4,.42,.8],sunColor:'#fff6e8',
-  ground:['#8fa8b6','#c8d9df','#f1f6f6'],rock:'#57677a',accent:'#ffffff',ambient:['#b9d2e6','#55697a']},
- {id:'mountain',name:'山岳',sky:['#15304d','#5f8c96','#d0c8a6'],fog:'#a7b5a6',fogDensity:.00030,sun:[.62,.55,.55],sunColor:'#fff0d0',
-  ground:['#465e4f','#6b8466','#93a882'],rock:'#5d5a52',accent:'#c8d8ad',ambient:['#a8bfc2','#3e4a3a']},
- {id:'city',name:'市街地',sky:['#141a33','#6a4f73','#ee9c80'],fog:'#9a7286',fogDensity:.00034,sun:[-.6,.32,-.7],sunColor:'#ffc39a',
-  ground:['#3f4450','#545b68','#6d7480'],rock:'#4b5260',accent:'#8de9f6',ambient:['#9a8fb0','#2e3240']},
- {id:'river',name:'川',sky:['#1b3b58','#72a3a0','#e3d49a'],fog:'#b4c4a8',fogDensity:.00028,sun:[.45,.58,.68],sunColor:'#fff2cc',
-  ground:['#3d6a55','#5c8a6c','#8fae84'],rock:'#5e6458',accent:'#83dbe9',ambient:['#aac8c4','#3a4a3c']},
- {id:'arena',name:'スタジアム',sky:['#060f22','#16304a','#4e7c8c'],fog:'#28485c',fogDensity:.00030,sun:[.2,.8,.3],sunColor:'#d8f4ff',
-  ground:['#1d3346','#2a4a60','#3b627a'],rock:'#2a3d52',accent:'#64e3f0',ambient:['#5c87a8','#0f1c28']},
- {id:'night',name:'夜間',sky:['#030916','#0d1d40','#1e3462'],fog:'#14243f',fogDensity:.00042,sun:[.3,.45,-.84],sunColor:'#9fb8ff',
-  ground:['#1b2c3e','#26384a','#33475a'],rock:'#1d2a3a',accent:'#ffcf8a',ambient:['#4d6488','#0b1220']}
+ {id:'waste',name:'赤錆の荒野',sky:['#26394b','#b77b72','#ffcd99'],ground:['#906655','#ba8266','#dea17a'],rock:'#955c50',accent:'#e8aa78',sunColor:'#fff1c3',fogDensity:.00026},
+ {id:'desert',name:'砂海の観測所',sky:['#44647d','#c9b59f','#ffdf9e'],ground:['#b18755','#d5a665','#efd194'],rock:'#aa714e',accent:'#f6cc89',sunColor:'#fff6ca',fogDensity:.00024},
+ {id:'snow',name:'白嶺の峡谷',sky:['#254369','#75a9c5','#dcebe9'],ground:['#6e8fa3','#aec9d0','#eff4e8'],rock:'#849aa8',accent:'#e6f1ea',sunColor:'#fff8d8',fogDensity:.00026},
+ {id:'mountain',name:'風切の尾根',sky:['#294754','#7a9892','#e1c9a0'],ground:['#536956','#829073','#abb08c'],rock:'#666d61',accent:'#b9b49c',sunColor:'#fff0b4',fogDensity:.00026},
+ {id:'city',name:'高架都市',sky:['#343349','#966f83','#efa98e'],ground:['#454c58','#5d6370','#75767a'],rock:'#566371',accent:'#98d7dd',sunColor:'#ffdfb3',fogDensity:.00028},
+ {id:'river',name:'碧流の水門',sky:['#345766','#8bbbb6','#efe0b7'],ground:['#507e77','#85a895','#b2bc96'],rock:'#687d75',accent:'#aed6cd',sunColor:'#fff4ce',fogDensity:.00025},
+ {id:'arena',name:'環状競技場',sky:['#17263b','#364a65','#a2adb2'],ground:['#384b55','#495c63','#64757a'],rock:'#4b5d6c',accent:'#f5bc70',sunColor:'#ece6db',fogDensity:.00026},
+ {id:'night',name:'夜間精錬区',sky:['#0c1429','#263044','#745463'],ground:['#273441','#394852','#55616a'],rock:'#354453',accent:'#ff9e5b',sunColor:'#e5eddc',fogDensity:.00032}
 ];
+const b3HexOf=c=>'#'+c.map(v=>Math.round(clamp(v,0,1)*255).toString(16).padStart(2,'0')).join('');
+const b3ShadeHex=(h,k)=>b3HexOf(b3Hex(h).map(v=>v*k));
+const b3MixHex=(a,b,t)=>{const A=b3Hex(a),B=b3Hex(b);return b3HexOf(A.map((v,i)=>v+(B[i]-v)*t));};
 
 // ---------------------------------------------------------------- world ---
 // W3 is rebuilt at the start of every battle. Rendering and collision both
@@ -3194,27 +3195,27 @@ function b3Generate(fieldIndex,seed){
  const s=n+1,H=new Float32Array(s*s);
  for(let i=0;i<=n;i++)for(let j=0;j<=n;j++)H[i*s+j]=b3RawHeight(bi,-e+i*c,-e+j*c,seed%1000);
  W3.hgt=H;
- const obs=W3.obs,R=W3.radius,g=(x,z)=>b3Ground(x,z);
+ const obs=W3.obs,g=(x,z)=>b3Ground(x,z),R=bi.rock,T=bi.accent,RAD=W3.radius;
  const clearOf=(x,z,r)=>Math.hypot(x-W3.spawnP.x,z-W3.spawnP.z)>r+110&&Math.hypot(x-W3.spawnE.x,z-W3.spawnE.z)>r+110;
- const freeSpot=(x,z,r)=>clearOf(x,z,r)&&Math.hypot(x,z)<R-r-60&&!obs.some(o=>Math.hypot(o.x-x,o.z-z)<o.br+r+38);
- const scatter=(count,maker,minR=0,maxR=R-80,tries=40)=>{for(let k=0;k<count;k++)for(let t=0;t<tries;t++){
+ const freeSpot=(x,z,r)=>clearOf(x,z,r)&&Math.hypot(x,z)<RAD-r-60&&!obs.some(o=>Math.hypot(o.x-x,o.z-z)<o.br+r+38);
+ const scatter=(count,maker,minR=0,maxR=RAD-80,tries=40)=>{for(let k=0;k<count;k++)for(let t=0;t<tries;t++){
   const a=rnd()*Math.PI*2,rr=minR+(maxR-minR)*Math.sqrt(rnd()),x=Math.cos(a)*rr,z=Math.sin(a)*rr;const o=maker(x,z);
   if(o&&freeSpot(x,z,o.br)){obs.push(o);if(o.extra)for(const q of o.extra)obs.push(q);delete o.extra;break;}}};
  switch(bi.id){
   case 'waste':
-   scatter(9,(x,z)=>{const r=70+rnd()*80,h=110+rnd()*150,b=g(x,z)-20;return b3Cyl(x,z,r,r*.78,b,b+h,'#9a6a4e',{mat:'mesa',sides:9,band:'#7a4c3b'})},180);
-   scatter(16,(x,z)=>{const r=18+rnd()*26,b=g(x,z)-8;return b3Cyl(x,z,r,r*.55,b,b+r*1.5+10,'#8a6553',{mat:'rock',sides:7})},120);
+   scatter(9,(x,z)=>{const r=70+rnd()*80,h=110+rnd()*150,b=g(x,z)-20;return b3Cyl(x,z,r,r*.78,b,b+h,R,{mat:'mesa',sides:9,band:b3MixHex(R,T,.35),cap:b3MixHex(R,T,.55)})},180);
+   scatter(16,(x,z)=>{const r=18+rnd()*26,b=g(x,z)-8;return b3Cyl(x,z,r,r*.55,b,b+r*1.5+10,b3ShadeHex(R,.85),{mat:'rock',sides:7})},120);
    break;
   case 'desert':
-   scatter(7,(x,z)=>{const r=34+rnd()*30,h=150+rnd()*170,b=g(x,z)-25;return b3Cyl(x,z,r,r*.35,b,b+h,'#a8775a',{mat:'spire',sides:7,band:'#8d5e45'})},160);
-   scatter(6,(x,z)=>{const L=150+rnd()*170,yaw=rnd()*Math.PI,b=g(x,z)-10;return b3Box(x,z,L,22,b,b+70+rnd()*40,yaw,'#b49270',{mat:'ruin'})},150);
+   scatter(7,(x,z)=>{const r=34+rnd()*30,h=150+rnd()*170,b=g(x,z)-25;return b3Cyl(x,z,r,r*.35,b,b+h,R,{mat:'spire',sides:7,band:b3MixHex(R,T,.3)})},160);
+   scatter(6,(x,z)=>{const L=150+rnd()*170,yaw=rnd()*Math.PI,b=g(x,z)-10;return b3Box(x,z,L,22,b,b+70+rnd()*40,yaw,b3MixHex(R,T,.45),{mat:'ruin'})},150);
    break;
   case 'snow':
-   scatter(10,(x,z)=>{if(b3Ground(x,z)>120)return null;const r=22+rnd()*20,h=90+rnd()*130,b=g(x,z)-10;return b3Cyl(x,z,r,r*.25,b,b+h,'#9fd2e8',{mat:'ice',sides:6})},100,1300);
-   scatter(9,(x,z)=>{if(b3Ground(x,z)>110)return null;const r=40+rnd()*40,b=g(x,z)-14;return b3Cyl(x,z,r,r*.6,b,b+r*1.3,'#6d7d8e',{mat:'rock',sides:8,cap:'#eef6f8'})},100,1300);
+   scatter(10,(x,z)=>{if(b3Ground(x,z)>120)return null;const r=22+rnd()*20,h=90+rnd()*130,b=g(x,z)-10;return b3Cyl(x,z,r,r*.25,b,b+h,'#bfe0ea',{mat:'ice',sides:6})},100,1300);
+   scatter(9,(x,z)=>{if(b3Ground(x,z)>110)return null;const r=40+rnd()*40,b=g(x,z)-14;return b3Cyl(x,z,r,r*.6,b,b+r*1.3,b3ShadeHex(R,.9),{mat:'rock',sides:8,cap:'#eef6f8'})},100,1300);
    break;
   case 'mountain':
-   scatter(12,(x,z)=>{const r=45+rnd()*55,h=90+rnd()*120,b=g(x,z)-24;return b3Cyl(x,z,r,r*.45,b,b+h,'#6f6a5e',{mat:'crag',sides:7,cap:'#9fb08d'})},150);
+   scatter(12,(x,z)=>{const r=45+rnd()*55,h=90+rnd()*120,b=g(x,z)-24;return b3Cyl(x,z,r,r*.45,b,b+h,R,{mat:'crag',sides:7,cap:b3MixHex(R,bi.ground[2],.5)})},150);
    break;
   case 'city':{
    // Street grid with tall blocks, a plaza, and an elevated highway that
@@ -3222,14 +3223,14 @@ function b3Generate(fieldIndex,seed){
    const blk=230;
    for(let ix=-6;ix<=6;ix++)for(let iz=-6;iz<=6;iz++){
     const cx=ix*blk+(rnd()-.5)*30,cz=iz*blk+(rnd()-.5)*30;
-    if(Math.hypot(cx,cz)>R-120||Math.abs(iz*blk-0)<40||!clearOf(cx,cz,95))continue;
+    if(Math.hypot(cx,cz)>RAD-120||Math.abs(iz*blk-0)<40||!clearOf(cx,cz,95))continue;
     if(rnd()<.26)continue;
     const w=90+rnd()*70,d=90+rnd()*70,h=70+Math.pow(rnd(),1.6)*300,b=g(cx,cz)-6;
-    obs.push(b3Box(cx,cz,w,d,b,b+h,0,['#5d6a7c','#6e6a80','#4f6070','#7a7484'][Math.floor(rnd()*4)],{mat:'tower',windows:true}));
+    obs.push(b3Box(cx,cz,w,d,b,b+h,0,[R,b3ShadeHex(R,.85),b3ShadeHex(R,1.15),b3MixHex(R,'#7a7484',.5)][Math.floor(rnd()*4)],{mat:'tower',windows:true}));
    }
    const hz=-300,hy=110;
-   obs.push(b3Box(0,hz,2*R-260,64,hy,hy+16,0,'#6f7786',{mat:'deck'}));
-   for(let x=-R+200;x<=R-200;x+=230)obs.push(b3Box(x,hz,22,22,g(x,hz)-5,hy,0,'#59606e',{mat:'pillar'}));
+   obs.push(b3Box(0,hz,2*W3.radius-260,64,hy,hy+16,0,b3ShadeHex(R,1.2),{mat:'deck'}));
+   for(let x=-W3.radius+200;x<=W3.radius-200;x+=230)obs.push(b3Box(x,hz,22,22,g(x,hz)-5,hy,0,b3ShadeHex(R,.8),{mat:'pillar'}));
    for(let i=W3.obs.length-1;i>=0;i--){const o=W3.obs[i];if(o.mat==='tower'&&Math.abs(o.z-hz)<o.hd+50)W3.obs.splice(i,1);}
    break;}
   case 'river':{
@@ -3237,25 +3238,25 @@ function b3Generate(fieldIndex,seed){
    W3.water={y:-20,color:'#3f8fa3'};
    for(const bx of [-700,40,760]){const z0=cz(bx),slope=(cz(bx+5)-cz(bx-5))/10,yaw=Math.atan(slope)+Math.PI/2;
     const deck=g(bx,z0+200)+4,dy=deck+46;
-    obs.push(b3Box(bx,z0,420,58,dy,dy+12,yaw,'#8a7f70',{mat:'bridge'}));
-    for(const k of [-1,1])obs.push(b3Box(bx+Math.cos(yaw)*k*110,z0+Math.sin(yaw)*k*110,20,46,-40,dy,yaw,'#6d665c',{mat:'pillar'}));}
-   scatter(14,(x,z)=>{if(Math.abs(z-cz(x))<200)return null;const r=26+rnd()*30,b=g(x,z)-12;return b3Cyl(x,z,r,r*.6,b,b+r*1.6+20,'#6b7466',{mat:'rock',sides:8,cap:'#8aa080'})},120);
-   scatter(8,(x,z)=>{if(Math.abs(z-cz(x))<210)return null;const b=g(x,z)-6;return b3Cyl(x,z,10,4,b,b+150+rnd()*80,'#4d6b4b',{mat:'pylon',sides:6})},200);
+    obs.push(b3Box(bx,z0,420,58,dy,dy+12,yaw,b3ShadeHex(R,1.25),{mat:'bridge'}));
+    for(const k of [-1,1])obs.push(b3Box(bx+Math.cos(yaw)*k*110,z0+Math.sin(yaw)*k*110,20,46,-40,dy,yaw,b3ShadeHex(R,.85),{mat:'pillar'}));}
+   scatter(14,(x,z)=>{if(Math.abs(z-cz(x))<200)return null;const r=26+rnd()*30,b=g(x,z)-12;return b3Cyl(x,z,r,r*.6,b,b+r*1.6+20,R,{mat:'rock',sides:8,cap:b3MixHex(R,bi.ground[2],.4)})},120);
+   scatter(8,(x,z)=>{if(Math.abs(z-cz(x))<210)return null;const b=g(x,z)-6;return b3Cyl(x,z,10,4,b,b+150+rnd()*80,b3ShadeHex(R,.7),{mat:'pylon',sides:6,glow:T})},200);
    break;}
   case 'arena':{
    // Stadium: ring of stands marks the boundary; symmetric cover inside.
-   const ringR=R-60;
+   const ringR=RAD-60;
    for(let i=0;i<40;i++){const a=i/40*Math.PI*2,x=Math.cos(a)*ringR,z=Math.sin(a)*ringR;
-    obs.push(b3Box(x,z,250,80,g(x,z)-10,g(x,z)+120,a+Math.PI/2,'#22384f',{mat:'stand'}));}
+    obs.push(b3Box(x,z,250,80,g(x,z)-10,g(x,z)+120,a+Math.PI/2,R,{mat:'stand',glow:T}));}
    for(let i=0;i<6;i++){const a=i/6*Math.PI*2+Math.PI/6,x=Math.cos(a)*560,z=Math.sin(a)*560;
-    obs.push(b3Cyl(x,z,46,46,g(x,z)-6,g(x,z)+170,'#2e5872',{mat:'column',sides:12,glow:'#64e3f0'}));}
+    obs.push(b3Cyl(x,z,46,46,g(x,z)-6,g(x,z)+170,b3ShadeHex(R,1.15),{mat:'column',sides:12,glow:T}));}
    for(let i=0;i<4;i++){const a=i/4*Math.PI*2,x=Math.cos(a)*900,z=Math.sin(a)*900;
-    obs.push(b3Box(x,z,260,26,g(x,z)-4,g(x,z)+64,a+Math.PI/2,'#355d78',{mat:'barrier',glow:'#64e3f0'}));}
+    obs.push(b3Box(x,z,260,26,g(x,z)-4,g(x,z)+64,a+Math.PI/2,b3ShadeHex(R,1.25),{mat:'barrier',glow:T}));}
    break;}
   case 'night':{
-   scatter(9,(x,z)=>{const w=150+rnd()*120,d=100+rnd()*80,b=g(x,z)-6,h=70+rnd()*60;return b3Box(x,z,w,d,b,b+h,Math.floor(rnd()*4)*Math.PI/2,'#2f3d4f',{mat:'hall',windows:true})},160);
-   scatter(8,(x,z)=>{const r=44+rnd()*24,b=g(x,z)-4;return b3Cyl(x,z,r,r,b,b+90+rnd()*50,'#3c4b5c',{mat:'tank',sides:14,glow:'#ffcf8a'})},140);
-   scatter(6,(x,z)=>{const b=g(x,z)-4;return b3Cyl(x,z,16,12,b,b+260+rnd()*90,'#46505c',{mat:'stack',sides:10,glow:'#ff7f5a'})},140);
+   scatter(9,(x,z)=>{const w=150+rnd()*120,d=100+rnd()*80,b=g(x,z)-6,h=70+rnd()*60;return b3Box(x,z,w,d,b,b+h,Math.floor(rnd()*4)*Math.PI/2,R,{mat:'hall',windows:true})},160);
+   scatter(8,(x,z)=>{const r=44+rnd()*24,b=g(x,z)-4;return b3Cyl(x,z,r,r,b,b+90+rnd()*50,b3ShadeHex(R,1.15),{mat:'tank',sides:14,glow:T})},140);
+   scatter(6,(x,z)=>{const b=g(x,z)-4;return b3Cyl(x,z,16,12,b,b+260+rnd()*90,b3ShadeHex(R,1.3),{mat:'stack',sides:10,glow:T})},140);
    break;}
  }
  // Precompute vertical bounds for quick rejection.
@@ -3427,13 +3428,24 @@ const R3={gl:null,ok:false,err:null,canvas:null,progs:{},bufs:{},static:null,fra
  const VS_SKY=`#version 300 es
  in vec2 aPos;out vec2 vUv;void main(){vUv=aPos;gl_Position=vec4(aPos,.9999,1.);}`;
  const FS_SKY=`#version 300 es
- precision highp float;in vec2 vUv;uniform vec3 uF,uR,uU,uTop,uMid,uHor,uSun,uSunCol;uniform float uTan,uAsp,uStars;out vec4 o;
+ precision highp float;in vec2 vUv;uniform vec3 uF,uR,uU,uTop,uMid,uHor,uSun,uSunCol,uRidge;uniform float uTan,uAsp,uStars,uRidgeAmp;out vec4 o;
  float h1(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
- void main(){vec3 rd=normalize(uF+uR*vUv.x*uTan*uAsp+uU*vUv.y*uTan);float y=rd.y;
-  vec3 c=y<.0?mix(uHor,uHor*.82,clamp(-y*4.,0.,1.)):(y<.22?mix(uHor,uMid,smoothstep(0.,.22,y)):mix(uMid,uTop,smoothstep(.22,.85,y)));
-  float s=max(dot(rd,uSun),0.);c+=uSunCol*(smoothstep(.9994,.9997,s)*1.4+pow(s,60.)*.22+pow(s,5.)*.07);
+ void main(){vec3 rd=normalize(uF+uR*vUv.x*uTan*uAsp+uU*vUv.y*uTan);float y=rd.y,az=atan(rd.x,rd.z);
+  // painted dusk gradient: horizon -> mid -> top
+  vec3 c=mix(uHor,uMid,smoothstep(-.02,.30,y));c=mix(c,uTop,smoothstep(.30,.95,y));
   if(uStars>0.&&y>.02){vec2 g=floor(rd.xz/(y+.35)*260.);float st=step(.9965,h1(g));c+=vec3(.75,.85,1.)*st*uStars*(.4+.6*h1(g+7.))*smoothstep(.02,.2,y);}
-  float band=smoothstep(.0,.05,y)*(1.-smoothstep(.05,.18,y));c=mix(c,uHor*1.05,band*.25);
+  // large sun disc with soft glow
+  float s=max(dot(rd,uSun),0.);c+=uSunCol*(pow(s,6.)*.12+pow(s,70.)*.28);c=mix(c,uSunCol,smoothstep(.99855,.99885,s)*(uStars>0.?.75:1.));
+  // thin cloud streaks anchored to bearings
+  for(int k=0;k<3;k++){float kk=float(k),seg=floor(az*3.2+kk*7.);float on=step(.45,h1(vec2(seg,kk)));
+   float e=.06+.11*h1(vec2(seg,kk+3.))+.012*sin(az*9.+kk),w=.0035+.004*h1(vec2(seg,kk+5.));
+   float band=exp(-pow((y-e)/w,2.))*on*smoothstep(.0,.25,fract(az*3.2+kk*7.))*(1.-smoothstep(.7,1.,fract(az*3.2+kk*7.)));
+   c=mix(c,mix(uSunCol,vec3(1.),.4),band*(uStars>0.?.12:.32));}
+  // three layers of distant ridges (light to dark)
+  for(int k=0;k<3;k++){float kk=float(k);
+   float ridge=abs(sin(5.*az+kk*4.8)*.48+cos(13.*az-kk*4.8)*.24+sin(31.*az+kk*4.8)*.14+cos(57.*az-kk*4.8)*.07);
+   float top=((2.-kk)*.019+ridge*uRidgeAmp+.02)*1.25;
+   if(y<top)c=mix(uHor,uRidge,.13+kk*.13);}
   o=vec4(c,1.);}`;
  const compile=(t,s)=>{const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(sh));return sh;};
  const prog=(v,f,attrs,unis)=>{const p=gl.createProgram();gl.attachShader(p,compile(gl.VERTEX_SHADER,v));gl.attachShader(p,compile(gl.FRAGMENT_SHADER,f));
@@ -3443,7 +3455,7 @@ const R3={gl:null,ok:false,err:null,canvas:null,progs:{},bufs:{},static:null,fra
   R3.progs.lit=prog(VS_LIT,FS_LIT,['aPos','aNrm','aCol'],['uVP','uSun','uSunCol','uSkyAmb','uGndAmb','uFog','uEye','uFogDen','uDetail','uAlpha']);
   R3.progs.un=prog(VS_UN,FS_UN,['aPos','aCol'],['uVP','uFog','uEye','uFogDen','uAdd']);
   R3.progs.pt=prog(VS_PT,FS_PT,['aPos','aCol','aSize'],['uVP','uScale','uMax','uAdd']);
-  R3.progs.sky=prog(VS_SKY,FS_SKY,['aPos'],['uF','uR','uU','uTop','uMid','uHor','uSun','uSunCol','uTan','uAsp','uStars']);
+  R3.progs.sky=prog(VS_SKY,FS_SKY,['aPos'],['uF','uR','uU','uTop','uMid','uHor','uSun','uSunCol','uTan','uAsp','uStars','uRidge','uRidgeAmp']);
   const range=gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);R3.pointMax=Math.min(96,range?range[1]:64);
   const mk=(layout)=>{const vao=gl.createVertexArray(),buf=gl.createBuffer();gl.bindVertexArray(vao);gl.bindBuffer(gl.ARRAY_BUFFER,buf);
    let stride=layout.reduce((a,b)=>a+b,0)*4,off=0;layout.forEach((n,i)=>{gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,n,gl.FLOAT,false,stride,off);off+=n*4;});
@@ -3544,13 +3556,13 @@ function b3EmitObstacle(O,o){
   b3QuadOut(O,t[0],t[1],t[2],t[3],top,center);
   for(let k=0;k<4;k++){const k2=(k+1)%4;b3QuadOut(O,b[k],b[k2],t[k2],t[k],col,center);}
   // Windows: emissive strips placed 0.4 units outside the face (visually flush).
-  if(o.windows){const wcol=W3.biome.id==='night'?b3Hex('#ffcf8a'):b3Hex('#9fe6f2'),rows=Math.floor((o.y1-o.y0-14)/22);
+  if(o.windows){const wcol=W3.biome.id==='night'?b3Hex('#e7a466'):b3Hex('#a8b9ba'),rows=Math.floor((o.y1-o.y0-14)/22);
    for(let face=0;face<4;face++){const alongX=face%2===0,half=alongX?o.hw:o.hd,depth=(alongX?o.hd:o.hw)+.6,sign=face<2?1:-1;
     const cols=Math.max(1,Math.floor(half*2/26));
     for(let r=0;r<rows;r++){const y=o.y0+14+r*22;if(b3Hash(r,face,o.x|0)<.28)continue;
      for(let q=0;q<cols;q++){if(b3Hash(q,r+face*31,o.z|0)<.35)continue;const u=-half+13+q*(half*2-12)/cols;
       const P=(du,dy)=>alongX?pt(u+du,y+dy,sign*depth):pt(sign*depth,y+dy,u+du);
-      b3QuadOut(O,P(-7,0),P(7,0),P(7,9),P(-7,9),wcol,center,W3.biome.id==='night'?.9:.35);}}}}
+      b3QuadOut(O,P(-7,0),P(7,0),P(7,9),P(-7,9),wcol,center,W3.biome.id==='night'?.85:.2);}}}}
   if(o.glow){const gc=b3Hex(o.glow),y=o.y1-6;const P=(lx,lz,dy)=>pt(lx,y+dy,lz);
    for(const s of [-1,1]){b3QuadOut(O,P(-o.hw,s*(o.hd+.6),0),P(o.hw,s*(o.hd+.6),0),P(o.hw,s*(o.hd+.6),3),P(-o.hw,s*(o.hd+.6),3),gc,center,1);}}
   if(o.mat==='deck'||o.mat==='bridge'){const lc=b3Hex(W3.biome.accent);for(const s of [-1,1]){const P=(lx,dy)=>pt(lx,o.y1+dy,s*(o.hd-3));b3QuadOut(O,P(-o.hw,0),P(o.hw,0),P(o.hw,6),P(-o.hw,6),b3Shade(lc,.8),center,.3);}}
@@ -3571,108 +3583,104 @@ function b3EmitObstacle(O,o){
 }
 
 // ------------------------------------------------------------ mechs -----
-// Local frame: +x right, +y up, +z forward. Model ~46 units tall.
+// Airframe design follows the PATROL reference build (PATROL_Robo_Salvage v1.1):
+// faceted hull with canopy, swept wings, twin rear engines, short legs and a
+// pair of side cannons. Local frame: +x right, +y up, +z forward.
 const B3_MODELS=new Map();
-function b3MechPalette(enemyTint){
- return enemyTint?{main:'#7c4a54',light:'#d99c94',dark:'#2c1a20',trim:'#efc2b6',glow:'#ffab6e',visor:'#ff7a68'}
-  :{main:'#3f6f88',light:'#a8d8e2',dark:'#1a2834',trim:'#d6f4f6',glow:'#7ff3ff',visor:'#8cf9ff'};
-}
+const B3_MECH_PAL={
+ P:{light:'#dfddd0',mid:'#8a9da0',dark:'#242e36',metal:'#657780',trim:'#f28b48',glow:'#84e8da',visor:'#264753',visor2:'#50848c',canopy:'#b1dfd4',flame:[.45,.92,.88]},
+ E:{light:'#dd8068',mid:'#a94845',dark:'#242e36',metal:'#657780',trim:'#ffd087',glow:'#ffaf74',visor:'#2c2b36',visor2:'#7a5054',canopy:'#ffd9c2',flame:[1,.62,.36]}
+};
+const B3_CORE_GLOW={power:'#ffc379',speed:'#76d4fa',tactical:'#d5b7e4'};
 function b3BuildMech(load,isEnemy){
  const key=Object.values(load).map(p=>p.id).join('|')+(isEnemy?'|E':'|P');
  if(B3_MODELS.has(key))return B3_MODELS.get(key);
- const pal=b3MechPalette(isEnemy),C=k=>b3Hex(pal[k]);
- const tint=hex=>{const c=b3Hex(hex);return isEnemy?[c[0]*.75+.25,c[1]*.55,c[2]*.5]:c;};
- const ids={weapon:load.weapon.id,armor:load.armor.id,legs:load.legs.id,core:load.core.id};
- const cols={armor:tint(find(load.armor).color),legs:tint(find(load.legs).color),core:tint(find(load.core).color),weapon:tint(find(load.weapon).color)};
- const tris=[];const emit=[];let part='body';
- // Rotations: rx (pitch about x), ry (yaw), rz (roll).
- const rot=(p,r)=>{let [x,y,z]=p;if(r[2]){const c=Math.cos(r[2]),s=Math.sin(r[2]);[x,y]=[x*c-y*s,x*s+y*c];}
-  if(r[0]){const c=Math.cos(r[0]),s=Math.sin(r[0]);[y,z]=[y*c-z*s,y*s+z*c];}
-  if(r[1]){const c=Math.cos(r[1]),s=Math.sin(r[1]);[x,z]=[x*c+z*s,-x*s+z*c];}return [x,y,z];};
- // Tapered box: top face scaled (tx,tz) and shifted (ox,oz) for slanted panels.
- const box=(cx,cy,cz,sx,sy,sz,col,o={})=>{const tx=o.tx??1,tz=o.tz??1,ox=o.ox||0,oz=o.oz||0,r=o.r||[0,0,0],e=o.e||0,fz=o.fz??1;
-  const v=[];for(const [yy,kx,kz,dx,dz] of [[-sy/2,1,fz,0,0],[sy/2,tx,tz*fz,ox,oz]])for(const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]])
-   v.push(rot([a*sx/2*kx+dx,yy,(b>0?sz/2*kz:-sz/2*(yy<0?1:tz))+dz],r).map((q,i)=>q+[cx,cy,cz][i]));
-  const ctr=[cx,cy,cz],faces=[[4,5,6,7,1.12],[0,3,2,1,.55],[0,1,5,4,.78],[2,3,7,6,.98],[1,2,6,5,.86],[3,0,4,7,.86]];
-  for(const [a,b,c,d,k] of faces)tris.push({q:[v[a],v[b],v[c],v[d]],col:b3Shade(col,k),ctr,part,e});};
- const cyl=(cx,cy,cz,r0,r1,len,col,o={})=>{const N=o.n||8,r=o.r||[0,0,0],e=o.e||0,ctr=[cx,cy,cz];
-  const P=(t,rad,z)=>rot([Math.cos(t)*rad,Math.sin(t)*rad,z],r).map((q,i)=>q+ctr[i]);
-  for(let k=0;k<N;k++){const a=k/N*Math.PI*2,b=(k+1)/N*Math.PI*2;
-   tris.push({q:[P(a,r0,-len/2),P(b,r0,-len/2),P(b,r1,len/2),P(a,r1,len/2)],col:b3Shade(col,.75+.35*Math.max(0,Math.sin(a+.6))),ctr,part,e});}
-  if(o.cap!==false){const capc=o.capCol||b3Shade(col,.6),ce=o.capE||0;for(let k=0;k<N;k++){const a=k/N*Math.PI*2,b=(k+1)/N*Math.PI*2;
-   tris.push({t:[P(a,r1,len/2),P(b,r1,len/2),rot([0,0,len/2],r).map((q,i)=>q+ctr[i])],col:capc,ctr,part,e:ce});}}};
- const main=C('main'),light=C('light'),dark=C('dark'),trim=C('trim'),glow=C('glow');
- // ---- core / torso
- part='body';
- if(ids.core==='power'){box(0,7,0,32,22,22,main,{tx:.9,tz:.85});box(0,9,10,24,14,6,cols.core,{tx:.8});
-  for(const s of [-1,1])box(s*9,19,-7,7,5,9,dark),box(s*9,21.6,-7,6,.6,8,C('glow'),{e:1});}
- else if(ids.core==='speed'){box(0,7,0,22,18,24,main,{tx:.75,tz:.7,oz:3});box(0,8,12,14,10,8,cols.core,{tx:.5,tz:.4,oz:2});box(0,18,-5,3,9,18,light,{tz:.5,oz:-4});}
- else if(ids.core==='tactical'){box(0,7,0,26,20,20,main,{tx:.85,tz:.85});box(0,8,10,18,12,5,cols.core);cyl(-11,19,-2,4,3,6,light,{r:[-Math.PI/2,0,0],n:8,capCol:glow,capE:.8});
-  box(9,24,-6,1.2,14,1.2,trim);box(6,22,-8,1,10,1,trim);}
- else{box(0,7,0,26,20,20,main,{tx:.85,tz:.85});box(0,8,10,20,13,5,cols.core,{tx:.8});}
- box(0,-5,0,16,8,14,dark,{tx:1.2}); // waist
- box(0,8,10.5,8,3,1.5,C('glow'),{e:.9}); // chest light
- // head
- part='head';
- box(0,20,3,10,8,11,light,{tx:.8,tz:.8});box(0,20.5,8.8,8,2.2,1.2,C('visor'),{e:1});box(0,25,0,2,5,2,trim);
- // ---- shoulders & arms (armor decides the plates)
+ const P=isEnemy?B3_MECH_PAL.E:B3_MECH_PAL.P,weapon=load.weapon.id,armor=load.armor.id,legs=load.legs.id,core=load.core.id;
+ const coreCol=B3_CORE_GLOW[core]||P.glow,EMIT=new Set([P.glow,P.canopy,coreCol,'#d9ffee']);
+ const pos=[],nrm=[],col=[],em=[],prt=[],parts=[],pivot={},emit=[];
+ let origin=[0,0,0],pi=0;
+ const rgb=c=>Array.isArray(c)?c:b3Hex(c),tint=(c,k)=>b3Shade(rgb(c),k),isE=c=>typeof c==='string'&&EMIT.has(c)?1:0;
+ const tri=(a,b,c,cc,ctr,e)=>{let n=v3.cross(v3.sub(b,a),v3.sub(c,a));const l=v3.len(n);if(l<1e-7)return;n=v3.mul(n,1/l);
+  const fc=[(a[0]+b[0]+c[0])/3,(a[1]+b[1]+c[1])/3,(a[2]+b[2]+c[2])/3];if(v3.dot(n,v3.sub(fc,ctr))<0)n=v3.mul(n,-1);
+  const cr=rgb(cc);for(const p of [a,b,c]){pos.push(p[0]+origin[0],p[1]+origin[1],p[2]+origin[2]);nrm.push(n[0],n[1],n[2]);col.push(cr[0],cr[1],cr[2]);em.push(e);prt.push(pi);}};
+ const shell=(lower,upper,c,cap=c)=>{const all=lower.concat(upper),ctr=[0,1,2].map(i=>all.reduce((s,p)=>s+p[i],0)/all.length),n=lower.length,e=isE(c);
+  for(let i=0;i<n;i++){const j=(i+1)%n;tri(lower[i],upper[i],upper[j],c,ctr,e);tri(lower[i],upper[j],lower[j],c,ctr,e);}
+  for(let i=1;i<n-1;i++){tri(upper[0],upper[i],upper[i+1],cap,ctr,isE(cap));tri(lower[0],lower[i+1],lower[i],tint(c,.6),ctr,0);}};
+ const panel=(pts,lo,hi,c,cap=c)=>{const cx=pts.reduce((s,p)=>s+p[0],0)/pts.length,cz=pts.reduce((s,p)=>s+p[1],0)/pts.length;
+  shell(pts.map(([x,z])=>[x,lo,z]),pts.map(([x,z])=>[b3Mix(x,cx,.1),hi,b3Mix(z,cz,.1)]),c,cap);};
+ const tube=(a,b,r1,r2,c,tip=c,n=6)=>{const f=v3.norm(v3.sub(b,a)),r=v3.norm(v3.cross(Math.abs(f[1])>.9?[0,0,1]:[0,1,0],f)),u=v3.cross(f,r);
+  const ring=(ctr,sz)=>Array.from({length:n},(_,i)=>v3.add(ctr,v3.add(v3.mul(r,Math.cos(i*Math.PI*2/n)*sz),v3.mul(u,Math.sin(i*Math.PI*2/n)*sz))));shell(ring(a,r1),ring(b,r2),c,tip);};
+ const rect=(x,z,w,d,y)=>[[x-w/2,y,z-d/2],[x+w/2,y,z-d/2],[x+w/2,y,z+d/2],[x-w/2,y,z+d/2]];
+ const box=(x,y,z,w,h,d,c)=>shell(rect(x,z,w,d,y-h/2),rect(x,z,w,d,y+h/2),c,tint(c,1.13));
+ const asm=(name,p,make)=>{origin=p;pi=parts.length;parts.push(name);pivot[name]=p.slice();make();};
+ const {light,mid,dark,metal,trim,glow,visor}=P;
+ asm('hull',[0,0,0],()=>{
+  panel([[-10,-14],[-16,1],[-11,15],[0,30],[11,15],[16,1],[10,-14]],-4,8,metal,light);
+  panel([[-8,-8],[-9,5],[-5,16],[0,22],[5,16],[9,5],[8,-8]],8,11,dark,mid);
+  panel([[-6,-6],[-7,4],[-3,12],[0,16],[4,11],[7,3],[6,-6]],11,15,visor,P.visor2);
+  panel([[-2.5,-3],[-2.5,8],[0,13],[2.5,8],[2.5,-3]],15,15.6,glow,P.canopy);
+  for(const s of [-1,1]){box(s*10,9,-6,3,2,9,trim);for(let k=0;k<3;k++)box(s*11,8.7,1+k*2.4,3,1,1.1,dark);}
+  panel([[-11,-13],[-9,-22],[0,-26],[9,-22],[11,-13]],0,6,dark,mid);
+  box(0,7,-15,9,3,7,trim);for(let k=0;k<4;k++)box(0,8.7,-18+k*2,7.2,.8,.65,dark);
+  for(const s of [-1,1]){panel([[s*6,9],[s*9,12],[s*1.2,27],[s*.7,25]],8.3,9.4,mid,light);box(s*8,11,4,1.5,1,5,trim);}
+  tube([4,10,-8],[5.5,19,-11],.7,.32,metal);
+ });
+ const wingLength=({mesh:29,plated:33,fortress:37,reactive:28,composite:35,feather:42,prism:32})[armor]||31;
+ const long=legs==='jet'||legs==='booster',heavy=legs==='tank'||legs==='crawler',wide=legs==='spider';
  for(const s of [-1,1]){
-  part=s<0?'armL':'armR';
-  box(s*17,13,0,10,10,12,dark);
-  const A=ids.armor;
-  if(A==='fortress'){box(s*22,14,0,10,24,26,cols.armor,{tx:.85});box(s*26,14,0,2,20,22,light);}
-  else if(A==='plated'){box(s*20,17,0,14,6,16,cols.armor,{tx:.9});box(s*21,12,0,14,5,15,b3Shade(cols.armor,.85),{tx:.9});}
-  else if(A==='reactive'){for(let k=0;k<3;k++)for(let q=0;q<2;q++)box(s*21,10+k*5,-4+q*8,9,4.2,7,b3Shade(cols.armor,.9+.08*((k+q)%2)));}
-  else if(A==='composite'){box(s*20,16,0,13,10,18,cols.armor,{tx:.6,tz:.8,ox:s*2});}
-  else if(A==='feather'){box(s*20,16,-2,12,3,16,cols.armor,{tx:.4,tz:.6,ox:s*5,oz:-4});}
-  else if(A==='prism'){box(s*20,16,0,12,12,14,cols.armor,{tx:.05,tz:.3,e:.25});}
-  else{box(s*20,16,0,11,5,13,cols.armor,{tx:.85});}
-  box(s*19,3,2,6,12,7,main);box(s*19,-6,5,7,9,10,light,{tz:.9}); // upper / fore arm
+  asm(s<0?'wingL':'wingR',[s*12,3,-1],()=>{
+   panel([[0,8],[s*8,11],[s*wingLength,-12],[s*(wingLength-1),-19],[s*9,-11],[0,-9]],-2,2,mid,light);
+   panel([[s*4,5],[s*11,5],[s*(wingLength-3),-13],[s*(wingLength-6),-14]],2,2.7,trim);
+   panel([[s*8,-5],[s*16,-4],[s*27,-13],[s*12,-10]],2.1,3,dark,metal);
+   box(s*wingLength,2,-14,2.1,7,7,trim);
+   for(let j=0;j<4;j++){const a=11+j*3.8;panel([[s*a,1-j*2.1],[s*(a+.8),.5-j*2.1],[s*(a+3.5),-5-j*2.2],[s*(a+2.5),-4.8-j*2.2]],2.2,2.55,metal);}
+   box(s*(wingLength-.8),5,-15,1.7,1.3,3,glow);
+   panel([[s*1,-7],[s*6,-6],[s*18,-25],[s*13,-24]],-.8,1.5,metal,mid);
+   if(armor==='fortress'||armor==='plated'||armor==='composite'){box(s*8,4,1,12,4,13,light);box(s*11,6,-3,5,2,9,mid);}
+   else if(armor==='reactive'||armor==='prism'){for(let k=0;k<3;k++)box(s*(6+5*k),3.6,4-k*2.8,4,2.7,6,armor==='prism'?glow:metal);}
+   if(armor==='feather')panel([[s*6,-9],[s*10,-10],[s*30,-27],[s*17,-20]],-1,1.8,light);
+  });
+  emit.push({p:[s*(12+wingLength-.8),8,-16],d:[0,0,-1],k:.3});
+  asm(s<0?'engineL':'engineR',[s*12,-1,-12],()=>{
+   tube([0,0,-13],[0,0,11],5.6,5,dark,mid,8);tube([0,0,-7],[0,0,7],6.1,5.3,mid,light,8);
+   for(const t of [-11,-8,-5])tube([0,0,t],[0,0,t+1],5.7,5.7,metal,metal,8);
+   tube([0,0,-13.3],[0,0,-14],4.6,4.5,metal,dark,10);tube([0,0,-14.1],[0,0,-14.5],3.5,3.2,glow,glow,10);
+   tube([0,0,-14.6],[0,0,-15],1.75,1.4,dark,'#d9ffee',8);
+   for(const side of [-1,1])box(side*4.7,3,-3,1.3,2,15,light);
+   panel([[s*1,-3],[s*3,6],[s*7,-12],[s*6,-20]],3.5,9,mid,light);
+  });
+  emit.push({p:[s*12,-1,-27.5],d:[0,0,-1],k:1,engine:true});
+  const lx=s*(wide?10:3),len=long?21:heavy?10:15;
+  asm(s<0?'legL':'legR',[s*(wide?15:8),-5,-3],()=>{
+   tube([0,0,2],[lx,-9,-5],3.7,2.8,dark,mid);box(lx,-9,-5,heavy?10:7,6,8,mid);
+   panel([[lx-3,-8],[lx-3,0],[lx+3,3],[lx+4,-8],[lx+2,-17]],-len-3,-9,mid,light);
+   box(lx,-len-3,-5,heavy?10:6,3.5,long?21:13,dark);
+   if(heavy){for(let k=0;k<4;k++)box(lx,-len-5,-10+k*3,9,1.4,1.5,metal);}
+   else tube([lx,-len,-7],[lx,-len-5,-9],3,2.1,dark,glow);
+   if(legs==='ranger'||wide)box(lx+s*3,-13,-2,2,8,3,trim);
+  });
+  if(!heavy)emit.push({p:[s*(wide?15:8)+lx,-5-len-5,-12],d:[0,-.7,-.7],k:.45});
+  asm(s<0?'gunL':'gunR',[s*16,0,7],()=>{
+   box(0,0,0,7.8,6.3,13,metal);box(0,3.8,-1,6,2.2,9,light);
+   switch(weapon){
+    case 'missile':box(s*3,2,6,12,9,18,mid);for(const x of [-3,3])for(const y of [0,4])tube([s*3+x,y,14],[s*3+x,y,17],1.55,1.1,trim);break;
+    case 'rail':for(const x of [-2.1,2.1])box(x,1,22,1.9,3,39,light);box(0,1,18,1.1,1.1,26,glow);break;
+    case 'shot':for(const x of [-2.7,0,2.7])tube([x,0,3],[x,0,19],1.9,1.8,mid,dark);break;
+    case 'burst':for(const x of [-2.2,2.2])tube([x,0,4],[x,0,25],1.7,1.2,light,dark);break;
+    case 'slug':tube([0,0,3],[0,0,24],4.2,3.6,dark,trim);tube([0,0,12],[0,0,17],4.6,4.5,light);break;
+    case 'micro':tube([0,1,3],[0,1,31],2.3,.8,light,dark);box(s*3,-1,2,4,5,9,trim);break;
+    default:box(0,0,12,4,4,18,dark);box(0,1,18,3.5,2.8,13,light);box(0,2.5,15,1,1,8,trim);
+   }
+  });
  }
- // ---- weapon on the right arm (+ shoulder pods)
- part='gun';const W=ids.weapon,wc=cols.weapon,gx=19,gy=-7,gz=14;
- if(W==='rail'){box(gx-2.2,gy,gz+14,1.8,3,40,dark);box(gx+2.2,gy,gz+14,1.8,3,40,dark);box(gx,gy,gz+14,1.2,1.2,38,wc,{e:1});
-  for(const z of [4,14,24])box(gx,gy,gz+z,7,6,2,light);}
- else if(W==='shot'){box(gx,gy,gz+6,10,8,16,dark);cyl(gx-2.5,gy,gz+16,2.6,2.6,8,wc,{r:[0,0,0],n:6,capCol:[.05,.05,.05]});cyl(gx+2.5,gy,gz+16,2.6,2.6,8,wc,{n:6,capCol:[.05,.05,.05]});}
- else if(W==='missile'){box(gx,gy,gz+4,6,6,14,dark);cyl(gx,gy,gz+12,2,2,6,wc,{n:6});
-  part='pod';box(20,26,-2,14,10,18,b3Shade(wc,.8));for(let i=0;i<2;i++)for(let j=0;j<2;j++)box(16+i*7,24+j*5,7.2,3,3,1,C('visor'),{e:1});}
- else if(W==='micro'){box(gx,gy,gz+2,7,7,10,dark);for(let k=0;k<6;k++){const a=k/6*Math.PI*2;box(gx+Math.cos(a)*2.4,gy+Math.sin(a)*2.4,gz+15,1.2,1.2,20,k%2?wc:light);}}
- else if(W==='burst'){box(gx,gy,gz+5,7,10,14,dark);for(const dy of [-3,0,3])box(gx,gy+dy,gz+16,2,2,14,wc);}
- else if(W==='slug'){box(gx,gy,gz+2,10,10,12,dark);cyl(gx,gy,gz+18,5,4,30,wc,{n:10,capCol:[.06,.05,.05]});box(gx,gy+6,gz+6,6,3,10,light);}
- else if(W==='bounce'){box(gx,gy,gz+4,6,6,12,dark);cyl(gx,gy,gz+12,6,6,5,wc,{n:12,capCol:C('glow'),capE:.7});box(gx,gy,gz+18,3,3,10,light);}
- else{box(gx,gy,gz+8,4.5,5,24,wc);box(gx,gy-4,gz+3,3,6,4,dark);box(gx,gy+3.5,gz+3,2,2,8,light);}
- // left arm: compact shield
- part='armL';box(-21,-6,6,4,14,14,b3Shade(cols.armor,.9),{tz:.8});
- // ---- back unit: thrusters + wings (legs decide wing size)
- part='back';const L=ids.legs;
- box(0,10,-13,18,16,10,dark,{tx:.9});
- for(const s of [-1,1]){cyl(s*6,6,-19,4.2,3.2,8,light,{n:10,r:[0,Math.PI,0],capCol:b3Shade(glow,.7),capE:.45});emit.push({p:[s*6,6,-24],d:[0,0,-1],k:1});}
- const wingSpan=L==='jet'||L==='booster'?34:L==='crawler'||L==='tank'?16:26;
- for(const s of [-1,1]){part=s<0?'wingL':'wingR';
-  box(s*(10+wingSpan/2),15,-14,wingSpan,2.4,12,b3Shade(main,1.05),{tx:.55,tz:.55,ox:s*wingSpan*.15,oz:-6});
-  box(s*(10+wingSpan),17,-19,3,7,5,trim);emit.push({p:[s*(10+wingSpan),16,-22],d:[0,0,-1],k:.45});
-  box(s*(8+wingSpan*.6),9,-15,wingSpan*.6,1.8,8,dark,{tx:.6,oz:-3});}
- // ---- legs
- for(const s of [-1,1]){part=s<0?'legL':'legR';const lc=cols.legs;
-  if(L==='spider'){for(const f of [-1,1]){box(s*12,-12,f*8,4,4,18,dark,{r:[0,f*.5*s,s*.5]});box(s*19,-22,f*13,3,14,3,lc,{r:[0,0,-s*.25]});}}
-  else if(L==='tank'||L==='crawler'){box(s*9,-14,0,9,14,12,main);box(s*10,-25,1,13,8,26,lc,{tz:.9});
-   for(const z of [-8,0,8])box(s*16.8,-25,z+1,1.2,6,5,dark);emit.push({p:[s*10,-30,0],d:[0,-1,0],k:.6});}
-  else if(L==='jet'){box(s*9,-12,1,7,12,8,main);box(s*9,-22,-3,6,11,7,lc,{r:[.45,0,0]});box(s*9,-29,2,7,4,11,dark);
-   cyl(s*9,-24,-9,3.6,2.6,7,light,{r:[0,Math.PI,0],capCol:b3Shade(glow,.7),capE:.45});emit.push({p:[s*9,-25,-13],d:[0,-.4,-1],k:.9});}
-  else if(L==='booster'){box(s*9,-12,0,7,12,8,main);box(s*10,-23,0,10,12,12,lc,{tx:.8});cyl(s*10,-29,-2,4,3,5,light,{r:[Math.PI/2,0,0],capCol:b3Shade(glow,.7),capE:.45});emit.push({p:[s*10,-32,-2],d:[0,-1,0],k:1});}
-  else if(L==='ranger'){box(s*8,-12,0,6,13,7,main);box(s*8,-23,1,5,11,6,lc);box(s*12,-21,-4,1.4,9,9,trim,{tz:.4,oz:-3});box(s*8,-29,3,6,3,10,dark);}
-  else{box(s*8,-12,0,7,13,8,main);box(s*8,-23,1,7,11,8,lc);cyl(s*8,-29,3,3.5,3.5,6,dark,{r:[0,Math.PI/2,0],n:10});emit.push({p:[s*8,-31,0],d:[0,-1,0],k:.5});}
- }
- // Flatten to arrays: positions, normals, colors, emissive, part index.
- const partNames=['body','head','armL','armR','gun','pod','back','wingL','wingR','legL','legR'];
- const out={pos:[],nrm:[],col:[],em:[],part:[],emit,parts:partNames,key,height:52,radius:24};
- const addTri=(a,b,c,col,ctr,pi,e)=>{let n=v3.norm(v3.cross(v3.sub(b,a),v3.sub(c,a)));const fc=v3.mul(v3.add(v3.add(a,b),c),1/3);if(v3.dot(n,v3.sub(fc,ctr))<0)n=v3.mul(n,-1);
-  for(const p of [a,b,c]){out.pos.push(...p);out.nrm.push(...n);out.col.push(...col);out.em.push(e);out.part.push(pi);}};
- for(const t of tris){const pi=Math.max(0,partNames.indexOf(t.part));
-  if(t.q){addTri(t.q[0],t.q[1],t.q[2],t.col,t.ctr,pi,t.e);addTri(t.q[0],t.q[2],t.q[3],t.col,t.ctr,pi,t.e);}else addTri(t.t[0],t.t[1],t.t[2],t.col,t.ctr,pi,t.e);}
- out.pos=new Float32Array(out.pos);out.nrm=new Float32Array(out.nrm);out.col=new Float32Array(out.col);out.em=new Float32Array(out.em);out.part=new Uint8Array(out.part);
- // Part pivots for animation / break-apart.
- out.pivot={body:[0,4,0],head:[0,18,2],armL:[-17,13,0],armR:[17,13,0],gun:[19,-6,8],pod:[20,26,-2],back:[0,10,-13],wingL:[-12,15,-14],wingR:[12,15,-14],legL:[-9,-6,0],legR:[9,-6,0]};
+ asm('generator',[0,5,-14],()=>{
+  const count=core==='power'?2:core==='tactical'?3:1;
+  for(let i=0;i<count;i++){const x=(i-(count-1)/2)*6;tube([x,1,-3],[x,5,-5],core==='balance'?4.8:2.8,core==='balance'?4.3:2.5,dark,coreCol);}
+  if(core==='speed')for(const s of [-1,1])panel([[s*3,-1],[s*4,-10],[s*11,-14],[s*7,-1]],2,5,mid,coreCol);
+ });
+ const tip={rail:41,micro:34,slug:24,burst:29,shot:22,missile:17}[weapon]||30;
+ const out={pos:new Float32Array(pos),nrm:new Float32Array(nrm),col:new Float32Array(col),em:new Float32Array(em),part:new Uint8Array(prt),
+  parts,pivot,emit,key,height:48,radius:26,muzzles:[[-16,1,7+tip],[16,1,7+tip]],flame:P.flame};
  B3_MODELS.set(key,out);return out;
 }
 // Basis for a mech: yaw (facing), pitch (lean), roll (bank).
@@ -3696,7 +3704,7 @@ function b3EmitMech(buf,m,pose){
   const pn=m.parts[PI[i]];let v=[P[k],P[k+1],P[k+2]],n=[N[k],N[k+1],N[k+2]];
   let a=0,piv=null;
   if(pn==='legL'||pn==='legR'){a=legA*(pn==='legL'?1:.85);piv=m.pivot[pn];}
-  else if(pn==='gun'||pn==='armR'){a=-gunA;piv=m.pivot.armR;}
+  else if(pn==='gunL'||pn==='gunR'){a=-gunA;piv=m.pivot[pn];}
   if(a){v=rotX(v,piv,a);n=rotXn(n,a);}
   let wx=pose.x+(B.r[0]*v[0]+B.u[0]*v[1]+B.f[0]*v[2])*S,wy=pose.y+(B.r[1]*v[0]+B.u[1]*v[1]+B.f[1]*v[2])*S,wz=pose.z+(B.r[2]*v[0]+B.u[2]*v[1]+B.f[2]*v[2])*S;
   let nx=B.r[0]*n[0]+B.u[0]*n[1]+B.f[0]*n[2],ny=B.r[1]*n[0]+B.u[1]*n[1]+B.f[1]*n[2],nz=B.r[2]*n[0]+B.u[2]*n[1]+B.f[2]*n[2];
@@ -3741,7 +3749,7 @@ function b3CamSpace(p){const C=R3.cam,d=v3.sub(p,C.eye);return [v3.dot(d,C.r),v3
 // ------------------------------------------------------------- frame -----
 function b3ResizeCanvases(){
  const rect=R3.canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
- const sc=clamp(B3.tune.renderScale*R3.autoScale,.3,2),w=Math.max(160,Math.round(rect.width*dpr*sc)),h=Math.max(120,Math.round(rect.height*dpr*sc));
+ const sc=clamp(B3.tune.renderScale*(B3.tune.autoQuality?R3.autoScale:1),.3,2),w=Math.max(160,Math.round(Math.min(rect.width*sc,8192))),h=Math.max(120,Math.round(Math.min(rect.height*sc,8192)));
  if(R3.canvas.width!==w||R3.canvas.height!==h){R3.canvas.width=w;R3.canvas.height=h;}
  const hw=Math.max(160,Math.round(rect.width*Math.min(dpr,1.5))),hh=Math.max(120,Math.round(rect.height*Math.min(dpr,1.5)));
  if(canvas.width!==hw||canvas.height!==hh){canvas.width=hw;canvas.height=hh;}
@@ -3752,12 +3760,14 @@ function b3DrawScene(){
  if(R3.builtWorld!==W3.version)b3BuildWorldMesh();
  gl.viewport(0,0,R3.canvas.width,R3.canvas.height);
  gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
- const sky=bi.sky.map(b3Hex),sun=v3.norm(bi.sun),sunC=b3Hex(bi.sunColor),fog=b3Hex(bi.fog),amb=bi.ambient.map(b3Hex);
+ const sky=bi.sky.map(b3Hex),sun=v3.norm(B3_SUN),sunC=b3Hex(bi.sunColor),fog=sky[2];
+ const amb=[sky[1].map(v=>v+(1-v)*.3),b3Hex(bi.ground[0]).map(v=>v*.55)];
+ const ridgeBase=bi.id==='snow'?b3Hex('#7898ae'):bi.id==='night'||bi.id==='arena'?b3Hex('#29374b'):b3Hex(bi.rock);
  // sky
  gl.depthMask(false);gl.disable(gl.DEPTH_TEST);
  const S=R3.progs.sky;gl.useProgram(S.p);
  gl.uniform3fv(S.u.uF,C.f);gl.uniform3fv(S.u.uR,C.r);gl.uniform3fv(S.u.uU,C.u);gl.uniform3fv(S.u.uTop,sky[0]);gl.uniform3fv(S.u.uMid,sky[1]);gl.uniform3fv(S.u.uHor,sky[2]);
- gl.uniform3fv(S.u.uSun,sun);gl.uniform3fv(S.u.uSunCol,sunC);gl.uniform1f(S.u.uTan,Math.tan(C.fov/2));gl.uniform1f(S.u.uAsp,C.aspect);gl.uniform1f(S.u.uStars,bi.id==='night'||bi.id==='arena'?1:0);
+ gl.uniform3fv(S.u.uSun,sun);gl.uniform3fv(S.u.uSunCol,sunC);gl.uniform1f(S.u.uTan,Math.tan(C.fov/2));gl.uniform1f(S.u.uAsp,C.aspect);gl.uniform1f(S.u.uStars,bi.id==='night'||bi.id==='arena'?1:0);gl.uniform3fv(S.u.uRidge,ridgeBase);gl.uniform1f(S.u.uRidgeAmp,bi.id==='snow'||bi.id==='mountain'?.22:.10);
  gl.bindVertexArray(R3.bufs.sky.vao);gl.drawArrays(gl.TRIANGLES,0,3);
  gl.enable(gl.DEPTH_TEST);gl.depthMask(true);
  // lit geometry
@@ -3814,8 +3824,10 @@ function b3EmitBox(buf,c,dir,up,sx,sy,sz,col,e=0){
 }
 
 // ------------------------------------------------------------- state -----
-const HOVER=26,MECH_R=20,HIT_R=25,CEIL_REL=330,CEIL_ABS=720,SHOT_SPEED=1.4;
-const B3_RANGE={pulse:900,shot:560,rail:1350,missile:1200,micro:820,burst:920,slug:1000,bounce:950,boss:1300};
+const HOVER=40,MECH_R=20,HIT_R=25,CEIL_REL=330,CEIL_ABS=720,SHOT_SPEED=1.4;
+const B3_RANGE={pulse:900,shot:560,rail:1350,missile:1200,micro:820,burst:920,slug:1000,boss:1300};
+// Spread gun: five pellets in a dice-five pattern (centre + four corners), radians.
+const SHOT_DICE=[[0,0],[-1,1],[1,1],[-1,-1],[1,-1]],SHOT_DICE_SPREAD=.075;
 const BS={enemyRef:null,camYaw:0,camPitch:-.05,camRoll:0,manualUntil:-1,manualActive:false,fov:1,dist:118,
  lock:false,inReticle:false,los:false,inRange:false,reticleR:40,enemyScr:null,enemyScrR:0,firing:false,track:'none',
  parts:[],fx:[],debris:null,hitMark:0,dmgDirs:[],lockBeep:0,warnT:0,panelT:0,shake:0,fade:0,idleT:0,
@@ -3934,16 +3946,14 @@ function b3Animate(o,dt){
  if(tgt){const d=Math.hypot(tgt.x-o.x,tgt.y-o.y);o.gunPitch+=(clamp(Math.atan2(tgt.h-o.h,d),-.7,.7)-o.gunPitch)*b3Damp(8,dt);}
  o.hitFlash=Math.max(0,(o.hitFlash||0)-dt);
 }
+function b3Scale(o){return o.enemy?(currentNode==='boss'?1.6:1.1):B3.tune.modelScale;}
 function b3Pose(o){
- const sc=o.enemy?(currentNode==='boss'?1.32:1):B3.tune.modelScale;
+ const sc=b3Scale(o);
  return {x:o.x,y:o.h+Math.sin(clock*2.3+(o.enemy?2:0))*1.4,z:o.y,yaw:o.yaw,pitch:o.lean,roll:o.bank,scale:sc,legSwing:o.legSwing,gunPitch:o.gunPitch,flash:o.hitFlash>0?.65:0};
 }
-// Muzzle in world space (right-arm weapon), used for shots and visuals.
-function b3Muzzle(o){const m=b3BuildMech(o.load,o.enemy),pose=b3Pose(o);
- const id=o.load.weapon.id,z=id==='rail'?60:id==='slug'?50:id==='missile'?22:40;
- if(id==='missile')return b3MechWorldPoint(m,pose,[20,26,10]);
- const piv=m.pivot.armR,a=-o.gunPitch,y=-7-piv[1],zz=z-piv[2];
- return b3MechWorldPoint(m,pose,[19,piv[1]+y*Math.cos(a)-zz*Math.sin(a),piv[2]+y*Math.sin(a)+zz*Math.cos(a)]);}
+// Shots leave from the nose between the two side cannons; flashes show at both cannon tips.
+function b3Muzzle(o){return b3MechWorldPoint(null,b3Pose(o),[0,3,24]);}
+function b3CannonTips(o){const m=b3BuildMech(o.load,o.enemy),pose=b3Pose(o);return m.muzzles.map(p=>b3MechWorldPoint(m,pose,p));}
 
 // ----------------------------------------------------------- enemy AI -----
 // Engagement bands (approach / strafe / retreat / flank / cover / peek),
@@ -3964,7 +3974,7 @@ function b3EnemyAI(dt){
   else if(los&&ai.coverCD<=0&&((reloading&&Math.random()<({sniper:.75,guardian:.6,boss:.35,charger:.15}[e.role]??.4))||hpFrac<.35&&Math.random()<.5)&&(ai.cover=b3FindCover(e))){ai.mode='cover';ai.hideT=0;ai.coverCD=6+Math.random()*4;}
   else if(ai.mode==='cover'){ai.mode='peek';}
   else if(dh>pref*1.35||ai.noLos>1.6)ai.mode='approach';
-  else if(dh<pref*.6)ai.mode='retreat';
+  else if(dh<pref*.66)ai.mode='retreat';
   else if((e.role==='flanker'||e.role==='skirmisher')&&Math.random()<.35)ai.mode='flank';
   else ai.mode='strafe';
   if(ai.mode!==prev)ai.modeT=0;
@@ -3973,7 +3983,7 @@ function b3EnemyAI(dt){
  const lat=[-uz*ai.side,ux*ai.side];
  switch(ai.mode){
   case 'approach':vx=ux+lat[0]*.4;vz=uz+lat[1]*.4;break;
-  case 'retreat':vx=-ux+lat[0]*.7;vz=-uz+lat[1]*.7;spd*=.92;break;
+  case 'retreat':vx=-ux+lat[0]*.6;vz=-uz+lat[1]*.6;spd*=1.06;break;
   case 'flank':{const a=Math.atan2(-uz,-ux)+ai.side*1.25,tx=player.x+Math.cos(a)*pref,tz=player.y+Math.sin(a)*pref,l=Math.hypot(tx-e.x,tz-e.y)||1;vx=(tx-e.x)/l;vz=(tz-e.y)/l;break;}
   case 'cover':{const c=ai.cover;if(!c){ai.mode='strafe';break;}
    const ax=c.x-player.x,az=c.z-player.y,al=Math.hypot(ax,az)||1,hx=c.x+ax/al*(c.br+46),hz=c.z+az/al*(c.br+46),l=Math.hypot(hx-e.x,hz-e.y);
@@ -4051,13 +4061,19 @@ function b3Fire(o,tgt,aim,err=[0,0]){
  shoot(o,tgt,ang);
  if(bullets.length===n0)return false;
  const hd=Math.hypot(aim[0]-m[0],aim[2]-m[2]),pitch=Math.atan2(aim[1]-m[1],hd)+err[1],w=o.stats.weapon;
- for(let i=n0;i<bullets.length;i++){const b=bullets[i];b3Lift(b,m,pitch,w.id==='shot'?(Math.random()-.5)*.12:w.id==='burst'?(i-n0-1)*.012:0);}
+ if(w.id==='shot'){
+  // Dice-five pattern around the aim line, square in the shooter's view.
+  const f=[Math.cos(pitch)*Math.cos(ang),Math.sin(pitch),Math.cos(pitch)*Math.sin(ang)];let r=v3.cross(f,[0,1,0]);r=v3.norm(v3.len(r)<1e-4?[1,0,0]:r);const u=v3.cross(r,f);
+  for(let i=n0;i<bullets.length;i++){const q=SHOT_DICE[(i-n0)%5],d=v3.norm(v3.add(f,v3.add(v3.mul(r,q[0]*SHOT_DICE_SPREAD),v3.mul(u,q[1]*SHOT_DICE_SPREAD))));
+   b3LiftDir(bullets[i],m,d);}
+ }else for(let i=n0;i<bullets.length;i++){const b=bullets[i];b3Lift(b,m,pitch,w.id==='burst'?(i-n0-1)*.012:0);}
  if(o===player)BS.stats.shotsP++;else BS.stats.shotsE++;
  // Muzzle flash, rail beam.
- const col=b3Hex(w.color);b3Burst(m,col,w.id==='shot'?10:4,150,.12,w.id==='slug'?16:9,true);
- BS.fx.push({k:'flash',p:m,t:0,life:.06,r:w.id==='slug'?34:20,c:col});
+ const col=b3Hex(w.color);for(const tp of b3CannonTips(o)){b3Burst(tp,col,w.id==='shot'?6:3,150,.12,w.id==='slug'?14:8,true);BS.fx.push({k:'flash',p:tp,t:0,life:.06,r:w.id==='slug'?30:17,c:col});}
  if(w.id==='rail'){const dir=[Math.cos(pitch)*Math.cos(ang),Math.sin(pitch),Math.cos(pitch)*Math.sin(ang)],L=B3_RANGE.rail,e=[m[0]+dir[0]*L,m[1]+dir[1]*L,m[2]+dir[2]*L];
-  const h=b3Ray(m[0],m[1],m[2],e[0],e[1],e[2],{ignoreObstacles:true});const t=h?h.t:1;
+  const h=b3Ray(m[0],m[1],m[2],e[0],e[1],e[2],{ignoreObstacles:true});let t=h?h.t:1;
+  // Draw the beam only a little past its target so a miss never sweeps through the camera.
+  const along=(tgt.x-m[0])*dir[0]+(tgt.h-m[1])*dir[1]+(tgt.y-m[2])*dir[2];if(along>0)t=Math.min(t,(along+70)/L);
   BS.fx.push({k:'beam',a:m,b:[m[0]+(e[0]-m[0])*t,m[1]+(e[1]-m[1])*t,m[2]+(e[2]-m[2])*t],t:0,life:.38,c:o.enemy?[1,.55,.6]:col});}
  if(w.id==='slug')BS.shake=Math.max(BS.shake,o===player?5:2);
  return true;
@@ -4066,10 +4082,13 @@ function b3Lift(b,m,pitch,vSpread=0){
  const ang=Math.atan2(b.vy,b.vx),sp=(b.spd||Math.hypot(b.vx,b.vy))*SHOT_SPEED,p=pitch+vSpread;
  b.x=m[0];b.y=m[2];b.h=m[1];b.px=b.x;b.py=b.y;b.ph=b.h;
  b.vx=Math.cos(ang)*Math.cos(p)*sp;b.vy=Math.sin(ang)*Math.cos(p)*sp;b.vh=Math.sin(p)*sp;b.spd=sp;
- const range=B3_RANGE[b.kind]||900;b.life=Math.min(b.kind==='bounce'?3.2:2.6,range*1.12/sp+(b.homing?.6:0));
+ const range=B3_RANGE[b.kind]||900;b.life=Math.min(2.6,range*1.12/sp+(b.homing?.6:0));
  if(b.homing){b.vh+=sp*.32;b.smokeT=0;}
  b.b3=true;b.trail=[[b.x,b.h,b.y]];
 }
+function b3LiftDir(b,m,d){const sp=(b.spd||Math.hypot(b.vx,b.vy))*SHOT_SPEED;
+ b.x=m[0];b.y=m[2];b.h=m[1];b.px=b.x;b.py=b.y;b.ph=b.h;b.vx=d[0]*sp;b.vh=d[1]*sp;b.vy=d[2]*sp;b.spd=sp;
+ b.life=Math.min(2.6,(B3_RANGE[b.kind]||900)*1.12/sp);b.b3=true;b.trail=[[b.x,b.h,b.y]];}
 // Boss pattern shots are created by the core in 2D; lift them from the boss.
 function b3LiftLoose(b){
  const s=b.source||enemy,tgt=s===player?enemy:player;
@@ -4095,7 +4114,7 @@ function b3Projectiles(dt){
   b.trail.push([b.x,b.h,b.y]);if(b.trail.length>9)b.trail.shift();
   const a=[b.px,b.ph,b.py],c=[b.x,b.h,b.y];
   const wh=b3Ray(a[0],a[1],a[2],c[0],c[1],c[2],{ignoreObstacles:b.kind==='rail',water:true});
-  let th=null;if(tgt&&!tgt.dead&&!b.hitDone)th=b3SegSphere(a,c,[tgt.x,tgt.h+2,tgt.y],HIT_R*(tgt.enemy&&currentNode==='boss'?1.3:1)+b.r);
+  let th=null;if(tgt&&!tgt.dead&&!b.hitDone)th=b3SegSphere(a,c,[tgt.x,tgt.h+2,tgt.y],HIT_R*b3Scale(tgt)+b.r);
   if(th!==null&&(!wh||th<=wh.t)){
    const hp=[a[0]+(c[0]-a[0])*th,a[1]+(c[1]-a[1])*th,a[2]+(c[2]-a[2])*th];
    if(b.homing){b3Explosion(hp,.7,b3Hex(b.color));}
@@ -4107,9 +4126,6 @@ function b3Projectiles(dt){
   }
   if(wh){
    const hp=[a[0]+(c[0]-a[0])*wh.t,a[1]+(c[1]-a[1])*wh.t,a[2]+(c[2]-a[2])*wh.t];
-   if(b.kind==='bounce'&&b.bouncesLeft>0){const n=wh.n,v=[b.vx,b.vh,b.vy],dn=v3.dot(v,n);
-    b.vx=v[0]-2*dn*n[0];b.vh=v[1]-2*dn*n[1];b.vy=v[2]-2*dn*n[2];b.x=hp[0]+n[0]*2;b.h=hp[1]+n[1]*2;b.y=hp[2]+n[2]*2;
-    b.bouncesLeft--;b.bounceCount=(b.bounceCount||0)+1;b.damage*=.88;b3Burst(hp,[1,.92,.5],8,200,.2,4,true);beep(980,.03,.01);continue;}
    if(b.homing){b3Explosion(hp,.75,b3Hex(b.color));
     const splash=(WEAPON_TRAITS.missile.splash||68)*1.4*(b.source.stats?.modifiers?.splash||1);
     if(tgt&&!tgt.dead&&Math.hypot(tgt.x-hp[0],tgt.h-hp[1],tgt.y-hp[2])<splash&&!b3Ray(hp[0]+wh.n[0]*4,hp[1]+wh.n[1]*4,hp[2]+wh.n[2]*4,tgt.x,tgt.h,tgt.y))damage(tgt,b.damage*.6);
@@ -4162,9 +4178,9 @@ function b3CameraUpdate(dt,size){
  // Zoom: narrower FOV and longer distance at long range, wider in portrait.
  const far=b3Smooth(260,1150,gap);let fovDeg=b3Mix(t.fovNear,t.fovFar,far);
  if(aspect<1)fovDeg=Math.min(84,fovDeg*(1+.42*(1-aspect)));
- const fovT=fovDeg*Math.PI/180;BS.fov+=(fovT-BS.fov)*b3Damp(3,dt);
+ const fovT=fovDeg*Math.PI/180,zk=b3Damp(Math.max(.5,t.followSpeed)*1.5,dt);BS.fov+=(fovT-BS.fov)*zk;
  const distT=t.camDistance*Math.tan(t.fovNear*Math.PI/360)/Math.tan(BS.fov/2)*(aspect<1?1+.95*(1-aspect):1)*(currentNode==='boss'?1.1:1);
- BS.dist+=(distT-BS.dist)*b3Damp(3,dt);
+ BS.dist+=(distT-BS.dist)*zk;
  const cy=Math.cos(BS.camYaw),sy=Math.sin(BS.camYaw),cp=Math.cos(BS.camPitch),sp=Math.sin(BS.camPitch);
  const f=[cy*cp,sp,sy*cp],u=[-cy*sp,cp,-sy*sp];
  const lift=(t.playerScreenY-.5)*2*Math.tan(BS.fov/2)*BS.dist;
@@ -4172,9 +4188,12 @@ function b3CameraUpdate(dt,size){
  // Terrain between camera and player pulls the camera in; buildings/rocks
  // there stay in place but are drawn see-through (camera keeps its framing).
  const hit=b3Ray(pc[0],pc[1]+8,pc[2],eye[0],eye[1],eye[2],{ignoreObstacles:true});
- if(hit){const k=Math.max(.18,hit.t-.08);eye=[pc[0]+(eye[0]-pc[0])*k,pc[1]+8+(eye[1]-pc[1]-8)*k,pc[2]+(eye[2]-pc[2])*k];}
+ const pullT=hit?Math.max(.18,hit.t-.08):1;BS.pull=BS.pull==null?pullT:BS.pull+(pullT-BS.pull)*b3Damp(pullT<BS.pull?25:4,dt);
+ if(BS.pull<.999)eye=[pc[0]+(eye[0]-pc[0])*BS.pull,pc[1]+8+(eye[1]-pc[1]-8)*BS.pull,pc[2]+(eye[2]-pc[2])*BS.pull];
  const gy=b3Ground(eye[0],eye[2])+14;if(eye[1]<gy)eye[1]=gy;
- if(!BS.camEye)BS.camEye=eye.slice();else{const kk=b3Damp(t.followSpeed*3,dt);for(let i=0;i<3;i++)BS.camEye[i]+=(eye[i]-BS.camEye[i])*kk;}
+ // The eye sits exactly where the pilot stays low-centre; yaw/pitch are already
+ // smoothed by tracking, and followSpeed smooths zoom / distance changes.
+ BS.camEye=eye.slice();
  const occ=new Set(),E0=BS.camEye;
  for(let i=0;i<W3.obs.length;i++){const o=W3.obs[i];if(b3Inside(o,E0[0],E0[1],E0[2],4)||b3SegObstacle(o,E0[0],E0[1],E0[2],pc[0],pc[1]+6,pc[2]))occ.add(i);}
  R3.occluders=occ;
@@ -4189,7 +4208,7 @@ function b3EvaluateLock(){
  const H=canvas.height,W=canvas.width;BS.reticleR=Math.max(14,B3.tune.aimTolerance*H*(player.stats.weapon.id==='missile'?1.35:player.stats.weapon.id==='shot'?1.2:1));
  if(!e||e.dead)return;
  const p=b3Project(e.x,e.h+2,e.y);
- if(p){const pr=b3Project(e.x+R3.cam.r[0]*HIT_R,e.h+2+R3.cam.r[1]*HIT_R,e.y+R3.cam.r[2]*HIT_R);
+ if(p){const er=HIT_R*b3Scale(e),pr=b3Project(e.x+R3.cam.r[0]*er,e.h+2+R3.cam.r[1]*er,e.y+R3.cam.r[2]*er);
   BS.enemyScr=p;BS.enemyScrR=pr?Math.max(6,Math.hypot(pr.x-p.x,pr.y-p.y)):8;
   const on=p.x>0&&p.x<W&&p.y>0&&p.y<H;BS.track=BS.manualActive?'manual':on?'tracking':'offscreen';
   BS.inReticle=Math.hypot(p.x-W/2,p.y-H/2)<=BS.reticleR+BS.enemyScrR*.6;}
@@ -4222,9 +4241,9 @@ startFinisher=function(target){
  const m=b3BuildMech(target.load,target.enemy),pose=b3Pose(target);
  const pieces={};
  m.parts.forEach((name,i)=>{const pv=m.pivot[name]||[0,0,0],dir=b3MechWorldDir(pose,v3.norm([pv[0]||(Math.random()-.5),pv[1]*.5+6,pv[2]||(Math.random()-.5)]));
-  const sp=name==='body'?60:160+Math.random()*120;
+  const sp=name==='hull'?60:160+Math.random()*120;
   pieces[i]={off:[0,0,0],vel:[dir[0]*sp+target.v3[0]*.3,Math.abs(dir[1])*sp*.6+120+Math.random()*110,dir[2]*sp+target.v3[2]*.3],
-   axis:v3.norm([Math.random()-.5,Math.random()-.5,Math.random()-.5]),ang:0,av:(Math.random()-.5)*(name==='body'?3:12),smoke:Math.random()<.6};});
+   axis:v3.norm([Math.random()-.5,Math.random()-.5,Math.random()-.5]),ang:0,av:(Math.random()-.5)*(name==='hull'?3:12),smoke:Math.random()<.6};});
  pose.flash=0;BS.debris={target,model:m,pose,pieces,t:0,booms:[.32,.7,1.05],camA:BS.camYaw+Math.PI*.75};
  b3Explosion([pose.x,pose.y,pose.z],1.6,target.enemy?[1,.55,.3]:[.5,.85,1]);BS.shake=9;
  beep(110,.5,.06,'sawtooth');setTimeout(()=>beep(70,.6,.05,'square'),120);
@@ -4320,7 +4339,6 @@ function b3EmitProjectile(b){
  if(k==='shot'){b3EmitBox(G3.dyn,p,dir,null,3.6,3.6,7,c,1);ribbon(3.6,.7);G3.ptAdd.push8(p[0],p[1],p[2],c[0],c[1],c[2],.7,11);return;}
  if(k==='micro'){b3EmitBox(G3.dyn,p,dir,null,1.4,1.4,28,c,1);ribbon(2.2,.8);G3.ptAdd.push8(p[0],p[1],p[2],c[0],c[1],c[2],.6,8);return;}
  if(k==='slug'){b3EmitBox(G3.dyn,p,dir,null,11,11,22,c,.8);b3EmitBox(G3.dyn,v3.sub(p,v3.mul(v3.norm(dir),10)),dir,null,6,6,6,[1,.95,.8],1);ribbon(16,.55);G3.ptAdd.push8(p[0],p[1],p[2],c[0],c[1],c[2],.9,44);return;}
- if(k==='bounce'){const s=7;b3EmitBox(G3.dyn,p,[Math.cos(clock*30),0,Math.sin(clock*30)],null,s*1.6,2.4,s*1.6,c,1);ribbon(4,.6);G3.ptAdd.push8(p[0],p[1],p[2],c[0],c[1],c[2],.9,20);return;}
  if(k==='burst'){b3EmitBox(G3.dyn,p,dir,null,2.8,2.8,18,c,1);ribbon(3.8,.8,[1,.6,.3]);G3.ptAdd.push8(p[0],p[1],p[2],1,.6,.3,.7,12);return;}
  if(k==='boss'){G3.ptAdd.push8(p[0],p[1],p[2],c[0],c[1],c[2],1,30);G3.ptAdd.push8(p[0],p[1],p[2],1,1,1,1,10);ribbon(8,.5);return;}
  // pulse
@@ -4346,6 +4364,11 @@ function b3EmitWorldFx(){
 }
 function b3EmitActors(){
  const draw=o=>{if(!o||o.dead||o.h==null)return;const m=b3BuildMech(o.load,o.enemy),pose=b3Pose(o);b3EmitMech(G3.dyn,m,pose);
+  const sp=Math.hypot(o.v3[0],o.v3[2]),boost=(o.dashT>0?1:0)+(o.v3[1]>40?.5:0),fc=m.flame;
+  for(const em of m.emit){if(!em.engine)continue;const p=b3MechWorldPoint(m,pose,em.p),d=b3MechWorldDir(pose,em.d);
+   const L=(9+Math.sin(clock*24+em.p[0])*1.3+sp*.03+boost*28)*pose.scale,w=5.2*pose.scale,tip=v3.add(p,v3.mul(d,L)),mid=v3.add(p,v3.mul(d,L*.55));
+   b3Ribbon(G3.unAdd,p,mid,w,w*.7,[fc[0],fc[1],fc[2],.85],[fc[0],fc[1],fc[2],.45]);b3Ribbon(G3.unAdd,mid,tip,w*.7,0,[fc[0],fc[1],fc[2],.45],[fc[0],fc[1],fc[2],0]);
+   b3Ribbon(G3.unAdd,p,v3.add(p,v3.mul(d,L*.5)),w*.42,0,[.95,1,.9,.9],[.95,1,.9,0]);G3.ptAdd.push8(p[0],p[1],p[2],fc[0],fc[1],fc[2],.9,13*pose.scale);}
   const g=b3Ground(o.x,o.y),alt=o.h-g,a=.5*(1-clamp(alt/360,0,.85));b3Disc(G3.unA,o.x,o.y,26*(1-clamp(alt/400,0,.45))*pose.scale,[0,0,0],a);
   if(W3.water&&g<W3.water.y){b3Disc(G3.unAdd,o.x,o.y,30,[.6,.9,1],.12*(1-clamp(alt/200,0,1)),W3.water.y-g+.5);}};
  draw(player);draw(enemy);
@@ -4644,6 +4667,7 @@ if(navigator.webdriver)window.__b3QA={
  setCam:(yaw,pitch)=>{BS.camYaw=yaw;if(pitch!=null)BS.camPitch=pitch;BS.camEye=null;},
  setTune:(k,v)=>{B3.tune[k]=v;return B3.tune[k];},
  tune:()=>({...B3.tune}),
+ defaults:()=>({...B3_DEFAULT}),
  lab:()=>{b3StartLab();return state;},
  biome:i=>{B3.tune.biome=i;b3StartLab();return W3.biome.id;},
  finish:(kind='win')=>{if(state!=='fight')return false;damage(kind==='win'?enemy:player,99999);return state;},

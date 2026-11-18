@@ -1,10 +1,10 @@
-# PATROL × Robo Salvage — 3D Hover Combat v0.6
+# PATROL × Robo Salvage — 3D Hover Combat v0.6.1
 
 **ロボサルベージ2D公開版とは独立した3D派生**です。`games/robo-salvage/`（2D版）は変更していません。仕様の最優先は [引き継ぎ仕様書](../../docs/patrol-robo-salvage-v05-claude-handoff.md)（2026-11-18）です。
 
 - 遊ぶ：[index.html](index.html)（単体HTML。ローカルなら `python -m http.server` で開く）
 - 検証結果：[qa/README.md](qa/README.md)（[results.json](qa/results.json)、[スクリーンショット](qa/screenshots/)）
-- 比較用：[v0.5原本](reference/Patrol_Salvage_Hover_Combat_v05.html)／[PATROL原型](reference/PATROL_Last_Light.html)／[飛行調整ラボv0.3](reference/Flight_Tuning_Lab_v03.html)
+- 比較用：[v0.5原本](reference/Patrol_Salvage_Hover_Combat_v05.html)／[PATROL原型](reference/PATROL_Last_Light.html)／[飛行調整ラボv0.3](reference/Flight_Tuning_Lab_v03.html)／[機体デザインの参照：PATROL_Robo_Salvage v1.1（別プロジェクト）](reference/PATROL_Robo_Salvage_v1_1.html)
 
 ## 操作
 
@@ -21,6 +21,15 @@
 - **自動射撃ON（初期値）**：敵が中央の照準円に入り、射線が通り、射程内の時だけ撃つ。追従しているだけでは撃たない。
 - **手動射撃**：ON/OFFに関係なく、照準の方向へいつでも撃てる。ロック中は敵を狙う。
 - 手を離すと短く減速して空中に静止する。上を向いて前進すると上昇、下を向くと下降。高く飛び続けるとEN（黄色ゲージ）を使い、尽きると降りる。
+
+## v0.6.1 の変更（2026-11-18 の本人指示）
+
+- **機体グラフィック**：別プロジェクト「PATROL_Robo_Salvage v1.1」の機体を参照して作り直した。角張った胴体とキャノピー、後退翼、後ろ向きの2基のエンジン（青緑の発光と噴射炎）、短い脚、左右の砲、背中のジェネレーター。配色は自機が白・グレー・オレンジ、敵機が赤・橙。装甲で翼の長さや装甲板、脚部で脚の形、武器で砲身、コアでジェネレーターが変わる。撃破時は同じ部品ごとに分解する。
+- **画面の色調**：同プロジェクトの8フィールドの配色（夕焼けの空・地面・岩・差し色）に合わせ、空に大きな太陽、雲の筋、重なった遠景の稜線を描くようにした。地形と遮蔽物の形・当たり判定は v0.6 のまま。
+- **リコシェット弾を撤去**。武器は7種。
+- **スプレッド砲**：5発が横一列ではなく、サイコロの5（中央＋四隅）の形で飛ぶ。
+- **初期パラメータ**：指定のJSONを初期値にした（移動1.5倍、停止21、ダッシュ1.5、カメラ距離235、視野68°/44°、追従2、敵への向き直り14、あそび0.35、照準半径0.035、描画1.5倍、自動解像度OFF など）。以前に調整した値で上書きされないよう、保存キーを `patrolSalvageHoverTuneV061` に変えた。
+- 描画倍率は「画面サイズ（CSSピクセル）の何倍で描くか」。カメラは常に自機を画面下中央に置き、「カメラ追従の速さ」はズームと距離の変化を滑らかにする。
 
 ## v0.6 で作り直した部分
 
@@ -44,10 +53,9 @@ v0.5は2D版→TPS→ハイブリッド→自由飛行→ラボ→v0.5の上書�
 | 通常弾（パルス・散弾・ニードル・バースト・スラグ） | 止まる | 止まる |
 | レールランサー | **貫通する**（2D版の「壁を貫く」を継承） | 止まる |
 | ホーミング弾 | 当たると爆発。爆風は遮蔽物越しには届かない。誘導で回り込む | 止まる |
-| リコシェット | 面の向きで反射（最大3回） | 反射 |
 | ボスのビーム | 止まる（3Dの射線で判定） | 止まる |
 
 ## 保存
 
-- 進行・SP・初期武器の解放は2D版と同じ `roboSalvageMetaV1` を使う（同じドメインでは共有）。キー名・形式は変えていない。
-- 操作調整は `patrolSalvageHoverTuneV06` に保存する。旧ラボの `patrolSalvageFlightTuneV04` は読み書きしない（消してもいない）。
+- 進行・SP・初期武器の解放は2D版と同じ `roboSalvageMetaV1` を使う（同じドメインでは共有）。キー名・形式は変えていない。2D版にしかない武器（リコシェット）の解放や初期武器の設定は、3D版で保存しても消さずに残す。
+- 操作調整は `patrolSalvageHoverTuneV061` に保存する。旧キー（`patrolSalvageHoverTuneV06`／`patrolSalvageFlightTuneV04`）は読み書きしない（消してもいない）。
