@@ -6,7 +6,10 @@ games/patrol-robo-salvage/src/core.html  : Robo Salvage progression core (hangar
 src/b3-world.js, b3-render.js, b3-game.js, b3-ui.js : the v0.6 3D combat module
 src/tail.html                            : boot code
 
-Usage: python scripts/build_patrol_salvage.py [--check]
+Usage:
+  python scripts/build_patrol_salvage.py           # public build -> games/patrol-robo-salvage/index.html
+  python scripts/build_patrol_salvage.py --check   # verify index.html matches the sources
+  python scripts/build_patrol_salvage.py --dev     # tuning build (⚙ panel, saved values) -> dist/ (not published)
 """
 import hashlib, pathlib, re, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -14,17 +17,23 @@ GAME = ROOT / "games" / "patrol-robo-salvage"
 SRC = GAME / "src"
 PARTS = ["b3-world.js", "b3-render.js", "b3-game.js", "b3-ui.js"]
 
-def build() -> str:
+def build(dev: bool = False) -> str:
     core = (SRC / "core.html").read_text(encoding="utf-8")
     js = "\n".join((SRC / p).read_text(encoding="utf-8") for p in PARTS)
     tail = (SRC / "tail.html").read_text(encoding="utf-8")
     out = core.rstrip("\n") + "\n" + js.rstrip("\n") + "\n" + tail
-    out = re.sub(r"<title>.*?</title>", "<title>PATROL × ROBO SALVAGE — HOVER COMBAT v0.6.1</title>", out, count=1)
+    if dev:
+        assert "const B3_LAB=false;" in out
+        out = out.replace("const B3_LAB=false;", "const B3_LAB=true;", 1)
+    title = "PATROL × ROBO SALVAGE — TUNING" if dev else "PATROL × ROBO SALVAGE | ミニゲーム1GO"
+    out = re.sub(r"<title>.*?</title>", "<title>" + title + "</title>", out, count=1)
     return out
 
 def main() -> int:
-    out = build()
-    target = GAME / "index.html"
+    dev = "--dev" in sys.argv
+    out = build(dev)
+    target = ROOT / "dist" / "patrol-robo-salvage-tuning.html" if dev else GAME / "index.html"
+    target.parent.mkdir(parents=True, exist_ok=True)
     if "--check" in sys.argv:
         same = target.exists() and target.read_text(encoding="utf-8") == out
         print("index.html is up to date" if same else "index.html differs from sources")

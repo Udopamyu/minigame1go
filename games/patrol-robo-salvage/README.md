@@ -1,9 +1,10 @@
-# PATROL × Robo Salvage — 3D Hover Combat v0.6.1
+# PATROL × ROBO SALVAGE — 3D Hover Combat v0.6.1
 
 **ロボサルベージ2D公開版とは独立した3D派生**です。`games/robo-salvage/`（2D版）は変更していません。仕様の最優先は [引き継ぎ仕様書](../../docs/patrol-robo-salvage-v05-claude-handoff.md)（2026-11-18）です。
 
 - 遊ぶ：[index.html](index.html)（単体HTML。ローカルなら `python -m http.server` で開く）
-- 検証結果：[qa/README.md](qa/README.md)（[results.json](qa/results.json)、[スクリーンショット](qa/screenshots/)）
+- 検証結果：[qa/README.md](qa/README.md)（[results.json](qa/results.json)、[スクリーンショット](qa/screenshots/)、[静的な公開前チェック](qa/release-preflight.json)）
+- 公開準備：[公開判定チェックリスト](../../docs/patrol-robo-salvage-release-checklist.md)／動画・投稿草案：[videos/patrol-robo-salvage/](../../videos/patrol-robo-salvage/)
 - 比較用：[v0.5原本](reference/Patrol_Salvage_Hover_Combat_v05.html)／[PATROL原型](reference/PATROL_Last_Light.html)／[飛行調整ラボv0.3](reference/Flight_Tuning_Lab_v03.html)／[機体デザインの参照：PATROL_Robo_Salvage v1.1（別プロジェクト）](reference/PATROL_Robo_Salvage_v1_1.html)
 
 ## 操作
@@ -16,11 +17,16 @@
 | ダッシュ | Shift | » |
 | 手動射撃 | J・F・K／左クリック | ◎ |
 | リロード | R | ↻ |
-| 調整パネル | T／⚙ | ⚙ |
+| 操作説明・装備 | ☰ | ☰ |
 
 - **自動射撃ON（初期値）**：敵が中央の照準円に入り、射線が通り、射程内の時だけ撃つ。追従しているだけでは撃たない。
 - **手動射撃**：ON/OFFに関係なく、照準の方向へいつでも撃てる。ロック中は敵を狙う。
 - 手を離すと短く減速して空中に静止する。上を向いて前進すると上昇、下を向くと下降。高く飛び続けるとEN（黄色ゲージ）を使い、尽きると降りる。
+
+## 公開版と開発用の調整版（2026-11-19 の本人指示「調整ボタンを消して公開準備に移ろう」）
+
+- **公開版**（`index.html`）：⚙ボタン・調整パネル・Tキーを無効にし、保存済みの調整値も読まない。常に下の初期パラメータで動く。操作説明は ☰ メニュー内（開いている間は戦闘が止まる）。タブ名・タイトル画面・共有用の説明文は「PATROL × ROBO SALVAGE」。
+- **開発用の調整版**：`python scripts/build_patrol_salvage.py --dev` で `dist/patrol-robo-salvage-tuning.html` に別生成する（`dist/` はGitに入れず、公開しない）。⚙パネル・Tキー・`patrolSalvageHoverTuneV061` への保存はこちらだけ。調整版の値で難易度評価や投稿動画を作らない。
 
 ## v0.6.1 の変更（2026-11-18 の本人指示）
 
@@ -41,7 +47,7 @@ v0.5は2D版→TPS→ハイブリッド→自由飛行→ラボ→v0.5の上書�
 | `src/b3-world.js` | 設定、地形（高さマップ）と障害物、当たり判定、射線。**描画と判定が同じデータを読む** |
 | `src/b3-render.js` | WebGL2描画、装備で形が変わる機体モデル、カメラ行列 |
 | `src/b3-game.js` | 入力→移動→敵AI→カメラ→ロック・射撃→弾→撃破演出 |
-| `src/b3-ui.js` | 毎フレームの描画、文字なしHUD、タッチ操作、調整パネル、既存コードとの接続、テスト用フック |
+| `src/b3-ui.js` | 毎フレームの描画、文字なしHUD、タッチ操作、☰メニューの操作説明、調整パネル（開発版のみ）、既存コードとの接続、テスト用フック（自動テスト時のみ） |
 | `src/tail.html` | 起動処理 |
 
 編集後は `python scripts/build_patrol_salvage.py` で `index.html` を再生成します（`--check` で一致確認）。
@@ -58,4 +64,4 @@ v0.5は2D版→TPS→ハイブリッド→自由飛行→ラボ→v0.5の上書�
 ## 保存
 
 - 進行・SP・初期武器の解放は2D版と同じ `roboSalvageMetaV1` を使う（同じドメインでは共有）。キー名・形式は変えていない。2D版にしかない武器（リコシェット）の解放や初期武器の設定は、3D版で保存しても消さずに残す。
-- 操作調整は `patrolSalvageHoverTuneV061` に保存する。旧キー（`patrolSalvageHoverTuneV06`／`patrolSalvageFlightTuneV04`）は読み書きしない（消してもいない）。
+- 操作調整は開発用の調整版だけが `patrolSalvageHoverTuneV061` に保存・読み込みする（公開版は読まない）。旧キー（`patrolSalvageHoverTuneV06`／`patrolSalvageFlightTuneV04`）は読み書きしない（消してもいない）。

@@ -89,9 +89,9 @@ async def controls(p, url):
     b, pg, errs = await open_page(p, url)
     info = await pg.evaluate("()=>{const c=document.createElement('canvas').getContext('webgl2');const d=c&&c.getExtension('WEBGL_debug_renderer_info');return c?c.getParameter(d?d.UNMASKED_RENDERER_WEBGL:c.RENDERER):null}")
     check("boot", "起動・WebGL2描画", await pg.evaluate("()=>window.__b3QA.get().gl") and not errs, {"renderer": info, "errors": errs})
-    await shot(pg, "00_title.png")
     await to_fight(pg)
-    await pg.evaluate("()=>window.__b3QA.freezeAI(true)")
+    # Movement/camera checks only: keep the (frozen) enemy alive so auto-fire cannot end the fight mid-test.
+    await pg.evaluate("()=>{window.__b3QA.freezeAI(true);window.__b3QA.setTune('autoFire',false)}")
     s0 = await step(pg, 60)
     check("flow", "タイトル→格納庫→ルート→戦闘準備→戦闘", s0["state"] == "fight", {"state": s0["state"], "biome": s0["biome"]})
     fr = await frame(pg)
@@ -161,6 +161,39 @@ async def roster(p, url):
     ok = stored["points"] > 5 and "bounce" in stored["unlockedWeapons"] and "rail" in stored["unlockedWeapons"] and stored["starter"] == "bounce" and stored["upgrades"]["hull"] == 1
     check("shared_save", "2D版と共有のセーブ：3D側で保存しても2D側のリコシェット解放・初期武器が残る", ok, stored)
     await b.close()
+
+
+async def public_build(p, url):
+    # A stale tuning value in storage must not leak into the public build.
+    init = "localStorage.setItem('patrolSalvageHoverTuneV061',JSON.stringify({moveSpeed:.5,camDistance:120}))"
+    b, pg, errs = await open_page(p, url, init=init)
+    lab = await pg.evaluate("()=>({btn:!!document.getElementById('b3Lab'),panel:!!document.getElementById('b3Panel')})")
+    await pg.keyboard.press("KeyT"); await pg.wait_for_timeout(150)
+    lab_after_t = await pg.evaluate("()=>!!document.querySelector('#b3Panel.open')")
+    tune = await pg.evaluate("()=>window.__b3QA.tune()")
+    await pg.evaluate("()=>{window.__b3QA.setTune('renderScale',1.5)}")
+    await shot(pg, "00_title.png")
+    title = await pg.evaluate("()=>({tab:document.title,logo:document.getElementById('openingLogo')?.getAttribute('aria-label'),eyebrow:document.querySelector('.openingEyebrow')?.textContent})")
+    check("no_tuning_ui", "公開版：調整ボタン・パネルなし、Tキーでも開かない、保存済みの調整値を使わない",
+          not lab["btn"] and not lab["panel"] and not lab_after_t and tune["moveSpeed"] == 1.5 and tune["camDistance"] == 235,
+          {"lab": lab, "t_opens": lab_after_t, "moveSpeed": tune["moveSpeed"], "camDistance": tune["camDistance"]})
+    check("public_title", "タイトル・タブ名は PATROL × ROBO SALVAGE（2D版の#003表記・版数を出さない）",
+          "PATROL" in title["tab"] and "#003" not in title["tab"] and "v0." not in title["tab"] and title["logo"] == "PATROL × ROBO SALVAGE" and "#003" not in (title["eyebrow"] or ""), title)
+    await pg.click("#titleEnter"); await pg.click("#startBtn"); await pg.wait_for_timeout(150)
+    await pg.evaluate("()=>window.__roboQATest.selectNode('fight')"); await pg.wait_for_timeout(150); await pg.click("#phaseContinue"); await step(pg, 20)
+    await pg.click("#menuBtn"); await pg.wait_for_timeout(250)
+    help_ = await pg.evaluate("()=>{const h=document.querySelector('#sidePanel .b3Help');return h?{shown:document.getElementById('sidePanel').classList.contains('open'),text:h.textContent.slice(0,40),keys:h.querySelectorAll('dt').length}:null}")
+    paused0 = (await step(pg, 1))["player"]["x"]
+    await pg.keyboard.down("KeyW"); paused1 = (await step(pg, 30))["player"]["x"]; await pg.keyboard.up("KeyW")
+    await pg.evaluate("()=>document.querySelector('#sidePanel').scrollTop=99999"); await pg.wait_for_timeout(100)
+    await pg.screenshot(path=str(SHOTS / "45_menu_controls_help.png"))
+    check("menu_help", "操作説明は☰メニュー内（開いている間は戦闘が止まる）", bool(help_) and help_["shown"] and help_["keys"] >= 12 and abs(paused1 - paused0) < .01, {"help": help_, "moved_while_open": round(paused1 - paused0, 3)})
+    check("no_errors_public", "公開版の確認中にJS例外なし", not errs, errs)
+    await b.close()
+    import subprocess
+    dev = subprocess.run([sys.executable, str(ROOT / "scripts" / "build_patrol_salvage.py"), "--dev"], capture_output=True, text=True)
+    devfile = ROOT / "dist" / "patrol-robo-salvage-tuning.html"
+    check("dev_build", "開発用の調整版は dist/ に別生成（公開フォルダに含めない）", dev.returncode == 0 and devfile.exists() and "const B3_LAB=true;" in devfile.read_text(encoding="utf-8") and not (GAME / "dist").exists(), dev.stdout.strip())
 
 
 async def firing(p, url):
@@ -358,7 +391,7 @@ async def mobile(p, url):
         b, pg, errs = await open_page(p, url, w, h, mobile=True)
         await to_fight(pg, tap=True)
         await pg.evaluate("()=>window.__b3QA.freezeAI(true)"); await step(pg, 30)
-        rects = await pg.evaluate("""()=>['b3MoveStick','b3LookStick','b3Fire','b3Dash','b3Rise','b3Desc','b3Reload','menuBtn','b3Lab'].map(id=>{const e=document.getElementById(id),r=e.getBoundingClientRect();return {id,x:r.x,y:r.y,w:r.width,h:r.height}})""")
+        rects = await pg.evaluate("""()=>['b3MoveStick','b3LookStick','b3Fire','b3Dash','b3Rise','b3Desc','b3Reload','menuBtn'].map(id=>{const e=document.getElementById(id),r=e.getBoundingClientRect();return {id,x:r.x,y:r.y,w:r.width,h:r.height}})""")
         shown = await pg.evaluate("()=>getComputedStyle(document.getElementById('b3Touch')).display!=='none'")
         ov = [(a["id"], c["id"]) for i, a in enumerate(rects) for c in rects[i + 1:] if a["x"] < c["x"] + c["w"] and c["x"] < a["x"] + a["w"] and a["y"] < c["y"] + c["h"] and c["y"] < a["y"] + a["h"]]
         fr = await frame(pg); px, py = fr["player"]["x"] * w, fr["player"]["y"] * h
@@ -398,7 +431,7 @@ async def main():
     t0 = time.time(); ai = None
     only = set(sys.argv[1:])
     async with async_playwright() as p:
-        for name, fn in (("roster", roster), ("controls", controls), ("firing", firing), ("ai", ai_fields), ("weapons", weapons), ("finisher", finisher), ("boss", boss), ("mobile", mobile), ("fallback", fallback)):
+        for name, fn in (("public", public_build), ("roster", roster), ("controls", controls), ("firing", firing), ("ai", ai_fields), ("weapons", weapons), ("finisher", finisher), ("boss", boss), ("mobile", mobile), ("fallback", fallback)):
             if only and name not in only:
                 continue
             r = await fn(p, url)

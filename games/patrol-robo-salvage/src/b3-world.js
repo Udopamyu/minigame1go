@@ -10,6 +10,9 @@
 //                  projectiles → finisher → integration with the core game
 // ============================================================================
 const B3_VERSION='0.6.1';
+// Public build: no tuning button / panel and no stored tuning values.
+// `python scripts/build_patrol_salvage.py --dev` flips this for a separate tuning build.
+const B3_LAB=false;
 // The core 2D combat loop (kept as the no-WebGL2 fallback) still checks these.
 let flightMode=false;const flightBulletStep=()=>{},flightHits=()=>false;
 const B3_TUNE_KEY='patrolSalvageHoverTuneV061';
@@ -42,7 +45,7 @@ const B3_FIELDS=[
   ['weapon','試験用の武器','weapon'],['biome','試験用のフィールド','biome']]]
 ];
 const B3={tune:{...B3_DEFAULT}};
-try{const s=JSON.parse(localStorage.getItem(B3_TUNE_KEY)||'null');
+if(B3_LAB)try{const s=JSON.parse(localStorage.getItem(B3_TUNE_KEY)||'null');
  if(s&&typeof s==='object')for(const k of Object.keys(B3_DEFAULT))if(typeof s[k]===typeof B3_DEFAULT[k])B3.tune[k]=s[k];}catch(_e){}
 function b3SaveTune(){try{localStorage.setItem(B3_TUNE_KEY,JSON.stringify(B3.tune))}catch(_e){}}
 

@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#080d1c">
-<meta name="description" content="倒して、奪って、強くなる。武器と装甲を組み替える無料のロボットローグライトゲーム。PC・スマホ対応。">
+<meta name="theme-color" content="#1e3038">
+<meta name="description" content="倒して、奪って、強くなる。地形と遮蔽物を使って戦う3Dホバーメカ戦闘ローグライト。無料・広告なし、PC・スマホ対応。">
 <meta property="og:type" content="website">
-<meta property="og:title" content="ロボ・サルベージ | ミニゲーム1GO #003">
-<meta property="og:description" content="敵のパーツを奪って強くなる。武器8種×コア4系統、装備コンボ、10マスの分岐マップとボス戦。">
+<meta property="og:title" content="PATROL × ROBO SALVAGE | ミニゲーム1GO">
+<meta property="og:description" content="敵のパーツを奪って強くなる3Dホバーメカ戦闘。8つの戦場、7種の武器、分岐ルートとボス。">
 <meta name="twitter:card" content="summary">
-<title>PATROL × ROBO SALVAGE — HOVER COMBAT v0.6.1</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 70 40%27%3E%3Cpath fill=%27%23efaa73%27 d=%27M0 6 27 10 34 27 23 22ZM70 6 43 10 36 27 47 22ZM34 0 39 10 35 22 31 10ZM9 23 24 27 32 38 22 33ZM61 23 46 27 38 38 48 33Z%27/%3E%3C/svg%3E">
+<title>PATROL × ROBO SALVAGE | ミニゲーム1GO</title>
 <style>
 :root{color-scheme:dark;--bg:#080d1c;--panel:#101a2d;--panel2:#14223a;--edge:#2c415e;--ink:#edf5ff;--muted:#91a8c1;--cyan:#66eaf0;--amber:#ffcc79;--red:#ff7789}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans JP","Yu Gothic",sans-serif}
@@ -1051,9 +1052,9 @@ function drawPhaseLetters(label){
 function showOpeningScreen(){
  try{if(sessionStorage.getItem('roboSalvageOpeningSeen')==='1')return;}catch(_e){}
  state='title';setMusicMode('route');
- showOverlay('<section class="openingScene"><p class="openingEyebrow">MINIGAME 1GO // #003</p>'
-  +'<canvas id="openingLogo" width="300" height="108" role="img" aria-label="ロボサルベージ"></canvas>'
-  +'<p class="openingSub">ROBO SALVAGE</p>'
+ showOverlay('<section class="openingScene"><p class="openingEyebrow">MINIGAME 1GO</p>'
+  +'<canvas id="openingLogo" width="300" height="108" role="img" aria-label="PATROL × ROBO SALVAGE"></canvas>'
+  +'<p class="openingSub">× ROBO SALVAGE</p>'
   +'<button type="button" class="primary" id="titleEnter">START ▶</button></section>');
  $('dialog').classList.add('openingDialog');
  const c=$('openingLogo'),g=c.getContext('2d');
@@ -1061,9 +1062,9 @@ function showOpeningScreen(){
  g.fillStyle='#163744';for(let x=0;x<c.width;x+=12)for(let y=0;y<c.height;y+=12)
   if((x+y/12)%5===0)g.fillRect(x,y,2,2);
  g.fillStyle='#5ef8da';g.fillRect(10,13,280,3);g.fillRect(10,89,280,3);
- g.font='bold 31px "MS Gothic","Noto Sans JP",monospace';g.textAlign='center';
- g.fillStyle='#285c65';g.fillText('ロボサルベージ',152,62);
- g.fillStyle='#a9ffe2';g.fillText('ロボサルベージ',150,59);
+ g.font='900 46px "Arial Black","Archivo Black","Helvetica Neue",Arial,sans-serif';g.textAlign='center';
+ g.fillStyle='#285c65';g.fillText('PATROL',152,70);
+ g.fillStyle='#f4f0de';g.fillText('PATROL',150,67);
  g.fillStyle='#ffda91';for(let i=0;i<5;i++){g.fillRect(16+i*9,26,5,5);g.fillRect(239+i*9,74,5,5);}
  $('titleEnter').addEventListener('click',()=>{
   try{sessionStorage.setItem('roboSalvageOpeningSeen','1')}catch(_e){}
@@ -3048,6 +3049,9 @@ window.__roboQA=()=>({
 //                  projectiles → finisher → integration with the core game
 // ============================================================================
 const B3_VERSION='0.6.1';
+// Public build: no tuning button / panel and no stored tuning values.
+// `python scripts/build_patrol_salvage.py --dev` flips this for a separate tuning build.
+const B3_LAB=false;
 // The core 2D combat loop (kept as the no-WebGL2 fallback) still checks these.
 let flightMode=false;const flightBulletStep=()=>{},flightHits=()=>false;
 const B3_TUNE_KEY='patrolSalvageHoverTuneV061';
@@ -3080,7 +3084,7 @@ const B3_FIELDS=[
   ['weapon','試験用の武器','weapon'],['biome','試験用のフィールド','biome']]]
 ];
 const B3={tune:{...B3_DEFAULT}};
-try{const s=JSON.parse(localStorage.getItem(B3_TUNE_KEY)||'null');
+if(B3_LAB)try{const s=JSON.parse(localStorage.getItem(B3_TUNE_KEY)||'null');
  if(s&&typeof s==='object')for(const k of Object.keys(B3_DEFAULT))if(typeof s[k]===typeof B3_DEFAULT[k])B3.tune[k]=s[k];}catch(_e){}
 function b3SaveTune(){try{localStorage.setItem(B3_TUNE_KEY,JSON.stringify(B3.tune))}catch(_e){}}
 
@@ -4553,7 +4557,7 @@ function b3DrawHUD(size){
 
 // ------------------------------------------------------------ tuning lab --
 (function b3InitLab(){
- if(!R3.ok)return;
+ if(!R3.ok||!B3_LAB)return;
  const btn=document.createElement('button');btn.id='b3Lab';btn.type='button';btn.textContent='⚙';btn.setAttribute('aria-label','操作感の調整パネル（Tキー）');
  const panel=document.createElement('aside');panel.id='b3Panel';panel.setAttribute('aria-label','操作感の調整パネル');
  document.body.append(btn,panel);
@@ -4621,8 +4625,25 @@ if(R3.ok){
  moveRobot=function(o,dx,dy){if(b3Battle()&&o&&o.v3){o.v3[0]+=dx*7;o.v3[2]+=dy*7;return;}return b3CoreMove(o,dx,dy);};
  damage=function(t,n,...a){if(BS.labSession&&t===player)return;return b3CoreDamage(t,n,...a);};
  beginRun=function(...a){BS.labSession=false;return b3CoreBeginRun(...a);};
- document.title='PATROL × ROBO SALVAGE — HOVER COMBAT v'+B3_VERSION;
+ document.title=B3_LAB?'PATROL × ROBO SALVAGE — TUNING v'+B3_VERSION:'PATROL × ROBO SALVAGE | ミニゲーム1GO';
 }
+// Controls help lives in the ☰ drawer, not on the play screen.
+(function b3DrawerHelp(){
+ const side=$('sidePanel');if(!side||!R3.ok)return;
+ const st=document.createElement('style');st.textContent=`
+ .b3Help dl{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;margin:6px 0 2px;font-size:12px;line-height:1.5}
+ .b3Help dt{color:#9fe3da;font-weight:700;white-space:nowrap}.b3Help dd{margin:0;color:#d7e5e6}
+ .b3Help h4{margin:10px 0 2px;font-size:12px;color:#c4d6da;letter-spacing:.05em}.b3Help p{margin:8px 0 0;font-size:11.5px;line-height:1.6;color:#b6c9cd}`;
+ document.head.appendChild(st);
+ const sec=document.createElement('section');sec.className='panel b3Help';sec.setAttribute('aria-label','操作方法');
+ sec.innerHTML=`<h3>操作</h3>
+ <h4>PC</h4><dl><dt>WASD</dt><dd>移動（視点の向きが基準）</dd><dt>矢印／ドラッグ</dt><dd>視点。離すと敵を追う向きに戻る</dd>
+ <dt>Space／C</dt><dd>上昇／下降</dd><dt>Shift</dt><dd>ダッシュ（短い無敵）</dd><dt>J・左クリック</dt><dd>手動射撃</dd><dt>R</dt><dd>リロード</dd></dl>
+ <h4>スマホ</h4><dl><dt>左スティック</dt><dd>移動</dd><dt>右スティック</dt><dd>視点</dd><dt>▲／▼</dt><dd>上昇／下降</dd>
+ <dt>»</dt><dd>ダッシュ</dd><dt>◎</dt><dd>手動射撃</dd><dt>↻</dt><dd>リロード</dd></dl>
+ <p>敵が中央の照準円に入り、射線が通り、射程内なら自動で撃ちます。建物や岩に隠れると敵の弾を防げます（レールランサーは貫通）。上を向いて前進すると上昇します。</p>`;
+ side.appendChild(sec);
+})();
 // Route map: dark board, three bright next nodes, dim future, mech token.
 (function b3RouteStyle(){
  const st=document.createElement('style');st.textContent=`

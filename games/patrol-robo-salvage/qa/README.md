@@ -1,9 +1,10 @@
-# PATROL × Robo Salvage v0.6.1 — 検証結果
+# PATROL × ROBO SALVAGE v0.6.1（公開ビルド）— 検証結果
 
-`python scripts/verify_patrol_salvage.py` の出力（[results.json](results.json)）を要約したもの。**40/40 項目合格**。
+`python scripts/verify_patrol_salvage.py` の出力（[results.json](results.json)）を要約したもの。**45/45 項目合格**（所要 394 秒）。 静的な公開前チェックは [release-preflight.json](release-preflight.json)（`python scripts/patrol_release_preflight.py`）。
 
+- 対象：公開用の `index.html`（調整パネルなし）。開発用の調整版（`--dev`）は生成できることだけを確認。
 - 環境：Headless Chrome＋SwiftShader（ソフトウェアのWebGL2）。PC 1280×720、スマホは390×844と844×390のタッチエミュレーション。
-- 時間は `__b3QA.step()` で1/60秒ずつ進めて判定しているため、テスト機のFPSに左右されない。
+- 時間は `__b3QA.step()` で1/60秒ずつ進めて判定しているため、テスト機のFPSに左右されない。`__b3QA` は自動テスト中（navigator.webdriver）だけ存在する。
 - これは**機能テスト**。実機スマホ・実GPUでの操作感とFPS、人が遊んだときの面白さ・難易度は**未確認**。
 
 ## 項目
@@ -11,6 +12,11 @@
 | 結果 | ID | 内容 |
 | --- | --- | --- |
 | ✅ | `build` | index.html が src/ から再生成した内容と一致 |
+| ✅ | `no_tuning_ui` | 公開版：調整ボタン・パネルなし、Tキーでも開かない、保存済みの調整値を使わない |
+| ✅ | `public_title` | タイトル・タブ名は PATROL × ROBO SALVAGE（2D版の#003表記・版数を出さない） |
+| ✅ | `menu_help` | 操作説明は☰メニュー内（開いている間は戦闘が止まる） |
+| ✅ | `no_errors_public` | 公開版の確認中にJS例外なし |
+| ✅ | `dev_build` | 開発用の調整版は dist/ に別生成（公開フォルダに含めない） |
 | ✅ | `tune_defaults` | 初期パラメータ＝指定JSON（2026-11-18） |
 | ✅ | `no_ricochet` | リコシェット弾を撤去（格納庫・敵・ショップの武器は7種） |
 | ✅ | `shot_dice` | スプレッド砲：横一列ではなくサイコロの5（中央＋四隅） |
@@ -57,35 +63,37 @@
 
 | フィールド | 役割 | 距離 | 張り付き | 両機が画面内 | 横移動/0.5秒 | 静止 | 障害物数 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| waste | skirmisher | 476／649／947 | 0% | 100% | 59 | 0% | 25 |
-| desert | charger | 358／472／792 | 0% | 100% | 30 | 5% | 13 |
-| snow | charger | 416／473／668 | 0% | 100% | 52 | 3% | 19 |
-| mountain | sniper | 917／947／1031 | 0% | 100% | 70 | 0% | 12 |
-| city | flanker | 626／702／968 | 0% | 100% | 53 | 5% | 76 |
-| river | charger | 263／331／565 | 0% | 100% | 62 | 0% | 31 |
-| arena | charger | 262／331／652 | 0% | 100% | 69 | 0% | 50 |
-| night | flanker | 418／575／859 | 0% | 100% | 67 | 0% | 23 |
+| waste | skirmisher | 502／576／698 | 0% | 100% | 68 | 0% | 25 |
+| desert | guardian | 575／618／929 | 0% | 100% | 40 | 3% | 13 |
+| snow | charger | 390／481／605 | 0% | 100% | 62 | 0% | 19 |
+| mountain | flanker | 614／706／932 | 0% | 100% | 50 | 0% | 12 |
+| city | skirmisher | 432／527／774 | 0% | 100% | 32 | 10% | 72 |
+| river | charger | 376／441／843 | 0% | 100% | 40 | 3% | 31 |
+| arena | guardian | 581／651／875 | 0% | 100% | 38 | 3% | 50 |
+| night | charger | 308／425／701 | 0% | 100% | 44 | 3% | 23 |
 
 ## スクリーンショット（[screenshots/](screenshots/)）
 
 | ファイル | 内容 |
 | --- | --- |
-| `00_title.jpg` | タイトル（既存の進行画面） |
+| `00_title.jpg` | 公開版のタイトル画面（MINIGAME 1GO／PATROL／× ROBO SALVAGE） |
 | `01_fight_start.jpg` | 戦闘開始。自機は画面下、敵とレティクルは中央 |
 | `10_cover_blocked.jpg` | 敵が建物の陰：照準は灰色の斜線、敵マーカーは点線と◇。自機の背後の建物は半透明 |
 | `11_locked.jpg` | ロック中（オレンジの回転照準）で自動射撃 |
 | `20〜27_field_*.jpg` | 8フィールド（荒野・砂原・雪山・山岳・市街地・川・スタジアム・夜間） |
 | `30_weapons_sheet.jpg` | 7武器の弾（パルス／散弾／レール／ミサイル／ニードル／バースト／スラグ） |
 | `31_spread_dice_five.jpg` | スプレッド砲：サイコロの5の配置で飛ぶ5発 |
-| `40_finisher_win_sheet.jpg`／`44_finisher_lose_sheet.jpg` | 約2秒の3D分解（勝利は白、敗北は暗転） |
-| `41_loot.jpg`／`42_route_map.jpg`／`43_run_ended.jpg` | 戦利品、ルート、ラン終了（既存の進行画面） |
+| `40_finisher_win_sheet.jpg／44_finisher_lose_sheet.jpg` | 約2秒の3D分解（勝利は白、敗北は暗転） |
+| `41_loot.jpg／42_route_map.jpg／43_run_ended.jpg` | 戦利品、ルート、ラン終了（既存の進行画面） |
+| `45_menu_controls_help.jpg` | ☰メニュー内の操作説明（開いている間は戦闘が止まる） |
 | `50_boss_beam_telegraph.jpg` | ボスのビーム予告 |
-| `60_mobile_portrait.jpg`／`61_mobile_landscape.jpg` | スマホ縦・横の操作配置 |
+| `60_mobile_portrait.jpg／61_mobile_landscape.jpg` | スマホ縦・横の操作配置 |
 | `70_no_webgl_fallback_2d.jpg` | WebGL2が無い環境では2D戦闘で代替 |
 
 ## 既知の制限・未確認
 
-- 実機（スマホ・GPU搭載PC）での試遊とFPS。指定の描画倍率1.5・自動解像度OFFは、この環境（ソフトウェア描画）では重い。実機で重い場合は⚙の「3D描画の解像度」を下げるか、自動解像度をONにする。
+- 実機（スマホ・GPU搭載PC）での試遊とFPS。指定の描画倍率1.5・自動解像度OFFは、この環境（ソフトウェア描画）では重い。公開版には調整パネルがないため、実機で重い場合は初期値の見直し（本人判断）が必要。
 - 10マス＋ボス＋エンドレスの通しプレイと難易度。自機の移動が1.5倍になったが、敵の速さ・命中・ダメージは2D版の数値のまま。
 - 2D版のステージギミック（電撃床・凍結・修理・回転刃）は3D戦闘では使っていない。
-- レールランサーが遮蔽物を貫通するのは2D版の「壁を貫く」を引き継いだ例外ルール。
+- レールランサーが遮蔽物を貫通するのは2D版の「壁を貫く」を引き継いだ例外ルール（本人確認待ち）。
+- 公開URL（GitHub Pages）での動作は未確認（未公開）。

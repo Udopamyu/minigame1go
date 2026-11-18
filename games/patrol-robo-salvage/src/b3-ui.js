@@ -236,7 +236,7 @@ function b3DrawHUD(size){
 
 // ------------------------------------------------------------ tuning lab --
 (function b3InitLab(){
- if(!R3.ok)return;
+ if(!R3.ok||!B3_LAB)return;
  const btn=document.createElement('button');btn.id='b3Lab';btn.type='button';btn.textContent='⚙';btn.setAttribute('aria-label','操作感の調整パネル（Tキー）');
  const panel=document.createElement('aside');panel.id='b3Panel';panel.setAttribute('aria-label','操作感の調整パネル');
  document.body.append(btn,panel);
@@ -304,8 +304,25 @@ if(R3.ok){
  moveRobot=function(o,dx,dy){if(b3Battle()&&o&&o.v3){o.v3[0]+=dx*7;o.v3[2]+=dy*7;return;}return b3CoreMove(o,dx,dy);};
  damage=function(t,n,...a){if(BS.labSession&&t===player)return;return b3CoreDamage(t,n,...a);};
  beginRun=function(...a){BS.labSession=false;return b3CoreBeginRun(...a);};
- document.title='PATROL × ROBO SALVAGE — HOVER COMBAT v'+B3_VERSION;
+ document.title=B3_LAB?'PATROL × ROBO SALVAGE — TUNING v'+B3_VERSION:'PATROL × ROBO SALVAGE | ミニゲーム1GO';
 }
+// Controls help lives in the ☰ drawer, not on the play screen.
+(function b3DrawerHelp(){
+ const side=$('sidePanel');if(!side||!R3.ok)return;
+ const st=document.createElement('style');st.textContent=`
+ .b3Help dl{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;margin:6px 0 2px;font-size:12px;line-height:1.5}
+ .b3Help dt{color:#9fe3da;font-weight:700;white-space:nowrap}.b3Help dd{margin:0;color:#d7e5e6}
+ .b3Help h4{margin:10px 0 2px;font-size:12px;color:#c4d6da;letter-spacing:.05em}.b3Help p{margin:8px 0 0;font-size:11.5px;line-height:1.6;color:#b6c9cd}`;
+ document.head.appendChild(st);
+ const sec=document.createElement('section');sec.className='panel b3Help';sec.setAttribute('aria-label','操作方法');
+ sec.innerHTML=`<h3>操作</h3>
+ <h4>PC</h4><dl><dt>WASD</dt><dd>移動（視点の向きが基準）</dd><dt>矢印／ドラッグ</dt><dd>視点。離すと敵を追う向きに戻る</dd>
+ <dt>Space／C</dt><dd>上昇／下降</dd><dt>Shift</dt><dd>ダッシュ（短い無敵）</dd><dt>J・左クリック</dt><dd>手動射撃</dd><dt>R</dt><dd>リロード</dd></dl>
+ <h4>スマホ</h4><dl><dt>左スティック</dt><dd>移動</dd><dt>右スティック</dt><dd>視点</dd><dt>▲／▼</dt><dd>上昇／下降</dd>
+ <dt>»</dt><dd>ダッシュ</dd><dt>◎</dt><dd>手動射撃</dd><dt>↻</dt><dd>リロード</dd></dl>
+ <p>敵が中央の照準円に入り、射線が通り、射程内なら自動で撃ちます。建物や岩に隠れると敵の弾を防げます（レールランサーは貫通）。上を向いて前進すると上昇します。</p>`;
+ side.appendChild(sec);
+})();
 // Route map: dark board, three bright next nodes, dim future, mech token.
 (function b3RouteStyle(){
  const st=document.createElement('style');st.textContent=`

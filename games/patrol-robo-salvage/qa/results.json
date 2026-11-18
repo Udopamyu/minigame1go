@@ -10,6 +10,55 @@
       "detail": "index.html is up to date"
     },
     {
+      "id": "no_tuning_ui",
+      "title": "公開版：調整ボタン・パネルなし、Tキーでも開かない、保存済みの調整値を使わない",
+      "ok": true,
+      "detail": {
+        "lab": {
+          "btn": false,
+          "panel": false
+        },
+        "t_opens": false,
+        "moveSpeed": 1.5,
+        "camDistance": 235
+      }
+    },
+    {
+      "id": "public_title",
+      "title": "タイトル・タブ名は PATROL × ROBO SALVAGE（2D版の#003表記・版数を出さない）",
+      "ok": true,
+      "detail": {
+        "tab": "PATROL × ROBO SALVAGE | ミニゲーム1GO",
+        "logo": "PATROL × ROBO SALVAGE",
+        "eyebrow": "MINIGAME 1GO"
+      }
+    },
+    {
+      "id": "menu_help",
+      "title": "操作説明は☰メニュー内（開いている間は戦闘が止まる）",
+      "ok": true,
+      "detail": {
+        "help": {
+          "shown": true,
+          "text": "操作\n PCWASD移動（視点の向きが基準）矢印／ドラッグ視点。離すと敵を追う向",
+          "keys": 12
+        },
+        "moved_while_open": 0
+      }
+    },
+    {
+      "id": "no_errors_public",
+      "title": "公開版の確認中にJS例外なし",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "id": "dev_build",
+      "title": "開発用の調整版は dist/ に別生成（公開フォルダに含めない）",
+      "ok": true,
+      "detail": "wrote dist/patrol-robo-salvage-tuning.html  lines=4711  sha256=a5fe3068f7946bf7"
+    },
+    {
       "id": "tune_defaults",
       "title": "初期パラメータ＝指定JSON（2026-11-18）",
       "ok": true,
@@ -106,12 +155,12 @@
         "W": 1280,
         "H": 720,
         "player": {
-          "x": 0.4999999999152328,
-          "y": 0.7128179825922092
+          "x": 0.499999999665416,
+          "y": 0.7129106585099644
         },
         "enemy": {
-          "x": 0.4999646480522899,
-          "y": 0.5031576207263474
+          "x": 0.49997356464580794,
+          "y": 0.5030749649987383
         },
         "visibleBoth": true,
         "enemyNearCenter": true,
@@ -142,17 +191,17 @@
       "ok": true,
       "detail": {
         "moved": 322,
-        "dot_right": 0.989,
+        "dot_right": 0.99,
         "frame": {
           "W": 1280,
           "H": 720,
           "player": {
-            "x": 0.4914623280522691,
-            "y": 0.7117562952956664
+            "x": 0.4914573839184828,
+            "y": 0.7118787990475133
           },
           "enemy": {
-            "x": 0.47392764982601865,
-            "y": 0.5028028690282443
+            "x": 0.4741679463247981,
+            "y": 0.4979633974857506
           },
           "visibleBoth": true,
           "enemyNearCenter": true,
@@ -166,8 +215,8 @@
       "ok": true,
       "detail": {
         "alt": [
-          41,
-          183,
+          60,
+          202,
           40
         ]
       }
@@ -177,10 +226,10 @@
       "title": "右スティック前＝上を向く／上を向いて前進で上昇",
       "ok": true,
       "detail": {
-        "pitch": 0.78,
+        "pitch": 0.84,
         "alt": [
           40,
-          195
+          192
         ]
       }
     },
@@ -195,12 +244,12 @@
           "W": 1280,
           "H": 720,
           "player": {
-            "x": 0.49999999189371136,
-            "y": 0.7091666935979561
+            "x": 0.5000000046106722,
+            "y": 0.7100335117398495
           },
           "enemy": {
-            "x": 0.5001696353709952,
-            "y": 0.5046650897447431
+            "x": 0.5001774323261724,
+            "y": 0.5045824791592433
           },
           "visibleBoth": true,
           "enemyNearCenter": true,
@@ -323,25 +372,26 @@
         "role": "skirmisher",
         "samples": 40,
         "dist_p10_p50_p90": [
-          476,
-          649,
-          947
+          502,
+          576,
+          698
         ],
         "hug_lt180": 0.0,
         "both_on_screen": 1.0,
-        "player_los": 0.875,
-        "lateral_per_0.5s": 59,
+        "player_los": 0.75,
+        "lateral_per_0.5s": 68,
         "still_ratio": 0.0,
         "modes": {
-          "approach": 8,
-          "strafe": 9,
-          "flank": 12,
-          "cover": 11
+          "approach": 2,
+          "strafe": 23,
+          "flank": 8,
+          "cover": 6,
+          "peek": 1
         },
         "obstacles": 25,
         "enemy_shots": 41,
-        "enemy_hits": 5,
-        "blocked_by_cover": 1
+        "enemy_hits": 6,
+        "blocked_by_cover": 15
       }
     },
     {
@@ -349,28 +399,28 @@
       "title": "敵AI（desert）：自機が追わない時に張り付かず、横移動し、両機が画面内",
       "ok": true,
       "detail": {
-        "role": "charger",
+        "role": "guardian",
         "samples": 40,
         "dist_p10_p50_p90": [
-          358,
-          472,
-          792
+          575,
+          618,
+          929
         ],
         "hug_lt180": 0.0,
         "both_on_screen": 1.0,
         "player_los": 0.75,
-        "lateral_per_0.5s": 30,
-        "still_ratio": 0.051,
+        "lateral_per_0.5s": 40,
+        "still_ratio": 0.026,
         "modes": {
-          "approach": 29,
-          "strafe": 3,
-          "cover": 7,
-          "flank": 1
+          "approach": 8,
+          "strafe": 21,
+          "cover": 10,
+          "peek": 1
         },
         "obstacles": 13,
-        "enemy_shots": 11,
-        "enemy_hits": 11,
-        "blocked_by_cover": 7
+        "enemy_shots": 9,
+        "enemy_hits": 1,
+        "blocked_by_cover": 3
       }
     },
     {
@@ -381,23 +431,23 @@
         "role": "charger",
         "samples": 40,
         "dist_p10_p50_p90": [
-          416,
-          473,
-          668
+          390,
+          481,
+          605
         ],
         "hug_lt180": 0.0,
         "both_on_screen": 1.0,
-        "player_los": 0.725,
-        "lateral_per_0.5s": 52,
-        "still_ratio": 0.026,
+        "player_los": 0.6,
+        "lateral_per_0.5s": 62,
+        "still_ratio": 0.0,
         "modes": {
-          "approach": 18,
-          "strafe": 22
+          "approach": 20,
+          "strafe": 20
         },
         "obstacles": 19,
         "enemy_shots": 8,
         "enemy_hits": 1,
-        "blocked_by_cover": 0
+        "blocked_by_cover": 1
       }
     },
     {
@@ -405,26 +455,28 @@
       "title": "敵AI（mountain）：自機が追わない時に張り付かず、横移動し、両機が画面内",
       "ok": true,
       "detail": {
-        "role": "sniper",
+        "role": "flanker",
         "samples": 40,
         "dist_p10_p50_p90": [
-          917,
-          947,
-          1031
+          614,
+          706,
+          932
         ],
         "hug_lt180": 0.0,
         "both_on_screen": 1.0,
         "player_los": 0.775,
-        "lateral_per_0.5s": 70,
+        "lateral_per_0.5s": 50,
         "still_ratio": 0.0,
         "modes": {
-          "strafe": 32,
-          "cover": 6,
-          "peek": 2
+          "approach": 11,
+          "strafe": 13,
+          "flank": 8,
+          "cover": 7,
+          "peek": 1
         },
         "obstacles": 12,
-        "enemy_shots": 11,
-        "enemy_hits": 1,
+        "enemy_shots": 45,
+        "enemy_hits": 6,
         "blocked_by_cover": 0
       }
     },
@@ -433,29 +485,29 @@
       "title": "敵AI（city）：自機が追わない時に張り付かず、横移動し、両機が画面内",
       "ok": true,
       "detail": {
-        "role": "flanker",
+        "role": "skirmisher",
         "samples": 40,
         "dist_p10_p50_p90": [
-          626,
-          702,
-          968
+          432,
+          527,
+          774
         ],
         "hug_lt180": 0.0,
         "both_on_screen": 1.0,
-        "player_los": 0.6,
-        "lateral_per_0.5s": 53,
-        "still_ratio": 0.051,
+        "player_los": 0.7,
+        "lateral_per_0.5s": 32,
+        "still_ratio": 0.103,
         "modes": {
           "approach": 7,
-          "flank": 5,
+          "flank": 12,
           "strafe": 14,
-          "cover": 13,
-          "peek": 1
+          "cover": 5,
+          "peek": 2
         },
-        "obstacles": 76,
-        "enemy_shots": 19,
-        "enemy_hits": 7,
-        "blocked_by_cover": 28
+        "obstacles": 72,
+        "enemy_shots": 35,
+        "enemy_hits": 9,
+        "blocked_by_cover": 15
       }
     },
     {
@@ -466,24 +518,25 @@
         "role": "charger",
         "samples": 40,
         "dist_p10_p50_p90": [
-          263,
-          331,
-          565
+          376,
+          441,
+          843
         ],
         "hug_lt180": 0.0,
         "both_on_screen": 1.0,
         "player_los": 0.875,
-        "lateral_per_0.5s": 62,
-        "still_ratio": 0.0,
+        "lateral_per_0.5s": 40,
+        "still_ratio": 0.026,
         "modes": {
-          "approach": 15,
-          "strafe": 21,
-          "cover": 4
+          "approach": 14,
+          "strafe": 19,
+          "cover": 6,
+          "flank": 1
         },
         "obstacles": 31,
-        "enemy_shots": 15,
-        "enemy_hits": 16,
-        "blocked_by_cover": 7
+        "enemy_shots": 8,
+        "enemy_hits": 2,
+        "blocked_by_cover": 1
       }
     },
     {
@@ -491,26 +544,28 @@
       "title": "敵AI（arena）：自機が追わない時に張り付かず、横移動し、両機が画面内",
       "ok": true,
       "detail": {
-        "role": "charger",
+        "role": "guardian",
         "samples": 40,
         "dist_p10_p50_p90": [
-          262,
-          331,
-          652
+          581,
+          651,
+          875
         ],
         "hug_lt180": 0.0,
         "both_on_screen": 1.0,
-        "player_los": 0.925,
-        "lateral_per_0.5s": 69,
-        "still_ratio": 0.0,
+        "player_los": 0.775,
+        "lateral_per_0.5s": 38,
+        "still_ratio": 0.026,
         "modes": {
-          "approach": 13,
-          "strafe": 27
+          "approach": 11,
+          "strafe": 23,
+          "cover": 5,
+          "peek": 1
         },
         "obstacles": 50,
-        "enemy_shots": 15,
-        "enemy_hits": 22,
-        "blocked_by_cover": 9
+        "enemy_shots": 34,
+        "enemy_hits": 1,
+        "blocked_by_cover": 6
       }
     },
     {
@@ -518,28 +573,28 @@
       "title": "敵AI（night）：自機が追わない時に張り付かず、横移動し、両機が画面内",
       "ok": true,
       "detail": {
-        "role": "flanker",
+        "role": "charger",
         "samples": 40,
         "dist_p10_p50_p90": [
-          418,
-          575,
-          859
+          308,
+          425,
+          701
         ],
         "hug_lt180": 0.0,
         "both_on_screen": 1.0,
-        "player_los": 0.65,
-        "lateral_per_0.5s": 67,
-        "still_ratio": 0.0,
+        "player_los": 0.95,
+        "lateral_per_0.5s": 44,
+        "still_ratio": 0.026,
         "modes": {
-          "approach": 6,
-          "flank": 15,
-          "strafe": 14,
-          "cover": 5
+          "approach": 10,
+          "strafe": 23,
+          "cover": 6,
+          "peek": 1
         },
         "obstacles": 23,
-        "enemy_shots": 49,
-        "enemy_hits": 14,
-        "blocked_by_cover": 10
+        "enemy_shots": 11,
+        "enemy_hits": 3,
+        "blocked_by_cover": 0
       }
     },
     {
@@ -626,12 +681,12 @@
           "W": 390,
           "H": 844,
           "player": {
-            "x": 0.5000000008779261,
-            "y": 0.7087765441188265
+            "x": 0.49999998886397035,
+            "y": 0.7087563671046682
           },
           "enemy": {
-            "x": 0.5005713786474868,
-            "y": 0.5049845889571183
+            "x": 0.5006521000558324,
+            "y": 0.5051025288163016
           },
           "visibleBoth": true,
           "enemyNearCenter": true,
@@ -653,12 +708,12 @@
           "W": 844,
           "H": 390,
           "player": {
-            "x": 0.4999999923247269,
-            "y": 0.7136325031977314
+            "x": 0.5000000018499334,
+            "y": 0.7135231018350673
           },
           "enemy": {
-            "x": 0.49936956782082553,
-            "y": 0.5031296161940723
+            "x": 0.5004695799070881,
+            "y": 0.5035815134939123
           },
           "visibleBoth": true,
           "enemyNearCenter": true,
@@ -674,7 +729,7 @@
       "detail": {
         "gl": false,
         "state": "fight",
-        "x": 289,
+        "x": 305,
         "errors": []
       }
     }
@@ -684,190 +739,196 @@
       "role": "skirmisher",
       "samples": 40,
       "dist_p10_p50_p90": [
-        476,
-        649,
-        947
-      ],
-      "hug_lt180": 0.0,
-      "both_on_screen": 1.0,
-      "player_los": 0.875,
-      "lateral_per_0.5s": 59,
-      "still_ratio": 0.0,
-      "modes": {
-        "approach": 8,
-        "strafe": 9,
-        "flank": 12,
-        "cover": 11
-      },
-      "obstacles": 25,
-      "enemy_shots": 41,
-      "enemy_hits": 5,
-      "blocked_by_cover": 1
-    },
-    "desert": {
-      "role": "charger",
-      "samples": 40,
-      "dist_p10_p50_p90": [
-        358,
-        472,
-        792
+        502,
+        576,
+        698
       ],
       "hug_lt180": 0.0,
       "both_on_screen": 1.0,
       "player_los": 0.75,
-      "lateral_per_0.5s": 30,
-      "still_ratio": 0.051,
+      "lateral_per_0.5s": 68,
+      "still_ratio": 0.0,
       "modes": {
-        "approach": 29,
-        "strafe": 3,
-        "cover": 7,
-        "flank": 1
+        "approach": 2,
+        "strafe": 23,
+        "flank": 8,
+        "cover": 6,
+        "peek": 1
+      },
+      "obstacles": 25,
+      "enemy_shots": 41,
+      "enemy_hits": 6,
+      "blocked_by_cover": 15
+    },
+    "desert": {
+      "role": "guardian",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        575,
+        618,
+        929
+      ],
+      "hug_lt180": 0.0,
+      "both_on_screen": 1.0,
+      "player_los": 0.75,
+      "lateral_per_0.5s": 40,
+      "still_ratio": 0.026,
+      "modes": {
+        "approach": 8,
+        "strafe": 21,
+        "cover": 10,
+        "peek": 1
       },
       "obstacles": 13,
-      "enemy_shots": 11,
-      "enemy_hits": 11,
-      "blocked_by_cover": 7
+      "enemy_shots": 9,
+      "enemy_hits": 1,
+      "blocked_by_cover": 3
     },
     "snow": {
       "role": "charger",
       "samples": 40,
       "dist_p10_p50_p90": [
-        416,
-        473,
-        668
-      ],
-      "hug_lt180": 0.0,
-      "both_on_screen": 1.0,
-      "player_los": 0.725,
-      "lateral_per_0.5s": 52,
-      "still_ratio": 0.026,
-      "modes": {
-        "approach": 18,
-        "strafe": 22
-      },
-      "obstacles": 19,
-      "enemy_shots": 8,
-      "enemy_hits": 1,
-      "blocked_by_cover": 0
-    },
-    "mountain": {
-      "role": "sniper",
-      "samples": 40,
-      "dist_p10_p50_p90": [
-        917,
-        947,
-        1031
-      ],
-      "hug_lt180": 0.0,
-      "both_on_screen": 1.0,
-      "player_los": 0.775,
-      "lateral_per_0.5s": 70,
-      "still_ratio": 0.0,
-      "modes": {
-        "strafe": 32,
-        "cover": 6,
-        "peek": 2
-      },
-      "obstacles": 12,
-      "enemy_shots": 11,
-      "enemy_hits": 1,
-      "blocked_by_cover": 0
-    },
-    "city": {
-      "role": "flanker",
-      "samples": 40,
-      "dist_p10_p50_p90": [
-        626,
-        702,
-        968
+        390,
+        481,
+        605
       ],
       "hug_lt180": 0.0,
       "both_on_screen": 1.0,
       "player_los": 0.6,
-      "lateral_per_0.5s": 53,
-      "still_ratio": 0.051,
+      "lateral_per_0.5s": 62,
+      "still_ratio": 0.0,
       "modes": {
-        "approach": 7,
-        "flank": 5,
-        "strafe": 14,
-        "cover": 13,
+        "approach": 20,
+        "strafe": 20
+      },
+      "obstacles": 19,
+      "enemy_shots": 8,
+      "enemy_hits": 1,
+      "blocked_by_cover": 1
+    },
+    "mountain": {
+      "role": "flanker",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        614,
+        706,
+        932
+      ],
+      "hug_lt180": 0.0,
+      "both_on_screen": 1.0,
+      "player_los": 0.775,
+      "lateral_per_0.5s": 50,
+      "still_ratio": 0.0,
+      "modes": {
+        "approach": 11,
+        "strafe": 13,
+        "flank": 8,
+        "cover": 7,
         "peek": 1
       },
-      "obstacles": 76,
-      "enemy_shots": 19,
-      "enemy_hits": 7,
-      "blocked_by_cover": 28
+      "obstacles": 12,
+      "enemy_shots": 45,
+      "enemy_hits": 6,
+      "blocked_by_cover": 0
+    },
+    "city": {
+      "role": "skirmisher",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        432,
+        527,
+        774
+      ],
+      "hug_lt180": 0.0,
+      "both_on_screen": 1.0,
+      "player_los": 0.7,
+      "lateral_per_0.5s": 32,
+      "still_ratio": 0.103,
+      "modes": {
+        "approach": 7,
+        "flank": 12,
+        "strafe": 14,
+        "cover": 5,
+        "peek": 2
+      },
+      "obstacles": 72,
+      "enemy_shots": 35,
+      "enemy_hits": 9,
+      "blocked_by_cover": 15
     },
     "river": {
       "role": "charger",
       "samples": 40,
       "dist_p10_p50_p90": [
-        263,
-        331,
-        565
+        376,
+        441,
+        843
       ],
       "hug_lt180": 0.0,
       "both_on_screen": 1.0,
       "player_los": 0.875,
-      "lateral_per_0.5s": 62,
-      "still_ratio": 0.0,
+      "lateral_per_0.5s": 40,
+      "still_ratio": 0.026,
       "modes": {
-        "approach": 15,
-        "strafe": 21,
-        "cover": 4
+        "approach": 14,
+        "strafe": 19,
+        "cover": 6,
+        "flank": 1
       },
       "obstacles": 31,
-      "enemy_shots": 15,
-      "enemy_hits": 16,
-      "blocked_by_cover": 7
+      "enemy_shots": 8,
+      "enemy_hits": 2,
+      "blocked_by_cover": 1
     },
     "arena": {
+      "role": "guardian",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        581,
+        651,
+        875
+      ],
+      "hug_lt180": 0.0,
+      "both_on_screen": 1.0,
+      "player_los": 0.775,
+      "lateral_per_0.5s": 38,
+      "still_ratio": 0.026,
+      "modes": {
+        "approach": 11,
+        "strafe": 23,
+        "cover": 5,
+        "peek": 1
+      },
+      "obstacles": 50,
+      "enemy_shots": 34,
+      "enemy_hits": 1,
+      "blocked_by_cover": 6
+    },
+    "night": {
       "role": "charger",
       "samples": 40,
       "dist_p10_p50_p90": [
-        262,
-        331,
-        652
+        308,
+        425,
+        701
       ],
       "hug_lt180": 0.0,
       "both_on_screen": 1.0,
-      "player_los": 0.925,
-      "lateral_per_0.5s": 69,
-      "still_ratio": 0.0,
+      "player_los": 0.95,
+      "lateral_per_0.5s": 44,
+      "still_ratio": 0.026,
       "modes": {
-        "approach": 13,
-        "strafe": 27
-      },
-      "obstacles": 50,
-      "enemy_shots": 15,
-      "enemy_hits": 22,
-      "blocked_by_cover": 9
-    },
-    "night": {
-      "role": "flanker",
-      "samples": 40,
-      "dist_p10_p50_p90": [
-        418,
-        575,
-        859
-      ],
-      "hug_lt180": 0.0,
-      "both_on_screen": 1.0,
-      "player_los": 0.65,
-      "lateral_per_0.5s": 67,
-      "still_ratio": 0.0,
-      "modes": {
-        "approach": 6,
-        "flank": 15,
-        "strafe": 14,
-        "cover": 5
+        "approach": 10,
+        "strafe": 23,
+        "cover": 6,
+        "peek": 1
       },
       "obstacles": 23,
-      "enemy_shots": 49,
-      "enemy_hits": 14,
-      "blocked_by_cover": 10
+      "enemy_shots": 11,
+      "enemy_hits": 3,
+      "blocked_by_cover": 0
     }
   },
   "environment": "Headless Chrome + SwiftShader (software WebGL2). Real-GPU frame rate and real phones are NOT covered.",
-  "seconds": 380
+  "seconds": 394
 }

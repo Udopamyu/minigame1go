@@ -1,0 +1,28 @@
+{
+  "game": "patrol-robo-salvage",
+  "kind": "static release packaging preflight",
+  "checked_at_utc": "2026-11-18T17:14:35+00:00",
+  "success": true,
+  "checks": {
+    "source_html_matches_bundler": true,
+    "javascript_syntax": true,
+    "exactly_one_inline_script_and_style": true,
+    "no_external_or_root_relative_assets": true,
+    "no_remote_fetch_or_import": true,
+    "search_and_share_metadata": true,
+    "public_title": true,
+    "tuning_ui_disabled": true,
+    "qa_hooks_only_for_automation": true,
+    "no_ricochet_weapon": true,
+    "shared_progress_storage": true,
+    "no_secrets": true,
+    "reference_builds_not_linked": true
+  },
+  "html_bytes": 291831,
+  "html_sha256": "5ebb76da5cc8062bcdfcebf94489a0e1025b3b3b54e8af7bfe4582dbe0c39984",
+  "not_covered": [
+    "human play-testing / difficulty",
+    "real phones and real GPUs",
+    "the GitHub Pages URL after merge"
+  ]
+}

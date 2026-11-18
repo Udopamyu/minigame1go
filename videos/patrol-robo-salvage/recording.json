@@ -1,0 +1,61 @@
+{
+  "game": "patrol-robo-salvage",
+  "build": "public index.html (no tuning UI)",
+  "source_sha256": "5ebb76da5cc8062bcdfcebf94489a0e1025b3b3b54e8af7bfe4582dbe0c39984",
+  "recorded_at_utc": "2026-11-18T17:06:33+00:00",
+  "capture": {
+    "viewport_css": [
+      432,
+      768
+    ],
+    "device_scale_factor": 2.5,
+    "fps": 30,
+    "time": "frame-stepped 2×1/60 s per frame",
+    "renderer": "Headless Chrome + SwiftShader (software WebGL2)",
+    "audio": "none (headless capture; the game itself has sound)"
+  },
+  "honesty": {
+    "save": "fresh (localStorage cleared)",
+    "weapon": "pulse",
+    "route": "first fight node clicked on the route map",
+    "cheats": "none — no HP/gold/unlock/weapon/placement changes",
+    "input": "keyboard only (scripted pilot); auto-fire = game default"
+  },
+  "fight": {
+    "biome": "waste",
+    "seconds": 6.1,
+    "player_hp_end": 241.7,
+    "player_hp_max": 250,
+    "ended_with": {
+      "state": "winCard",
+      "hp": 250,
+      "dialog": "OK"
+    }
+  },
+  "edit": {
+    "opening": [
+      0.0,
+      2.97
+    ],
+    "climax": [
+      3.0,
+      6.07
+    ],
+    "jump_cut": false,
+    "finisher_frames": 61,
+    "result_frames": 36,
+    "title_frames": 45
+  },
+  "video": {
+    "file": "gameplay.mp4",
+    "seconds": 10.87,
+    "stream": {
+      "codec_name": "h264",
+      "width": 1080,
+      "height": 1920,
+      "r_frame_rate": "30/1"
+    },
+    "sha256": "1e11165a02f7712d4f13a674934dd12e46df2f5d07c5137322620935ab0ce073"
+  },
+  "page_errors": []
+}

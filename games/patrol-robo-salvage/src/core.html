@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#080d1c">
-<meta name="description" content="倒して、奪って、強くなる。武器と装甲を組み替える無料のロボットローグライトゲーム。PC・スマホ対応。">
+<meta name="theme-color" content="#1e3038">
+<meta name="description" content="倒して、奪って、強くなる。地形と遮蔽物を使って戦う3Dホバーメカ戦闘ローグライト。無料・広告なし、PC・スマホ対応。">
 <meta property="og:type" content="website">
-<meta property="og:title" content="ロボ・サルベージ | ミニゲーム1GO #003">
-<meta property="og:description" content="敵のパーツを奪って強くなる。武器8種×コア4系統、装備コンボ、10マスの分岐マップとボス戦。">
+<meta property="og:title" content="PATROL × ROBO SALVAGE | ミニゲーム1GO">
+<meta property="og:description" content="敵のパーツを奪って強くなる3Dホバーメカ戦闘。8つの戦場、7種の武器、分岐ルートとボス。">
 <meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 70 40%27%3E%3Cpath fill=%27%23efaa73%27 d=%27M0 6 27 10 34 27 23 22ZM70 6 43 10 36 27 47 22ZM34 0 39 10 35 22 31 10ZM9 23 24 27 32 38 22 33ZM61 23 46 27 38 38 48 33Z%27/%3E%3C/svg%3E">
 <title>PATROL × ROBO SALVAGE — HOVER COMBAT v0.5</title>
 <style>
 :root{color-scheme:dark;--bg:#080d1c;--panel:#101a2d;--panel2:#14223a;--edge:#2c415e;--ink:#edf5ff;--muted:#91a8c1;--cyan:#66eaf0;--amber:#ffcc79;--red:#ff7789}
@@ -1051,9 +1052,9 @@ function drawPhaseLetters(label){
 function showOpeningScreen(){
  try{if(sessionStorage.getItem('roboSalvageOpeningSeen')==='1')return;}catch(_e){}
  state='title';setMusicMode('route');
- showOverlay('<section class="openingScene"><p class="openingEyebrow">MINIGAME 1GO // #003</p>'
-  +'<canvas id="openingLogo" width="300" height="108" role="img" aria-label="ロボサルベージ"></canvas>'
-  +'<p class="openingSub">ROBO SALVAGE</p>'
+ showOverlay('<section class="openingScene"><p class="openingEyebrow">MINIGAME 1GO</p>'
+  +'<canvas id="openingLogo" width="300" height="108" role="img" aria-label="PATROL × ROBO SALVAGE"></canvas>'
+  +'<p class="openingSub">× ROBO SALVAGE</p>'
   +'<button type="button" class="primary" id="titleEnter">START ▶</button></section>');
  $('dialog').classList.add('openingDialog');
  const c=$('openingLogo'),g=c.getContext('2d');
@@ -1061,9 +1062,9 @@ function showOpeningScreen(){
  g.fillStyle='#163744';for(let x=0;x<c.width;x+=12)for(let y=0;y<c.height;y+=12)
   if((x+y/12)%5===0)g.fillRect(x,y,2,2);
  g.fillStyle='#5ef8da';g.fillRect(10,13,280,3);g.fillRect(10,89,280,3);
- g.font='bold 31px "MS Gothic","Noto Sans JP",monospace';g.textAlign='center';
- g.fillStyle='#285c65';g.fillText('ロボサルベージ',152,62);
- g.fillStyle='#a9ffe2';g.fillText('ロボサルベージ',150,59);
+ g.font='900 46px "Arial Black","Archivo Black","Helvetica Neue",Arial,sans-serif';g.textAlign='center';
+ g.fillStyle='#285c65';g.fillText('PATROL',152,70);
+ g.fillStyle='#f4f0de';g.fillText('PATROL',150,67);
  g.fillStyle='#ffda91';for(let i=0;i<5;i++){g.fillRect(16+i*9,26,5,5);g.fillRect(239+i*9,74,5,5);}
  $('titleEnter').addEventListener('click',()=>{
   try{sessionStorage.setItem('roboSalvageOpeningSeen','1')}catch(_e){}
