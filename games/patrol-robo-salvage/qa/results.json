@@ -1,0 +1,833 @@
+{
+  "game": "patrol-robo-salvage",
+  "version": "0.6.0",
+  "passed": true,
+  "checks": [
+    {
+      "id": "build",
+      "title": "index.html が src/ から再生成した内容と一致",
+      "ok": true,
+      "detail": "index.html is up to date"
+    },
+    {
+      "id": "boot",
+      "title": "起動・WebGL2描画",
+      "ok": true,
+      "detail": {
+        "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+        "errors": []
+      }
+    },
+    {
+      "id": "flow",
+      "title": "タイトル→格納庫→ルート→戦闘準備→戦闘",
+      "ok": true,
+      "detail": {
+        "state": "fight",
+        "biome": "waste"
+      }
+    },
+    {
+      "id": "framing",
+      "title": "自機は画面下側、敵は中央付近",
+      "ok": true,
+      "detail": {
+        "W": 1280,
+        "H": 720,
+        "player": {
+          "x": 0.49996713429530015,
+          "y": 0.7151679440967128
+        },
+        "enemy": {
+          "x": 0.5004061301468382,
+          "y": 0.5041884139476216
+        },
+        "visibleBoth": true,
+        "enemyNearCenter": true,
+        "playerLow": true
+      }
+    },
+    {
+      "id": "move_forward",
+      "title": "左スティック前＝視点方向へ前進",
+      "ok": true,
+      "detail": {
+        "moved": 248,
+        "cos": 1.0
+      }
+    },
+    {
+      "id": "stop",
+      "title": "手を離すと0.33秒以内に停止し空中静止",
+      "ok": true,
+      "detail": {
+        "speed_after_0.33s": 2.6,
+        "drift_1s": 0.17
+      }
+    },
+    {
+      "id": "strafe",
+      "title": "左スティック左右＝視点基準の平行移動（旋回しない）",
+      "ok": true,
+      "detail": {
+        "moved": 248,
+        "dot_right": 0.997,
+        "frame": {
+          "W": 1280,
+          "H": 720,
+          "player": {
+            "x": 0.5143318001029689,
+            "y": 0.7177755374462992
+          },
+          "enemy": {
+            "x": 0.4694606208134867,
+            "y": 0.49757826963546553
+          },
+          "visibleBoth": true,
+          "enemyNearCenter": true,
+          "playerLow": true
+        }
+      }
+    },
+    {
+      "id": "rise_descend",
+      "title": "上昇（Space/▲）・下降（C/▼）",
+      "ok": true,
+      "detail": {
+        "alt": [
+          53,
+          194,
+          26
+        ]
+      }
+    },
+    {
+      "id": "look_climb",
+      "title": "右スティック前＝上を向く／上を向いて前進で上昇",
+      "ok": true,
+      "detail": {
+        "pitch": 0.8,
+        "alt": [
+          26,
+          167
+        ]
+      }
+    },
+    {
+      "id": "look_return",
+      "title": "右スティック左＝左を向く、離すと滑らかに敵追従へ戻る",
+      "ok": true,
+      "detail": {
+        "yaw_change": -0.84,
+        "manual_after_2s": false,
+        "frame": {
+          "W": 1280,
+          "H": 720,
+          "player": {
+            "x": 0.4998523911342675,
+            "y": 0.711884222217222
+          },
+          "enemy": {
+            "x": 0.5017332871816743,
+            "y": 0.5156804773344248
+          },
+          "visibleBoth": true,
+          "enemyNearCenter": true,
+          "playerLow": true
+        }
+      }
+    },
+    {
+      "id": "no_errors_controls",
+      "title": "操作テスト中のJS例外なし",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "id": "cover_no_fire",
+      "title": "遮蔽物の陰：照準内でも射線が通らなければロックせず撃たない",
+      "ok": true,
+      "detail": {
+        "lock": {
+          "lock": false,
+          "inReticle": true,
+          "los": false,
+          "inRange": true,
+          "track": "tracking",
+          "reticleR": 46.800000000000004,
+          "firing": false
+        },
+        "shots": 0
+      }
+    },
+    {
+      "id": "lock_fire",
+      "title": "照準内＋射線＋射程内で自動射撃し命中",
+      "ok": true,
+      "detail": {
+        "shots": 3,
+        "hits": 3
+      }
+    },
+    {
+      "id": "range_no_fire",
+      "title": "射程外では自動射撃しない",
+      "ok": true,
+      "detail": {
+        "lock": {
+          "lock": false,
+          "inReticle": true,
+          "los": true,
+          "inRange": false,
+          "track": "tracking",
+          "reticleR": 46.800000000000004,
+          "firing": false
+        }
+      }
+    },
+    {
+      "id": "manual_fire",
+      "title": "手動射撃（J／◎）はロック外でも照準方向へ撃てる",
+      "ok": true,
+      "detail": {
+        "shots": 4
+      }
+    },
+    {
+      "id": "autofire_off",
+      "title": "自動射撃OFF：ロック中でも手動入力なしでは撃たない",
+      "ok": true,
+      "detail": {
+        "shots": 0
+      }
+    },
+    {
+      "id": "cover_blocks_enemy",
+      "title": "遮蔽物に隠れると敵弾が遮られる（通常弾・連射・重弾）",
+      "ok": true,
+      "detail": {
+        "pulse": {
+          "volleys": 6,
+          "blocked": 6,
+          "player_hits": 0
+        },
+        "burst": {
+          "volleys": 6,
+          "blocked": 18,
+          "player_hits": 0
+        },
+        "slug": {
+          "volleys": 6,
+          "blocked": 6,
+          "player_hits": 0
+        },
+        "rail": {
+          "volleys": 6,
+          "blocked": 0,
+          "player_hits": 5
+        }
+      }
+    },
+    {
+      "id": "rail_exception",
+      "title": "例外ルール：レールランサーは遮蔽物（建物・岩）を貫通する",
+      "ok": true,
+      "detail": {
+        "volleys": 6,
+        "blocked": 0,
+        "player_hits": 5
+      }
+    },
+    {
+      "id": "no_errors_fire",
+      "title": "射撃テスト中のJS例外なし",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "id": "ai_waste",
+      "title": "敵AI（waste）：張り付かず横移動し、両機が画面内",
+      "ok": true,
+      "detail": {
+        "role": "guardian",
+        "samples": 40,
+        "dist_p10_p50_p90": [
+          316,
+          506,
+          650
+        ],
+        "hug_lt180": 0.0,
+        "both_on_screen": 1.0,
+        "player_los": 0.875,
+        "lateral_per_0.5s": 31,
+        "still_ratio": 0.077,
+        "modes": {
+          "approach": 2,
+          "strafe": 29,
+          "cover": 6,
+          "peek": 1,
+          "flank": 1,
+          "retreat": 1
+        },
+        "obstacles": 25,
+        "enemy_shots": 13,
+        "enemy_hits": 9,
+        "blocked_by_cover": 0
+      }
+    },
+    {
+      "id": "ai_desert",
+      "title": "敵AI（desert）：張り付かず横移動し、両機が画面内",
+      "ok": true,
+      "detail": {
+        "role": "flanker",
+        "samples": 40,
+        "dist_p10_p50_p90": [
+          307,
+          452,
+          676
+        ],
+        "hug_lt180": 0.0,
+        "both_on_screen": 1.0,
+        "player_los": 0.675,
+        "lateral_per_0.5s": 61,
+        "still_ratio": 0.0,
+        "modes": {
+          "approach": 4,
+          "strafe": 14,
+          "flank": 8,
+          "retreat": 8,
+          "cover": 5,
+          "peek": 1
+        },
+        "obstacles": 13,
+        "enemy_shots": 21,
+        "enemy_hits": 20,
+        "blocked_by_cover": 15
+      }
+    },
+    {
+      "id": "ai_snow",
+      "title": "敵AI（snow）：張り付かず横移動し、両機が画面内",
+      "ok": true,
+      "detail": {
+        "role": "guardian",
+        "samples": 40,
+        "dist_p10_p50_p90": [
+          315,
+          574,
+          665
+        ],
+        "hug_lt180": 0.0,
+        "both_on_screen": 0.975,
+        "player_los": 0.65,
+        "lateral_per_0.5s": 44,
+        "still_ratio": 0.0,
+        "modes": {
+          "approach": 1,
+          "strafe": 24,
+          "cover": 12,
+          "retreat": 3
+        },
+        "obstacles": 19,
+        "enemy_shots": 12,
+        "enemy_hits": 6,
+        "blocked_by_cover": 5
+      }
+    },
+    {
+      "id": "ai_mountain",
+      "title": "敵AI（mountain）：張り付かず横移動し、両機が画面内",
+      "ok": true,
+      "detail": {
+        "role": "skirmisher",
+        "samples": 40,
+        "dist_p10_p50_p90": [
+          372,
+          625,
+          758
+        ],
+        "hug_lt180": 0.0,
+        "both_on_screen": 1.0,
+        "player_los": 0.825,
+        "lateral_per_0.5s": 35,
+        "still_ratio": 0.0,
+        "modes": {
+          "approach": 3,
+          "flank": 6,
+          "retreat": 3,
+          "strafe": 15,
+          "cover": 12,
+          "peek": 1
+        },
+        "obstacles": 12,
+        "enemy_shots": 22,
+        "enemy_hits": 24,
+        "blocked_by_cover": 0
+      }
+    },
+    {
+      "id": "ai_city",
+      "title": "敵AI（city）：張り付かず横移動し、両機が画面内",
+      "ok": true,
+      "detail": {
+        "role": "skirmisher",
+        "samples": 40,
+        "dist_p10_p50_p90": [
+          366,
+          482,
+          647
+        ],
+        "hug_lt180": 0.0,
+        "both_on_screen": 1.0,
+        "player_los": 0.65,
+        "lateral_per_0.5s": 37,
+        "still_ratio": 0.077,
+        "modes": {
+          "approach": 3,
+          "strafe": 19,
+          "flank": 10,
+          "cover": 6,
+          "peek": 1,
+          "retreat": 1
+        },
+        "obstacles": 80,
+        "enemy_shots": 18,
+        "enemy_hits": 18,
+        "blocked_by_cover": 13
+      }
+    },
+    {
+      "id": "ai_river",
+      "title": "敵AI（river）：張り付かず横移動し、両機が画面内",
+      "ok": true,
+      "detail": {
+        "role": "guardian",
+        "samples": 40,
+        "dist_p10_p50_p90": [
+          324,
+          485,
+          716
+        ],
+        "hug_lt180": 0.0,
+        "both_on_screen": 1.0,
+        "player_los": 0.725,
+        "lateral_per_0.5s": 27,
+        "still_ratio": 0.103,
+        "modes": {
+          "approach": 8,
+          "strafe": 17,
+          "cover": 13,
+          "flank": 1,
+          "peek": 1
+        },
+        "obstacles": 31,
+        "enemy_shots": 12,
+        "enemy_hits": 5,
+        "blocked_by_cover": 13
+      }
+    },
+    {
+      "id": "ai_arena",
+      "title": "敵AI（arena）：張り付かず横移動し、両機が画面内",
+      "ok": true,
+      "detail": {
+        "role": "flanker",
+        "samples": 40,
+        "dist_p10_p50_p90": [
+          281,
+          442,
+          534
+        ],
+        "hug_lt180": 0.0,
+        "both_on_screen": 1.0,
+        "player_los": 0.775,
+        "lateral_per_0.5s": 69,
+        "still_ratio": 0.0,
+        "modes": {
+          "approach": 1,
+          "strafe": 17,
+          "flank": 9,
+          "retreat": 6,
+          "cover": 7
+        },
+        "obstacles": 50,
+        "enemy_shots": 70,
+        "enemy_hits": 52,
+        "blocked_by_cover": 0
+      }
+    },
+    {
+      "id": "ai_night",
+      "title": "敵AI（night）：張り付かず横移動し、両機が画面内",
+      "ok": true,
+      "detail": {
+        "role": "charger",
+        "samples": 40,
+        "dist_p10_p50_p90": [
+          222,
+          306,
+          551
+        ],
+        "hug_lt180": 0.05,
+        "both_on_screen": 1.0,
+        "player_los": 1.0,
+        "lateral_per_0.5s": 63,
+        "still_ratio": 0.0,
+        "modes": {
+          "approach": 5,
+          "strafe": 27,
+          "cover": 7,
+          "peek": 1
+        },
+        "obstacles": 23,
+        "enemy_shots": 17,
+        "enemy_hits": 22,
+        "blocked_by_cover": 7
+      }
+    },
+    {
+      "id": "no_errors_ai",
+      "title": "AIテスト中のJS例外なし",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "id": "weapons",
+      "title": "8武器すべてが3D弾として発射・命中",
+      "ok": true,
+      "detail": {
+        "pulse": 1,
+        "shot": 1,
+        "rail": 1,
+        "missile": 2,
+        "micro": 7,
+        "burst": 3,
+        "slug": 2,
+        "bounce": 2
+      }
+    },
+    {
+      "id": "finisher_win",
+      "title": "勝利：約2秒の3D分解演出→WIN→戦利品4択→ルートへ",
+      "ok": true,
+      "detail": {
+        "states": [
+          "finisher",
+          "finisher",
+          "finisher",
+          "finisher",
+          "finisher"
+        ],
+        "after": "winCard",
+        "loot_cards": 4,
+        "route_depth": 1,
+        "gold": 55
+      }
+    },
+    {
+      "id": "finisher_lose",
+      "title": "敗北：3D分解→LOSE→ラン終了。SPは保存キーroboSalvageMetaV1に加算",
+      "ok": true,
+      "detail": {
+        "state": "dead",
+        "sp": [
+          0,
+          60
+        ],
+        "stored_points": 60
+      }
+    },
+    {
+      "id": "no_errors_finisher",
+      "title": "決着テスト中のJS例外なし",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "id": "boss",
+      "title": "ボス：扇・全方位・ビーム（遮蔽で止まる3D判定）・誘導弾の4パターン",
+      "ok": true,
+      "detail": {
+        "patterns": {
+          "fan": 4,
+          "ring": 4,
+          "beam": 4,
+          "salvo": 4
+        },
+        "attacks": 4
+      }
+    },
+    {
+      "id": "mobile_portrait",
+      "title": "スマホ縦：スティック・ボタンが重ならず、自機・照準を隠さない",
+      "ok": true,
+      "detail": {
+        "touch_ui": true,
+        "overlaps": [],
+        "player_covered_by": [],
+        "reticle_covered_by": [],
+        "frame": {
+          "W": 390,
+          "H": 844,
+          "player": {
+            "x": 0.49933025316533236,
+            "y": 0.7101572370138363
+          },
+          "enemy": {
+            "x": 0.5074778240634821,
+            "y": 0.5056933321110544
+          },
+          "visibleBoth": true,
+          "enemyNearCenter": true,
+          "playerLow": true
+        },
+        "touch_move": 248
+      }
+    },
+    {
+      "id": "mobile_landscape",
+      "title": "スマホ横：スティック・ボタンが重ならず、自機・照準を隠さない",
+      "ok": true,
+      "detail": {
+        "touch_ui": true,
+        "overlaps": [],
+        "player_covered_by": [],
+        "reticle_covered_by": [],
+        "frame": {
+          "W": 844,
+          "H": 390,
+          "player": {
+            "x": 0.4998665782771253,
+            "y": 0.7169384054277095
+          },
+          "enemy": {
+            "x": 0.5016056643959945,
+            "y": 0.4973687666318001
+          },
+          "visibleBoth": true,
+          "enemyNearCenter": true,
+          "playerLow": true
+        },
+        "touch_move": 218
+      }
+    },
+    {
+      "id": "fallback",
+      "title": "WebGL2非対応ブラウザ：既存の2D戦闘で遊べる（代替）",
+      "ok": true,
+      "detail": {
+        "gl": false,
+        "state": "fight",
+        "x": 317,
+        "errors": []
+      }
+    }
+  ],
+  "ai_fields": {
+    "waste": {
+      "role": "guardian",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        316,
+        506,
+        650
+      ],
+      "hug_lt180": 0.0,
+      "both_on_screen": 1.0,
+      "player_los": 0.875,
+      "lateral_per_0.5s": 31,
+      "still_ratio": 0.077,
+      "modes": {
+        "approach": 2,
+        "strafe": 29,
+        "cover": 6,
+        "peek": 1,
+        "flank": 1,
+        "retreat": 1
+      },
+      "obstacles": 25,
+      "enemy_shots": 13,
+      "enemy_hits": 9,
+      "blocked_by_cover": 0
+    },
+    "desert": {
+      "role": "flanker",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        307,
+        452,
+        676
+      ],
+      "hug_lt180": 0.0,
+      "both_on_screen": 1.0,
+      "player_los": 0.675,
+      "lateral_per_0.5s": 61,
+      "still_ratio": 0.0,
+      "modes": {
+        "approach": 4,
+        "strafe": 14,
+        "flank": 8,
+        "retreat": 8,
+        "cover": 5,
+        "peek": 1
+      },
+      "obstacles": 13,
+      "enemy_shots": 21,
+      "enemy_hits": 20,
+      "blocked_by_cover": 15
+    },
+    "snow": {
+      "role": "guardian",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        315,
+        574,
+        665
+      ],
+      "hug_lt180": 0.0,
+      "both_on_screen": 0.975,
+      "player_los": 0.65,
+      "lateral_per_0.5s": 44,
+      "still_ratio": 0.0,
+      "modes": {
+        "approach": 1,
+        "strafe": 24,
+        "cover": 12,
+        "retreat": 3
+      },
+      "obstacles": 19,
+      "enemy_shots": 12,
+      "enemy_hits": 6,
+      "blocked_by_cover": 5
+    },
+    "mountain": {
+      "role": "skirmisher",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        372,
+        625,
+        758
+      ],
+      "hug_lt180": 0.0,
+      "both_on_screen": 1.0,
+      "player_los": 0.825,
+      "lateral_per_0.5s": 35,
+      "still_ratio": 0.0,
+      "modes": {
+        "approach": 3,
+        "flank": 6,
+        "retreat": 3,
+        "strafe": 15,
+        "cover": 12,
+        "peek": 1
+      },
+      "obstacles": 12,
+      "enemy_shots": 22,
+      "enemy_hits": 24,
+      "blocked_by_cover": 0
+    },
+    "city": {
+      "role": "skirmisher",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        366,
+        482,
+        647
+      ],
+      "hug_lt180": 0.0,
+      "both_on_screen": 1.0,
+      "player_los": 0.65,
+      "lateral_per_0.5s": 37,
+      "still_ratio": 0.077,
+      "modes": {
+        "approach": 3,
+        "strafe": 19,
+        "flank": 10,
+        "cover": 6,
+        "peek": 1,
+        "retreat": 1
+      },
+      "obstacles": 80,
+      "enemy_shots": 18,
+      "enemy_hits": 18,
+      "blocked_by_cover": 13
+    },
+    "river": {
+      "role": "guardian",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        324,
+        485,
+        716
+      ],
+      "hug_lt180": 0.0,
+      "both_on_screen": 1.0,
+      "player_los": 0.725,
+      "lateral_per_0.5s": 27,
+      "still_ratio": 0.103,
+      "modes": {
+        "approach": 8,
+        "strafe": 17,
+        "cover": 13,
+        "flank": 1,
+        "peek": 1
+      },
+      "obstacles": 31,
+      "enemy_shots": 12,
+      "enemy_hits": 5,
+      "blocked_by_cover": 13
+    },
+    "arena": {
+      "role": "flanker",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        281,
+        442,
+        534
+      ],
+      "hug_lt180": 0.0,
+      "both_on_screen": 1.0,
+      "player_los": 0.775,
+      "lateral_per_0.5s": 69,
+      "still_ratio": 0.0,
+      "modes": {
+        "approach": 1,
+        "strafe": 17,
+        "flank": 9,
+        "retreat": 6,
+        "cover": 7
+      },
+      "obstacles": 50,
+      "enemy_shots": 70,
+      "enemy_hits": 52,
+      "blocked_by_cover": 0
+    },
+    "night": {
+      "role": "charger",
+      "samples": 40,
+      "dist_p10_p50_p90": [
+        222,
+        306,
+        551
+      ],
+      "hug_lt180": 0.05,
+      "both_on_screen": 1.0,
+      "player_los": 1.0,
+      "lateral_per_0.5s": 63,
+      "still_ratio": 0.0,
+      "modes": {
+        "approach": 5,
+        "strafe": 27,
+        "cover": 7,
+        "peek": 1
+      },
+      "obstacles": 23,
+      "enemy_shots": 17,
+      "enemy_hits": 22,
+      "blocked_by_cover": 7
+    }
+  },
+  "environment": "Headless Chrome + SwiftShader (software WebGL2). Real-GPU frame rate and real phones are NOT covered.",
+  "seconds": 244
+}
