@@ -230,7 +230,7 @@
 
 ## 14. v0.6 の実装・検証状況（2026-11-18、Claude）
 
-上の仕様本文は変更していない。ここでは状況だけを記録する。✅＝ブラウザで自動検証済み（Headless Chrome＋SwiftShaderのWebGL2）、△＝実装済みだが人の試遊が必要、—＝未実施。詳細は [qa/README.md](../games/patrol-robo-salvage/qa/README.md)。
+上の仕様本文は変更していない。ここでは状況だけを記録する。✅＝ブラウザで自動検証済み（Headless Chrome＋SwiftShaderのWebGL2）、△＝実装済みだが人の試遊が必要、—＝未実施。詳細は [qa/README.md](../games/scrapwing/qa/README.md)。
 
 | 段階 | 受け入れ条件 | 状況 |
 | --- | --- | --- |
@@ -251,6 +251,8 @@
 
 未確認：実機スマホの操作感とFPS、実GPUでのFPS（この環境はソフトウェア描画で約5fps）、10マス＋ボスの通しプレイの面白さと難易度、2D版のステージギミック（電撃床など）は3D戦闘では未使用。
 
-**v0.6.1（2026-11-18 本人指示 U-P2）**：機体と配色を参照プロジェクト「PATROL_Robo_Salvage v1.1」に合わせて作り直し、リコシェット弾を撤去、スプレッド砲をサイコロの5の配置に変更、操作パラメータの初期値を提示JSONにした。検証40/40（[qa/README.md](../games/patrol-robo-salvage/qa/README.md)）。
+**v0.6.1（2026-11-18 本人指示 U-P2）**：機体と配色を参照プロジェクト「PATROL_Robo_Salvage v1.1」に合わせて作り直し、リコシェット弾を撤去、スプレッド砲をサイコロの5の配置に変更、操作パラメータの初期値を提示JSONにした。検証40/40（[qa/README.md](../games/scrapwing/qa/README.md)）。
 
-**公開準備（2026-11-19 本人指示 U-P3）**：公開版から⚙ボタン・調整パネル・保存済み調整値の読み込みを外し、調整版は `python scripts/build_patrol_salvage.py --dev`（`dist/`、非公開）に分けた。§8の「調整画面は例外」は開発版だけに適用する。公開判定は[チェックリスト](patrol-robo-salvage-release-checklist.md)。マージ・Pages公開・X投稿は未承認。
+**公開準備（2026-11-19 本人指示 U-P3）**：公開版から⚙ボタン・調整パネル・保存済み調整値の読み込みを外し、調整版は `python scripts/build_scrapwing.py --dev`（`dist/`、非公開）に分けた。§8の「調整画面は例外」は開発版だけに適用する。公開判定は[チェックリスト](scrapwing-release-checklist.md)。マージ・Pages公開・X投稿は未承認。
+
+**作品名の変更（2026-11-19 本人決定 U-P4）**：タイトルは **SCRAPWING**。PATROL・ロボサルベージの名前は使わない。フォルダは `games/scrapwing/`、スクリプトは `scripts/build_scrapwing.py`・`scripts/verify_scrapwing.py` に改名した（この仕様書のファイル名は引き継ぎ時のまま）。

@@ -1,0 +1,59 @@
+name: SCRAPWING QA
+
+on:
+  push:
+    paths:
+      - 'games/scrapwing/index.html'
+      - 'games/scrapwing/src/**'
+      - 'scripts/build_scrapwing.py'
+      - 'scripts/verify_scrapwing.py'
+      - 'scripts/scrapwing_release_preflight.py'
+      - '.github/workflows/scrapwing.yml'
+  pull_request:
+    paths:
+      - 'games/scrapwing/index.html'
+      - 'games/scrapwing/src/**'
+      - 'scripts/build_scrapwing.py'
+      - 'scripts/verify_scrapwing.py'
+      - 'scripts/scrapwing_release_preflight.py'
+      - '.github/workflows/scrapwing.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Public HTML matches sources; static release preflight
+        run: |
+          python scripts/build_scrapwing.py --check
+          python scripts/scrapwing_release_preflight.py
+      - name: Browser and fonts
+        run: |
+          python -m pip install -r requirements-dev.txt pillow
+          BROWSER=$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)
+          if [ -n "$BROWSER" ]; then
+            echo "CHROMIUM_EXECUTABLE=$BROWSER" >> "$GITHUB_ENV"
+          else
+            python -m playwright install --with-deps chromium
+          fi
+          sudo apt-get update -qq && sudo apt-get install -y fonts-noto-cjk
+      - name: Browser QA (software WebGL2; real GPUs and phones are not covered)
+        run: python scripts/verify_scrapwing.py
+      - name: Upload playable HTML and QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrapwing-qa
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            games/scrapwing/index.html
+            games/scrapwing/qa/
