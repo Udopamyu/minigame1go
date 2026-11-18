@@ -2,6 +2,7 @@
 
 **タイトルは SCRAPWING**（2026-11-19 本人決定。旧称「PATROL × ROBO SALVAGE」、旧フォルダ `games/patrol-robo-salvage/`）。**ロボサルベージ2D公開版とは独立した3D派生**です。`games/robo-salvage/`（2D版）は変更していません。仕様の最優先は [引き継ぎ仕様書](../../docs/patrol-robo-salvage-v05-claude-handoff.md)（2026-11-18）です。
 
+- 公開URL：<https://udopamyu.github.io/minigame1go/games/scrapwing/>（2026-11-19 公開。GitHub Pagesのデプロイ成功、実際に開いての確認は本人待ち）
 - 遊ぶ：[index.html](index.html)（単体HTML。ローカルなら `python -m http.server` で開く）
 - 検証結果：[qa/README.md](qa/README.md)（[results.json](qa/results.json)、[スクリーンショット](qa/screenshots/)、[静的な公開前チェック](qa/release-preflight.json)）
 - 公開準備：[公開判定チェックリスト](../../docs/scrapwing-release-checklist.md)／動画・投稿草案：[videos/scrapwing/](../../videos/scrapwing/)

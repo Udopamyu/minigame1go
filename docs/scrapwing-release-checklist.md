@@ -1,13 +1,15 @@
 # SCRAPWING（3Dホバー戦闘、旧称 PATROL × ROBO SALVAGE）— 公開準備／判定記録
 
-**候補版：v0.6.2 公開ビルド** ／ **PR：[#21](https://github.com/Udopamyu/minigame1go/pull/21)（base: main）** ／ **公開承認：取得（2026-11-19 08:48 JST、本人「いいね公開しよう」）** ／ **公開URLの確認：マージ後に実施**
+**候補版：v0.6.2 公開ビルド** ／ **PR：[#21](https://github.com/Udopamyu/minigame1go/pull/21)（base: main）** ／ **公開承認：取得（2026-11-19 08:48 JST、本人「いいね公開しよう」）** 
+
+**公開状態（2026-11-19 08:54 JST）：PR #21 を main へマージ（`4a00056`）、GitHub Pages のデプロイ成功（Actions「pages build and deployment」）。** 公開URL：https://udopamyu.github.io/minigame1go/games/scrapwing/ — **実際に開いての確認は未実施**（作業環境からは github.io に接続できず、Chrome拡張も未接続）。mainの `index.html` は検証済みビルドと同一（blob `cda3ff1`）、マージ後のCIも成功。本人がスマホ・PCで開いて確認したら「確認済み」にする。
 
 2026-11-19の本人指示「調整ボタンを消して公開準備に移ろう」で作成。技術的な準備と「公開してよい」の判断を分ける。**本人の明示的な承認前に `main` へのマージ、GitHub Pages公開、X投稿をしない。** Xへの完全自動投稿はしない。
 
 ## リリース方式
 
 - 無料・広告なし。単体HTML `games/scrapwing/index.html` をGitHub Pagesで配信する。JavaScript/CSSは埋め込み済みで、外部CDN・画像サーバー・分析・アカウント連携なし（[静的チェック](../games/scrapwing/qa/release-preflight.json)）。
-- 予定URL：`https://udopamyu.github.io/minigame1go/games/scrapwing/` — **未確認**。マージ後に実際に開いてから確定とする。
+- 公開URL：`https://udopamyu.github.io/minigame1go/games/scrapwing/` — デプロイ成功、実アクセスは未確認（上記）。
 - 2D版（`games/robo-salvage/`）は変更しない。同じドメインで配信するため、永続進行のセーブ `roboSalvageMetaV1` は2D版と共有される（3D側で保存しても2D専用のリコシェット解放・初期武器設定は消さない。機能QA合格、実URLでは未確認）。
 - 調整パネルは公開版にない。開発用の調整版は `python scripts/build_scrapwing.py --dev` で `dist/` に生成し、公開・コミットしない。
 - PR #21 には引き継ぎ用のコミット（仕様書・参照HTML）も含まれる。マージすると Pages で `games/scrapwing/reference/` の参照HTML（別プロジェクトの PATROL_Robo_Salvage v1.1、飛行調整ラボ、PATROL原型、v0.5原本）と `src/`・`qa/` もURLで開ける状態になる（リポジトリ自体は公開済みなので中身はすでに見える）。
@@ -21,7 +23,7 @@
 | 公開版に調整UIがない | 合格 | ⚙・パネルなし、Tキー無効、保存済みの調整値を読まない、タブ名・タイトル・共有用説明文（`no_tuning_ui`・`public_title`） |
 | ブラウザ機能QA（ソフトウェアWebGL2） | 合格 45/45 | [qa/README.md](../games/scrapwing/qa/README.md)：操作・カメラ・ロック／射撃・遮蔽・敵AI 8フィールド・7武器・撃破演出・ボス・スマホ縦横・WebGL非対応時の2D |
 | 通常入力での実プレイ（動画撮影の1戦） | 実施・勝利 | 新規セーブ・初期武器（パルス）・ルート画面のクリックで最初の戦闘（荒野）へ。キーボード入力のみ、HP等の変更なし。8.8秒で撃破、被弾でHP250→約171（[recording.json](../videos/scrapwing/recording.json)）。1戦だけなので難易度の根拠にはしない |
-| CI（GitHub Actions） | 追加済み・結果待ち | `.github/workflows/scrapwing.yml`。最新コミットで成功を確認してからマージ |
+| CI（GitHub Actions） | 成功 | `.github/workflows/scrapwing.yml`。PRの最終コミットとマージ後の main で成功 |
 | **人間による試遊・難易度評価** | **未完了（本人判断で公開を優先）** | 最初の数戦の強さ、ボス到達・撃破、操作の気持ちよさ、カメラ酔い |
 | スマホ実機（縦・横） | 未確認 | スティックとボタンの重なり、誤タップ、発熱、描画倍率1.5の重さ |
 | PC実機（実GPU） | 未確認 | 実GPUのfps（テスト環境はソフトウェア描画で約5fpsのため参考にならない）、マウス視点、音量 |
@@ -30,7 +32,7 @@
 | ルート・戦利品・ショップ画面の文字量 | 現状のまま公開（本人の追加指示待ち） | 2D版の進行画面をそのまま使用（戦闘画面は文字なし）。公開前に減らすかは本人判断 |
 | 参照HTMLの置き場所 | 現状のまま公開 | 本人から移動の指示なし。`games/scrapwing/reference/` もPagesで開ける（必要なら後から移す） |
 | 紹介動画・X投稿草案 | 作成済み・視聴確認待ち | [videos/scrapwing/](../videos/scrapwing/)：縦1080×1920・約13.5秒・無音（MP4はGit管理外、`record_scrapwing.py`で再生成）。URLは公開確認後に記入 |
-| 公開URLの実アクセス確認 | 未実施 | マージ後、PC・スマホで開いて起動・戦闘・保存を確認 |
+| 公開URLの実アクセス確認 | **未確認（本人確認待ち）** | デプロイは成功。PC・スマホで開いて起動・戦闘・保存、2D版のセーブが壊れていないことを確認する |
 | **最終的な公開承認** | **取得** | 2026-11-19 08:48 JST、SCRAPWING v0.6.2 の動画・タイトル画面・公開版HTMLを確認した本人が「いいね公開しよう」。X投稿は承認範囲に含めず、本人が手動で行う |
 
 ## 公開オペレーション（承認後）
@@ -47,6 +49,6 @@
 
 **短い紹介**：低空をホバーで飛ぶロボで戦い、倒した敵のパーツを奪って組み替える無料ブラウザゲーム。7種の武器、8つのフィールド、分岐ルートとボス戦。
 
-**公開URL：未確定。**
+**公開URL：** https://udopamyu.github.io/minigame1go/games/scrapwing/（デプロイ済み・実アクセス未確認）
 
 動画： [`videos/scrapwing/script.md`](../videos/scrapwing/script.md) ／ X草案： [`videos/scrapwing/post-draft.md`](../videos/scrapwing/post-draft.md)
