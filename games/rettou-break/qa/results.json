@@ -1,0 +1,60 @@
+{
+  "checked_at": "2026-11-19T23:13:16+0900",
+  "viewport": "390x844@2x",
+  "ok": true,
+  "results": [
+    {
+      "scenario": "split_nara",
+      "ok": true,
+      "load_s": 1.35,
+      "cutin_shown": true,
+      "sim_day_after_3s": 24,
+      "page_errors": [],
+      "day": 365,
+      "evacLeft": 0,
+      "islands": [
+        "奈良島"
+      ],
+      "story": true,
+      "storyItems": 13,
+      "roads": 4,
+      "links": [],
+      "share_text": "列島ブレイク｜1年後のニッポン：ランクC「島をつくる者」\n作戦：分断×1\n海に沈んだ陸地 0km²／避難 0万人／人の移動 29.3万人\n生まれた島：奈良島（1年後 115万人）\nその後の物語：山口 律さん（当時16歳）…2100年「縁側で海を眺めながら「まあ、悪くない人生だった」。奈良島は今日も、ちょっと南の海…」\n#列島ブレイク"
+    },
+    {
+      "scenario": "meteor_osaka",
+      "ok": true,
+      "load_s": 1.07,
+      "cutin_shown": true,
+      "sim_day_after_3s": 14,
+      "page_errors": [],
+      "day": 365,
+      "evacLeft": 6.100048184585756e-18,
+      "islands": [],
+      "story": true,
+      "storyItems": 13,
+      "roads": 17,
+      "links": [],
+      "share_text": "列島ブレイク｜1年後のニッポン：ランクS「大移動の演出家」\n作戦：隕石×1\n海に沈んだ陸地 1,808km²／避難 1,046万人／人の移動 1,263万人\nその後の物語：山田 蒼さん（当時16歳）…2100年「新大阪湾の夕焼けを見ながら「いろいろあったけど、楽しかったな」。」\n#列島ブレイク"
+    },
+    {
+      "scenario": "monster_honshu",
+      "ok": true,
+      "load_s": 1.21,
+      "cutin_shown": true,
+      "sim_day_after_3s": 12,
+      "page_errors": [],
+      "day": 365,
+      "evacLeft": 2.3067270571503906e-17,
+      "islands": [],
+      "story": true,
+      "storyItems": 13,
+      "roads": 4,
+      "links": [
+        "彦根海峡大橋",
+        "第二彦根海峡大橋"
+      ],
+      "share_text": "列島ブレイク｜1年後のニッポン：ランクC「大動脈の切断者」\n作戦：怪獣×1\n海に沈んだ陸地 976km²／避難 48.3万人／人の移動 116万人\n開通：彦根海峡大橋、第二彦根海峡大橋\nその後の物語：中村 蓮さん（当時29歳）…2087年「彦根海峡の夕焼けを見ながら「いろいろあったけど、楽しかったな」。」\n#列島ブレイク"
+    }
+  ]
+}

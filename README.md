@@ -31,6 +31,11 @@ python scripts/pipeline.py --game tap-spark
 
 公開URLは未設定。ローカル合格後も、動画の人間確認・ゲーム公開・X投稿は別工程として記録する。
 
+## 列島ブレイク
+
+- [列島ブレイク](games/rettou-break/index.html) — 実データの日本に隕石・怪獣・分断を仕掛け、インフラと人の1年を見届けるドット絵シミュレーター。公開URL：https://udopamyu.github.io/minigame1go/games/rettou-break/
+- [仕様](specs/rettou-break.md) ／ [遊び方とデータ出典](games/rettou-break/README.md)
+
 ## 公開準備中の作品
 
 - [#003 ロボ・サルベージ（公開候補）](games/robo-salvage/index.html) — ロボットの装備を奪って戦うローグライト。現時点では開発ブランチのため未公開。
