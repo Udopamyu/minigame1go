@@ -27,6 +27,7 @@
 - **ロボサルベージ #003：2D本線の強化が主軸。** v0.15は公開承認済み、PR #12はmainへマージ済み。最新の配信・動画状態は実記録を確認する。
 - **ロボ3D TPS：別路線の派生。** 2Dを置換しない。
 - **SCRAPWING（旧称 PATROL × ロボサルベージ）3Dホバー戦闘：2026-11-18の[引き継ぎ仕様書](docs/patrol-robo-salvage-v05-claude-handoff.md)を最優先。** 2026-11-19に本人がタイトルを「SCRAPWING」に決定（PATROL・ロボサルベージの名は使わない）。 v0.6で戦闘部分を作り直し、v0.6.1で機体を参照プロジェクト「PATROL_Robo_Salvage v1.1」風にした（`games/scrapwing/`、ソースは`src/`、`scripts/build_scrapwing.py`で単体HTMLを生成、`scripts/verify_scrapwing.py`でブラウザ検証）。2D版は変更しない。2026-11-19に調整ボタンを公開版から外し（調整版は`--dev`で`dist/`に別生成・非公開）、[公開判定チェックリスト](docs/scrapwing-release-checklist.md)。2026-11-19 08:48 JSTに本人が公開を承認（v0.6.2、U-P5）し、PR #21をmainへマージ・GitHub Pagesのデプロイ成功（https://udopamyu.github.io/minigame1go/games/scrapwing/、実際に開いての確認は本人待ち）。実機スマホ・実GPUでの試遊は未実施。X投稿は本人が手動で行う。
+- **列島ブレイク：実データの日本の破壊・復興シミュレーター。** 別チャットで制作し、2026-11-19に本人が公開を決定（U-J3）。`games/rettou-break/`（単一HTML＋データ4ファイル）、[仕様](specs/rettou-break.md)、`scripts/verify_rettou_break.py`でブラウザ検証。**画面の文字は本作に限り現状維持**（ニュース・結果・物語を読む作品のため。本人が「このまま」と決定）。実機スマホ未試遊、動画・X投稿は未着手。
 - **二重振り子ブランコ靴飛ばし：原型とインクリメンタル版を区別。** 実装リポジトリは [swing-shoe-incremental](https://github.com/Udopamyu/swing-shoe-incremental)。本リポジトリのTAP SPARKとは別作品。
 
 - **10秒分身ダンジョン：v0.1をユーザーが試遊し、面白いと評価。** 次の依頼は分身を使う戦闘・罠への誘導・通常ゲーム画面の文字撤去。仕様を保存済み、本体への実装は未着手（開発環境が利用不可）。
