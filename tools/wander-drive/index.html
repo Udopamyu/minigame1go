@@ -19,6 +19,7 @@
 @media(max-width:520px){.choice{padding:14px}.duo{margin-top:12px}.choiceDetails{font-size:11px}}
 .miniStatus{font-size:11px;font-weight:700;color:var(--muted);margin-left:5px}.miniStatus.live{color:var(--mint)}.joinRow{display:flex;gap:8px}.joinRow input{flex:1;min-width:0;letter-spacing:.09em;outline:0;border:1px solid #496068;border-radius:10px;background:#0d1b21;padding:10px;color:var(--white);font:700 14px ui-monospace,monospace;text-transform:uppercase}.roomInfo{display:grid;gap:10px;padding:12px;border:1px solid #436257;background:#152b2b;border-radius:12px}.roomCodeLabel{text-align:center;color:var(--muted);font-size:11px}.roomCode{text-align:center;font-size:22px;letter-spacing:.18em;font-weight:850;color:var(--mint)}.liveStatus{text-align:center;font-size:12px;color:#cae6dc}.shareDetails[open] summary{padding-bottom:12px}.status.connected{background:#285039;color:var(--mint)}.btn.ghostBusy{opacity:.65} 
 .geoDetails summary{cursor:pointer;padding:17px 19px;font-size:15px;font-weight:800}.geoDetails[open] summary{padding-bottom:12px}.geoHint{font-size:12px;color:var(--muted);line-height:1.6;margin:0}.mapLink{display:inline-block;color:var(--mint);text-decoration:underline;text-underline-offset:3px;padding:3px 0;white-space:nowrap}.geoReading{color:var(--mint)}
+.historyItem{grid-template-columns:35px minmax(0,1fr) auto}.historyItem>span:nth-child(2){min-width:0}.historyPlace{display:block;font-size:12px;font-weight:700;color:#e2f2d8;overflow-wrap:anywhere;margin-top:3px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -63,12 +64,14 @@
 <section class="panel"><details class="geoDetails" id="geoDetails"><summary>曲がった場所を記録 <span class="miniStatus" id="geoBadge">オフ</span></summary><div class="shareBody">
   <button class="btn btnPrimary btnFull" id="geoToggleBtn" type="button">位置情報を有効にする</button>
   <p class="geoHint" id="geoStatus" aria-live="polite">位置情報を許可すると、右折・左折を確定した地点を履歴に追加します。</p>
-  <p class="geoHint">記録地点は約10m単位に丸め、2人の画面に同期します。GPS誤差があるため交差点の位置は目安です。</p>
+  <p class="geoHint">右左折した場所を「市区町村・町名・丁目」で表示します。住所検索時、丸めた座標を国土地理院（必要時はOpenStreetMapの住所検索サービス）へ送信します。GPS誤差があるため地名は目安です。</p>
 </div></details></section>
-<section class="panel"><div class="panelHead"><h2>進行履歴</h2><p>方向を実際に進んだときに記録</p></div><div class="history" id="history"><p class="detail">まだ履歴はありません。</p></div></section>
+<section class="panel"><div class="panelHead"><h2>進行履歴</h2><p>右左折した場所の地名・時刻を記録</p></div><div class="history" id="history"><p class="detail">まだ履歴はありません。</p></div></section>
 </aside>
 </div><footer class="footer">運転中の画面操作は同乗者に任せてください。通信が切れてもタイマーの経過は保持されます。</footer>
 </div><div id="toast" class="toast hidden" role="status"></div>
+<script>window.GSI=window.GSI||{};window.GSI.MUNI_ARRAY=window.GSI.MUNI_ARRAY||{};</script>
+<script defer src="https://maps.gsi.go.jp/js/muni.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <script>
 (()=>{'use strict';
@@ -113,12 +116,86 @@ function toggleGeo(){
  },{enableHighAccuracy:true,maximumAge:5000,timeout:15000});}catch(e){geo.enabled=false;geo.error='位置情報を開始できませんでした。';geo.state='error';renderGeo();}
 }
 function newEntryId(){return 't-'+(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));}
+// Reverse geocoding is triggered only for confirmed right/left turns.
+// GSI's reverse API returns an area name and municipality code; muni.js resolves the city.
+const placeRequests=new Map();
+function cleanPlaceName(value){
+ if(typeof value!=='string')return '';
+ return value.replace(/[\u0000-\u001f<>]/g,'').trim().slice(0,100);
+}
+function htmlEscape(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function muniLabel(muniCd){
+ const data=window.GSI?.MUNI_ARRAY?.[String(muniCd)];
+ if(typeof data!=='string')return '';
+ const parts=data.split(',');
+ // The last item can contain Japanese full-width spacing between city and ward.
+ return cleanPlaceName(parts.slice(3).join(',').replace(/[\s\u3000]+/g,''));
+}
+async function fetchGeocodingJson(url,timeout=10000){
+ const ac=new AbortController(),id=setTimeout(()=>ac.abort(),timeout);
+ try{const res=await fetch(url,{signal:ac.signal,mode:'cors'});if(!res.ok)throw Error('geocoding HTTP '+res.status);return await res.json();}
+ finally{clearTimeout(id);}
+}
+async function nominatimPlace(p){
+ const u=new URL('https://nominatim.openstreetmap.org/reverse');
+ u.searchParams.set('lat',String(p.lat));u.searchParams.set('lon',String(p.lng));u.searchParams.set('format','jsonv2');u.searchParams.set('accept-language','ja');u.searchParams.set('zoom','18');u.searchParams.set('addressdetails','1');
+ const data=await fetchGeocodingJson(u,10000),a=data.address||{};
+ const city=cleanPlaceName(a.city||a.town||a.village||a.municipality||a.county||'');
+ const ward=cleanPlaceName(a.city_district||a.borough||'');
+ const area=cleanPlaceName(a.quarter||a.neighbourhood||a.suburb||a.residential||a.hamlet||a.road||'');
+ return {city:city+(ward&&!city.includes(ward)?ward:''),area};
+}
+async function addressFromCoordinates(p){
+ const u=new URL('https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress');
+ u.searchParams.set('lat',String(p.lat));u.searchParams.set('lon',String(p.lng));
+ let area='',city='',gsiFailed=false;
+ try{
+   const response=await fetchGeocodingJson(u,10000);
+   const result=response?.results||{};
+   area=cleanPlaceName(result.lv01Nm||'');
+   city=muniLabel(result.muniCd);
+ }catch(e){gsiFailed=true;}
+ if(city&&area)return city+area;
+ // Fall back when a municipality cannot be resolved or the GSI endpoint is unavailable.
+ // Nominatim is queried at most once per recorded turn, not on every GPS update.
+ try{
+   const other=await nominatimPlace(p);
+   city=city||other.city;area=area||other.area;
+ }catch(e){}
+ if(city&&area)return city.includes(area)?city:city+area;
+ if(city||area)return (city||area)+(city&&area?'':'（一部の地名のみ）');
+ return '地名を取得できません';
+}
+function lookupPlaceName(id,loc){
+ if(net.mode==='guest'||!loc)return;
+ const p=safeLocation(loc);if(!p)return;
+ const coordKey=`${p.lat},${p.lng}`;
+ if(placeRequests.get(id)===coordKey)return;
+ const row=trip.history.find(x=>x.id===id);
+ if(!row||!['left','right'].includes(row.direction))return;
+ if(row.placeName&&row.placeCoord===coordKey&&row.placeName!=='地名を取得できません')return;
+ placeRequests.set(id,coordKey);
+ addressFromCoordinates(p).then(name=>{
+   if(placeRequests.get(id)!==coordKey)return;
+   const current=trip.history.find(x=>x.id===id);
+   const currentLoc=safeLocation(current?.location);
+   if(!currentLoc||`${currentLoc.lat},${currentLoc.lng}`!==coordKey)return;
+   current.placeName=cleanPlaceName(name);
+   current.placeCoord=coordKey;
+   save();renderHistory();
+ }).finally(()=>{if(placeRequests.get(id)===coordKey)placeRequests.delete(id);});
+}
+function fillRecentPlaceNames(){
+ if(net.mode==='guest')return;
+ // One-shot repair for a handful of previous GPS records, avoiding a bulk API crawl.
+ trip.history.filter(x=>['left','right'].includes(x.direction)&&x.location&&(!x.placeName||x.placeName==='地名を取得できません')).slice(-4).forEach((row,i)=>setTimeout(()=>lookupPlaceName(row.id,row.location),i*1700));
+}
 function attachLocation(value){if(!value||typeof value!=='object'||typeof value.id!=='string')return;
  const loc=safeLocation(value.location);if(!loc||loc.accuracy===null||loc.accuracy>MAX_GPS_ERROR)return;
  const row=trip.history.find(x=>x.id===value.id&&(x.direction==='left'||x.direction==='right'));
  if(!row||Math.abs(Date.now()-row.at)>30000)return;
  if(row.location&&Number(row.location.accuracy)<=loc.accuracy)return;
- row.location=loc;save();render();
+ row.location=loc;row.placeName='';row.placeCoord='';save();render();lookupPlaceName(row.id,loc);
 }
 function refineLocation(id,clickAt){
  if(!geo.enabled||!navigator.geolocation)return;
@@ -134,7 +211,7 @@ function clamp(v,a,b,def){if(v===null||v===undefined||v==='')return def;const n=
 function importPayload(raw){if(!raw||typeof raw!=='object')throw Error('形式');const s=raw.settings||{},t=raw.trip||{};const ns={minutes:clamp(s.minutes,1,120,10),sound:s.sound!==false,vibrate:s.vibrate!==false},nt=makeTrip();nt.leg=clamp(t.leg,0,100000,0);
  nt.history=Array.isArray(t.history)?t.history.slice(-60).filter(x=>x&&KEYS.includes(x.direction)&&Number.isFinite(Number(x.at))).map((x,i)=>({direction:x.direction,at:Number(x.at),exception:!!x.exception,
  id:typeof x.id==='string'&&/^t-[a-zA-Z0-9-]{1,100}$/.test(x.id)?x.id:'old-'+Number(x.at)+'-'+i,
- location:safeLocation(x.location)})) : [];
+ location:safeLocation(x.location),placeName:cleanPlaceName(x.placeName),placeCoord:typeof x.placeCoord==='string'?x.placeCoord:''})) : [];
  nt.pending=KEYS.includes(t.pending)?t.pending:null;nt.exception=!!t.exception&&!!nt.pending;
  const old=t.timer||{};nt.timer.status=['none','running','paused','elapsed'].includes(old.status)?old.status:'none';nt.timer.durationMs=clamp(old.durationMs,60000,7200000,ns.minutes*60000);nt.timer.remainingMs=clamp(old.remainingMs,0,7200000,nt.timer.durationMs);nt.timer.deadline=Number.isFinite(Number(old.deadline))?Number(old.deadline):0;
  if(nt.timer.status==='running'&&!nt.timer.deadline)nt.timer.status='paused';return {settings:ns,trip:nt};}
@@ -170,17 +247,18 @@ function commit(options={}){maybeTimerDone();if(rotating||!trip.pending)return;i
  const id=typeof options?.id==='string'&&/^t-[a-zA-Z0-9-]{1,100}$/.test(options.id)?options.id:newEntryId();
  const proposed=safeLocation(options?.location);
  const fix=(key==='left'||key==='right')?((proposed&&proposed.accuracy!==null&&proposed.accuracy<=MAX_GPS_ERROR?proposed:null)||getFreshFix()):null;
- trip.history.push({id,direction:key,at:Date.now(),exception:trip.exception,location:fix});trip.history=trip.history.slice(-60);trip.leg++;trip.pending=null;trip.exception=false;beginTimer();save();render();flash(`${NAMES[key]}を実行、${settings.minutes}分スタート`);}
+ trip.history.push({id,direction:key,at:Date.now(),exception:trip.exception,location:fix,placeName:'',placeCoord:''});trip.history=trip.history.slice(-60);trip.leg++;trip.pending=null;trip.exception=false;beginTimer();save();render();if(fix)lookupPlaceName(id,fix);flash(`${NAMES[key]}を実行、${settings.minutes}分スタート`);}
 function pauseOrResume(){const t=trip.timer;if(t.status==='running'){t.remainingMs=remaining();t.deadline=0;t.status='paused';}else if(t.status==='paused'){t.deadline=Date.now()+t.remainingMs;t.status='running';}save();render();}
 function skip(){if(!['running','paused'].includes(trip.timer.status))return;trip.timer.status='elapsed';trip.timer.remainingMs=0;trip.timer.deadline=0;save();render();flash('タイマーを0にしました');}
-function reset(){if(rotating)return;trip=makeTrip();noticeFired=false;rotation=0;$('wheel').classList.add('noMotion');$('wheel').style.transform='rotate(0deg)';save();render();}
+function reset(){if(rotating)return;placeRequests.clear();trip=makeTrip();noticeFired=false;rotation=0;$('wheel').classList.add('noMotion');$('wheel').style.transform='rotate(0deg)';save();render();}
 function saveConfig(){settings.minutes=clamp($('minutes').value,1,120,10);$('minutes').value=settings.minutes;settings.sound=$('sound').checked;settings.vibrate=$('vibrate').checked;save();render();}
 function renderSettings(){$('minutes').value=settings.minutes;$('sound').checked=settings.sound;$('vibrate').checked=settings.vibrate;}
 function renderHistory(){const el=$('history');if(!trip.history.length){el.innerHTML='<p class="detail">まだ履歴はありません。</p>';return;}
  const rows=trip.history.slice().reverse().slice(0,60);
  el.innerHTML=rows.map((row,i)=>{
    const p=safeLocation(row.location),map=p&&['left','right'].includes(row.direction)?` ・ <a class="mapLink" href="https://www.google.com/maps/search/?api=1&amp;query=${p.lat}%2C${p.lng}" target="_blank" rel="noopener noreferrer">地図で確認${p.accuracy===null?'':` (±${p.accuracy}m)`}</a>`:'';
-   return `<div class="historyItem"><span class="historySymbol">${SYMBOLS[row.direction]}</span><span><div class="historyName">${NAMES[row.direction]}</div><div class="historyDesc">${row.exception?'突き当たりで変更':'ルーレット'}・#${trip.leg-i}${map}</div></span><span class="historyTime">${new Date(row.at).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
+   const place=p?`<span class="historyPlace">${htmlEscape(row.placeName||'地名を確認中…')}</span>`:'';
+   return `<div class="historyItem"><span class="historySymbol">${SYMBOLS[row.direction]}</span><span><div class="historyName">${NAMES[row.direction]}</div>${place}<div class="historyDesc">${row.exception?'突き当たりで変更':'ルーレット'}・#${trip.leg-i}${map}</div></span><span class="historyTime">${new Date(row.at).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
  }).join('');}
 function render(){const t=trip.timer,st=t.status,active=['running','paused'].includes(st),left=remaining(),picked=!!trip.pending,forced=trip.exception;
  $('legNumber').textContent=String(trip.leg).padStart(2,'0');$('countDisplay').textContent=`${trip.leg} DIRECTIONS`;
@@ -297,7 +375,7 @@ $('skipBtn').addEventListener('click',()=>command('skip'));
 $('resetBtn').addEventListener('click',()=>{if(confirm('2人の走行履歴とタイマーを初期化しますか？'))command('reset');});
 $('minutes').addEventListener('change',()=>{settings.sound=$('sound').checked;settings.vibrate=$('vibrate').checked;if(net.mode==='guest'){command('minutes',$('minutes').value);return;}saveConfig();});
 $('sound').addEventListener('change',saveConfig);$('vibrate').addEventListener('change',saveConfig);
-$('createRoomBtn').addEventListener('click',()=>hostRoom(randomRoom()));
+$('createRoomBtn').addEventListener('click',()=>{hostRoom(randomRoom());fillRecentPlaceNames();});
 $('joinRoomBtn').addEventListener('click',()=>joinRoom($('joinInput').value));
 $('joinInput').addEventListener('keydown',e=>{if(e.key==='Enter')joinRoom($('joinInput').value);});
 $('copyLinkBtn').addEventListener('click',shareLink);
@@ -306,7 +384,7 @@ document.addEventListener('visibilitychange',()=>{maybeTimerDone();render();if(d
 load();renderSettings();drawWheel();maybeTimerDone();render();updateRoomUI();renderGeo();
 // Browser reload: the device that created the room resumes hosting; invitees rejoin as guests.
 const urlRoom=new URL(location.href).searchParams.get('room');
-if(urlRoom){let isHost=false;try{isHost=(sessionStorage.getItem('wander-host-room')||localStorage.getItem('wander-host-room'))===urlRoom.toUpperCase();}catch(e){}if(isHost)hostRoom(urlRoom.toUpperCase());else joinRoom(urlRoom);}
+if(urlRoom){let isHost=false;try{isHost=(sessionStorage.getItem('wander-host-room')||localStorage.getItem('wander-host-room'))===urlRoom.toUpperCase();}catch(e){}if(isHost){hostRoom(urlRoom.toUpperCase());fillRecentPlaceNames();}else joinRoom(urlRoom);}else fillRecentPlaceNames();
 setInterval(()=>{if(!maybeTimerDone()&&trip.timer.status==='running'){const left=remaining(),frac=Math.max(0,Math.min(100,left/trip.timer.durationMs*100));$('clock').textContent=formatMs(left);$('timerFace').style.background=`conic-gradient(var(--mint) ${frac}%,#34494e ${frac}%)`;}},250);
 setInterval(()=>{if(net.mode==='host'&&net.status==='connected')broadcastSnapshot();},15000);
 })();
