@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10171b">
+<meta name="description" content="ルーレットで進む方向を決め、10分間道なりに進むランダムドライブ用ツール">
+<title>WANDER DRIVE — ルーレットドライブ</title>
+<style>
+:root{color-scheme:dark;--bg:#0d1519;--panel:#172329;--panel2:#1c2d33;--line:#32454c;--white:#f0f4eb;--muted:#a2b4b5;--mint:#b7ed85;--amber:#f5c77c;--rose:#e8a09a;--radius:19px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 12% -10%,#29403b 0,transparent 38%),var(--bg);color:var(--white);font-family:system-ui,-apple-system,"Noto Sans JP","Hiragino Kaku Gothic ProN",sans-serif;line-height:1.5;min-height:100vh}button,input{font:inherit}button{cursor:pointer;touch-action:manipulation}button:disabled{opacity:.42;cursor:not-allowed}button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--mint);outline-offset:3px}.wrap{max-width:1080px;margin:auto;padding:25px 18px 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:20px}.brand{display:flex;gap:12px;align-items:center}.emblem{display:grid;place-items:center;width:43px;height:43px;border:1px solid #8cb979;border-radius:14px;font-size:28px;color:var(--mint)}.brand strong{font-size:18px;letter-spacing:.1em;display:block;line-height:1.2}.brand small{font-size:11px;color:var(--muted);letter-spacing:.06em}.topRight{font-size:11px;color:var(--muted);letter-spacing:.13em}.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(305px,.9fr);gap:16px;align-items:start}.panel{border-radius:var(--radius);border:1px solid var(--line);background:var(--panel);overflow:hidden}.main{padding:23px}.topline{display:flex;align-items:center;justify-content:space-between;gap:10px}.overline{font-size:11px;letter-spacing:.15em;font-weight:800;color:var(--muted)}.status{font-size:11px;border-radius:999px;padding:5px 10px;background:#2b4537;border:1px solid #4b7655;color:var(--mint);white-space:nowrap}.tagline{font-size:clamp(20px,3.8vw,27px);letter-spacing:.005em;line-height:1.3;margin:13px 0 3px;font-weight:800}.lead{font-size:13px;color:var(--muted);margin:0 0 20px;min-height:20px}.duo{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}.stage{background:#101c21;border:1px solid var(--line);border-radius:16px;padding:14px;text-align:center;min-width:0}.stageLabel{font-size:12px;color:var(--muted);letter-spacing:.07em;font-weight:800;margin:1px 0 10px}.wheelShell{position:relative;margin:5px auto 14px;width:min(100%,275px);aspect-ratio:1}.wheelSvg{width:100%;height:100%;display:block;filter:drop-shadow(0 8px 20px #0005);transform:rotate(0deg);transition:transform 3.2s cubic-bezier(.12,.74,.09,1)}.wheelSvg.noMotion{transition:none}.pointer{position:absolute;z-index:2;left:50%;top:-10px;transform:translateX(-50%);width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-top:25px solid #fff1d4;filter:drop-shadow(0 2px 5px #0009)}.centerCap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:6px solid #172b2d;background:#0d1d22;border-radius:50%;width:61px;height:61px;display:grid;place-items:center;font-size:23px;color:var(--mint);box-shadow:0 0 0 2px #d3e6b899;pointer-events:none}.btn{border:1px solid var(--line);border-radius:12px;color:var(--white);background:#293b41;min-height:48px;padding:11px 13px;font-weight:750;display:inline-flex;align-items:center;justify-content:center;gap:6px}.btnPrimary{background:var(--mint);border-color:var(--mint);color:#16231b}.btnOutline{background:transparent}.btnFull{width:100%}.btnSmall{font-size:12px;min-height:40px;padding:8px 10px}.hint{font-size:12px;color:var(--muted);line-height:1.6;margin:10px 0 0}.timerFace{border-radius:50%;width:min(90%,207px);aspect-ratio:1;background:conic-gradient(var(--mint) 100%,#34494e 100%);padding:9px;display:flex;align-items:center;justify-content:center;margin:16px auto 11px}.timerInner{width:100%;height:100%;border-radius:50%;background:#122027;border:7px solid #1d3037;display:flex;flex-direction:column;align-items:center;justify-content:center}.clock{font-size:clamp(32px,4.6vw,44px);font-variant-numeric:tabular-nums;font-weight:850;letter-spacing:-.05em;line-height:1.25}.clockSub{font-size:11px;color:var(--muted);margin-top:3px}.timerControls{display:flex;gap:7px;justify-content:center;margin-top:14px}.timerControls .btn{flex:1}.notice{color:var(--amber);font-size:12px;margin-top:11px;min-height:18px}.choice{background:linear-gradient(135deg,#233c31,#1c3030);border:1px solid #52745c;border-radius:15px;margin:16px 0 12px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:14px}.choiceTitle{font-size:11px;letter-spacing:.08em;color:#b8d1c2;font-weight:800}.choiceName{font-size:26px;font-weight:850}.choiceDetails{font-size:12px;color:#b8d1c2;margin-top:3px;max-width:380px}.choiceArrow{font-size:57px;color:var(--mint);line-height:1;min-width:60px;text-align:center}.choice.empty{background:#17252a;border-color:var(--line)}.choice.empty .choiceArrow{color:#617d7d}.action{display:grid;gap:9px}.executeBtn{min-height:59px;font-size:16px}.helper{font-size:12px;color:var(--muted);margin:0}.emergency{background:#1b292d;border-radius:14px;border:1px solid #3a5256;padding:13px;margin-top:19px}.emergencyTitle{font-weight:800;font-size:13px;display:flex;gap:6px;align-items:center}.emergencyHelp{font-size:12px;color:var(--muted);margin:6px 0 12px}.allowRow{display:flex;flex-wrap:wrap;gap:13px;margin:0 0 11px;font-size:12px}.allowRow label{display:flex;align-items:center;gap:6px;cursor:pointer}.allowRow input{accent-color:var(--mint);width:17px;height:17px}.emergency .btn{width:100%}.bottomActions{display:flex;gap:8px;justify-content:space-between;margin-top:15px}.safety{color:var(--muted);font-size:11px;margin:17px 0 0;padding-left:12px;border-left:3px solid #c1ab79;line-height:1.65}.right{display:grid;gap:16px}.panelHead{padding:18px 19px 14px;border-bottom:1px solid var(--line)}.panelHead h2{font-size:17px;margin:0}.panelHead p{color:var(--muted);font-size:12px;margin:4px 0 0}.settings{padding:16px 18px 21px;display:grid;gap:22px}.settingSection{display:grid;gap:10px}.settingTitle{font-weight:800;font-size:13px}.fieldRow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}.fieldRow input[type=number]{width:78px;padding:8px;background:#0d1b21;border:1px solid #4a626b;border-radius:9px;color:var(--white);text-align:right}.percentRow{display:grid;grid-template-columns:59px 1fr 42px;gap:8px;align-items:center;font-size:12px}.percentRow input[type=range]{accent-color:var(--mint);width:100%;min-width:0}.pct{text-align:right;color:var(--mint);font-variant-numeric:tabular-nums}.detail{font-size:11px;color:var(--muted);line-height:1.65;margin:0}.sep{height:1px;background:var(--line)}.toggle{font-size:12px;display:flex;align-items:center;gap:8px}.toggle input{accent-color:var(--mint);width:17px;height:17px}.history{padding:10px 18px}.historyItem{display:grid;grid-template-columns:35px 1fr auto;gap:9px;align-items:center;padding:10px 0;border-bottom:1px solid #34454b}.historyItem:last-child{border:0}.historySymbol{font-size:24px;color:var(--mint);text-align:center}.historyName{font-size:13px;font-weight:700}.historyDesc{font-size:11px;color:var(--muted)}.historyTime{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}.footer{text-align:center;color:var(--muted);font-size:11px;margin:21px 0}.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);padding:11px 18px;background:#e9f8d9;color:#173025;font-size:13px;font-weight:800;border-radius:12px;z-index:40;box-shadow:0 8px 25px #0008;max-width:calc(100vw - 24px);text-align:center}.hidden{display:none!important}
+@media(max-width:870px){.layout{grid-template-columns:1fr}.wrap{max-width:620px}.main{padding:18px}.right{grid-template-columns:1fr}.topRight{display:none}}
+@media(max-width:520px){.wrap{padding:16px 10px 44px}.main{padding:14px}.duo{gap:9px}.stage{padding:10px 7px}.wheelShell{width:min(100%,211px);margin-top:9px}.centerCap{width:45px;height:45px;font-size:19px;border-width:4px}.stageLabel{font-size:11px}.timerFace{width:min(96%,170px);margin:22px auto 15px}.timerInner{border-width:5px}.clock{font-size:clamp(27px,6.4vw,37px)}.timerControls{flex-direction:column;gap:6px}.timerControls .btn{min-height:37px}.choiceName{font-size:24px}.choiceArrow{font-size:50px}.tagline{font-size:22px}.lead{margin-bottom:14px}}
+@media(max-width:360px){.wheelShell{width:min(100%,170px)}.timerFace{width:min(100%,148px)}.clock{font-size:26px}.btn{font-size:12px;padding:9px}.choiceName{font-size:21px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* v4: uncluttered driving display */
+.brand strong{line-height:1.45}.brand small:empty{display:none}.duo{margin-top:16px}.choice{margin-top:18px}.choiceTitle:empty{display:none}.choiceDetails{max-width:380px}.deadendInline{margin-top:10px;border:1px solid #608075;border-radius:8px;background:transparent;color:#d9eac9;padding:6px 10px;font-size:12px;font-weight:750;min-height:33px;text-align:left}.deadendInline:disabled{opacity:.4}.shareDetails summary{cursor:pointer;padding:17px 19px;font-size:15px;font-weight:800}.shareBody{padding:0 18px 20px;display:grid;gap:11px}.shareBody textarea{width:100%;resize:vertical;min-height:68px;background:#0d1b21;border:1px solid #405a60;border-radius:9px;color:var(--white);padding:10px;font:12px/1.5 ui-monospace,monospace;overflow-wrap:anywhere}.shareBody .detail{margin-bottom:3px}.shareBody .settingTitle{margin-top:5px}.top{margin-bottom:16px}
+@media(max-width:520px){.choice{padding:14px}.duo{margin-top:12px}.choiceDetails{font-size:11px}}
+.miniStatus{font-size:11px;font-weight:700;color:var(--muted);margin-left:5px}.miniStatus.live{color:var(--mint)}.joinRow{display:flex;gap:8px}.joinRow input{flex:1;min-width:0;letter-spacing:.09em;outline:0;border:1px solid #496068;border-radius:10px;background:#0d1b21;padding:10px;color:var(--white);font:700 14px ui-monospace,monospace;text-transform:uppercase}.roomInfo{display:grid;gap:10px;padding:12px;border:1px solid #436257;background:#152b2b;border-radius:12px}.roomCodeLabel{text-align:center;color:var(--muted);font-size:11px}.roomCode{text-align:center;font-size:22px;letter-spacing:.18em;font-weight:850;color:var(--mint)}.liveStatus{text-align:center;font-size:12px;color:#cae6dc}.shareDetails[open] summary{padding-bottom:12px}.status.connected{background:#285039;color:var(--mint)}.btn.ghostBusy{opacity:.65} 
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><div class="brand"><span class="emblem">⌁</span><div><strong>WANDER DRIVE</strong></div></div><span class="topRight">LET THE ROAD DECIDE.</span></header>
+<div class="layout">
+<main class="panel main">
+  <div class="topline"><span class="overline">RANDOM ROUTE / <span id="legNumber">00</span></span><span class="status" id="phase">出発準備</span></div>
+  
+  <div class="duo">
+    <section class="stage" aria-labelledby="wheelTitle">
+      <div class="stageLabel" id="wheelTitle">進行方向ルーレット</div>
+      <div class="wheelShell"><div class="pointer" aria-hidden="true"></div><svg class="wheelSvg" id="wheel" viewBox="0 0 320 320" role="img" aria-label="左折、直進、右折を抽選するルーレット"></svg><span class="centerCap" aria-hidden="true">⌁</span></div>
+      <button id="spinBtn" class="btn btnPrimary btnFull" type="button">↻ ルーレットを回す</button>
+    </section>
+    <section class="stage" aria-labelledby="timerTitle">
+      <div class="stageLabel" id="timerTitle">直進タイマー</div>
+      <div class="timerFace" id="timerFace"><div class="timerInner"><div class="clock" id="clock">10:00</div><div class="clockSub" id="clockStatus">実行後に開始</div></div></div>
+      <div class="timerControls"><button class="btn btnOutline btnSmall" id="pauseBtn" disabled type="button">一時停止</button><button class="btn btnOutline btnSmall" id="skipBtn" disabled type="button">0分にする</button></div>
+      
+    </section>
+  </div>
+  <div class="choice empty" id="choicePanel" aria-live="polite"><div><div class="choiceName" id="choiceName">抽選待ち</div><div class="choiceDetails" id="choiceDetails">ルーレットを回してください。</div><button class="deadendInline hidden" id="deadendBtn" type="button">突き当たり（直進不可）</button></div><div class="choiceArrow" id="choiceArrow">?</div></div>
+  <div class="action"><button class="btn btnPrimary btnFull executeBtn" id="executeBtn" type="button" disabled>方向を抽選してください</button></div>
+
+  <div class="bottomActions"><button class="btn btnOutline btnSmall" id="resetBtn" type="button">↺ 最初からやり直す</button><span class="overline" id="countDisplay">0 DIRECTIONS</span></div>
+
+</main>
+<aside class="right">
+<section class="panel"><div class="panelHead"><h2>ドライブ設定</h2><p>設定は次回の抽選・タイマー開始から反映</p></div><div class="settings">
+  <div class="settingSection"><div class="settingTitle">直進時間</div><div class="fieldRow"><label for="minutes">1回の直進時間</label><span><input id="minutes" type="number" inputmode="numeric" min="1" max="120" step="1" value="10"> 分</span></div><p class="detail">標準は10分です。現在進行中のタイマーは変えず、次回の実行から適用します。</p></div><div class="sep"></div>
+
+  <div class="settingSection"><div class="settingTitle">通知</div><label class="toggle"><input id="sound" type="checkbox" checked>タイマー終了時に音を鳴らす</label><label class="toggle"><input id="vibrate" type="checkbox" checked>振動する（対応端末のみ）</label><p class="detail">通知はブラウザの制限により、画面を閉じている間は鳴らない場合があります。タイマーの経過時間は保持されます。</p></div>
+</div></section>
+<section class="panel"><details class="shareDetails" id="liveDetails"><summary>2人でリアルタイム同期 <span class="miniStatus" id="roomBadge">未接続</span></summary><div class="shareBody">
+  <p class="detail">1人がルームを作成し、もう1人にURLを送ります。どちらから操作しても、ルーレット・タイマー・履歴が同期します。</p>
+  <button class="btn btnPrimary btnFull" id="createRoomBtn" type="button">ルームを作成</button>
+  <div class="joinRow"><input id="joinInput" type="text" maxlength="18" placeholder="相手のルームコード" aria-label="ルームコード" autocapitalize="characters" spellcheck="false"><button class="btn btnOutline btnSmall" id="joinRoomBtn" type="button">参加</button></div>
+  <div class="roomInfo hidden" id="roomInfo"><div class="roomCodeLabel">ルームコード</div><div class="roomCode" id="roomCode">—</div><div class="liveStatus" id="connectionStatus" aria-live="polite">接続待ち</div><button class="btn btnPrimary btnFull btnSmall" id="copyLinkBtn" type="button">招待リンクを共有</button><button class="btn btnOutline btnFull btnSmall" id="leaveRoomBtn" type="button">ルームから退出</button></div>
+  <p class="detail">同期には双方のインターネット接続と、このページを開いておく必要があります。通信が切れたときは自動再接続します。</p>
+</div></details></section>
+<section class="panel"><div class="panelHead"><h2>進行履歴</h2><p>方向を実際に進んだときに記録</p></div><div class="history" id="history"><p class="detail">まだ履歴はありません。</p></div></section>
+</aside>
+</div><footer class="footer">運転中の画面操作は同乗者に任せてください。通信が切れてもタイマーの経過は保持されます。</footer>
+</div><div id="toast" class="toast hidden" role="status"></div>
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id);
+const STORE='wander-drive-v5';
+const KEYS=['left','straight','right'];
+const NAMES={left:'左折',straight:'直進',right:'右折'};
+const SYMBOLS={left:'↰',straight:'↑',right:'↱'};
+const COLORS={left:'#e4ad71',straight:'#b7ed85',right:'#80cdd6'};
+const DEFAULT_SETTINGS={minutes:10,sound:true,vibrate:true};
+const makeTrip=()=>({pending:null,exception:false,leg:0,history:[],timer:{status:'none',remainingMs:600000,deadline:0,durationMs:600000}});
+let settings={...DEFAULT_SETTINGS},trip=makeTrip(),rotating=false,rotation=0,toastTimeout=0,noticeFired=false;
+let net={mode:'solo',room:'',status:'offline',peer:null,conn:null,clients:[],retry:null,retries:0};
+function clamp(v,a,b,def){if(v===null||v===undefined||v==='')return def;const n=Number(v);return Number.isFinite(n)?Math.max(a,Math.min(b,Math.round(n))):def;}
+function importPayload(raw){if(!raw||typeof raw!=='object')throw Error('形式');const s=raw.settings||{},t=raw.trip||{};const ns={minutes:clamp(s.minutes,1,120,10),sound:s.sound!==false,vibrate:s.vibrate!==false},nt=makeTrip();nt.leg=clamp(t.leg,0,100000,0);
+ nt.history=Array.isArray(t.history)?t.history.slice(-60).filter(x=>x&&KEYS.includes(x.direction)&&Number.isFinite(Number(x.at))).map(x=>({direction:x.direction,at:Number(x.at),exception:!!x.exception})) : [];
+ nt.pending=KEYS.includes(t.pending)?t.pending:null;nt.exception=!!t.exception&&!!nt.pending;
+ const old=t.timer||{};nt.timer.status=['none','running','paused','elapsed'].includes(old.status)?old.status:'none';nt.timer.durationMs=clamp(old.durationMs,60000,7200000,ns.minutes*60000);nt.timer.remainingMs=clamp(old.remainingMs,0,7200000,nt.timer.durationMs);nt.timer.deadline=Number.isFinite(Number(old.deadline))?Number(old.deadline):0;
+ if(nt.timer.status==='running'&&!nt.timer.deadline)nt.timer.status='paused';return {settings:ns,trip:nt};}
+function load(){try{let raw=localStorage.getItem(STORE)||localStorage.getItem('wander-drive-v4');if(!raw) return;const p=importPayload(JSON.parse(raw));settings=p.settings;trip=p.trip;}catch(e){}}
+function save(){try{localStorage.setItem(STORE,JSON.stringify({settings,trip}));}catch(e){} if(net.mode==='host')broadcastSnapshot();}
+function flash(msg){const el=$('toast');el.textContent=msg;el.classList.remove('hidden');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>el.classList.add('hidden'),3000);}
+function formatMs(ms){const s=Math.max(0,Math.ceil(ms/1000)),m=Math.floor(s/60);return `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
+function remaining(){return trip.timer.status==='running'?Math.max(0,trip.timer.deadline-Date.now()):trip.timer.remainingMs;}
+function maybeTimerDone(){if(trip.timer.status!=='running'||remaining()>0)return false;trip.timer.status='elapsed';trip.timer.remainingMs=0;trip.timer.deadline=0;
+ if(net.mode!=='guest')save();if(!noticeFired){notify();noticeFired=true;}render();return true;}
+function notify(){if(settings.vibrate&&navigator.vibrate)try{navigator.vibrate([160,80,160]);}catch(e){}if(settings.sound)try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;const ctx=new AC();if(ctx.state==='suspended')ctx.resume();const now=ctx.currentTime;[0,.25,.5].forEach((offset,i)=>{const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type='sine';osc.frequency.value=i===2?880:660;gain.gain.setValueAtTime(.0001,now+offset);gain.gain.exponentialRampToValueAtTime(.08,now+offset+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+offset+.2);osc.connect(gain);gain.connect(ctx.destination);osc.start(now+offset);osc.stop(now+offset+.22);});setTimeout(()=>ctx.close().catch(()=>{}),1300);}catch(e){}
+}
+function polar(angle,r=153){const a=(angle-90)*Math.PI/180;return{x:160+Math.cos(a)*r,y:160+Math.sin(a)*r};}
+function wedge(start,end,r=153){const p=polar(start,r),q=polar(end,r);return`<path d="M 160 160 L ${p.x.toFixed(3)} ${p.y.toFixed(3)} A ${r} ${r} 0 ${end-start>180?1:0} 1 ${q.x.toFixed(3)} ${q.y.toFixed(3)} Z"/>`;}
+function drawWheel(){let angle=0,out='<circle cx="160" cy="160" r="158" fill="#0c171b"/>';
+ for(const key of KEYS){const start=angle,end=angle+120,pt=polar(angle+60,98);out+=`<g fill="${COLORS[key]}" stroke="#182a2c" stroke-width="3">${wedge(start,end)}</g>`;out+=`<text x="${pt.x.toFixed(2)}" y="${(pt.y+11).toFixed(2)}" text-anchor="middle" font-size="44" font-weight="800" fill="#15282a">${SYMBOLS[key]}</text>`;angle=end;}
+ out+='<circle cx="160" cy="160" r="153" fill="none" stroke="#e9f4d17f" stroke-width="3"/>';$('wheel').innerHTML=out;}
+function animateSpin(angle,key,commitResult){
+ if(rotating)return;rotating=true;const svg=$('wheel');svg.classList.remove('noMotion');const delta=((360-angle-(rotation%360))%360+360)%360;rotation+=5*360+delta;render();requestAnimationFrame(()=>{svg.style.transform=`rotate(${rotation}deg)`;});
+ let done=false;const settle=()=>{if(done)return;done=true;svg.removeEventListener('transitionend',settle);rotating=false;if(commitResult){trip.pending=key;trip.exception=false;save();}render();};svg.addEventListener('transitionend',settle);setTimeout(settle,3380);
+}
+function spin(){if(rotating)return;
+ // Equal probability, 120 degrees each. A margin avoids ambiguous sector boundaries.
+ const idx=Math.floor(Math.random()*3),key=KEYS[idx],angle=idx*120+15+Math.random()*90;
+ if(net.mode==='host')broadcast({type:'spin',angle,key});animateSpin(angle,key,true);
+}
+function lastActualTurn(){for(let i=trip.history.length-1;i>=0;i--){const d=trip.history[i].direction;if(d==='left'||d==='right')return d;}return null;}
+function deadEnd(){if(rotating||trip.exception)return;const prev=lastActualTurn(),key=prev==='left'?'right':prev==='right'?'left':Math.random()<.5?'left':'right';
+ trip.pending=key;trip.exception=true;save();render();flash(prev?`前回${NAMES[prev]}のため、${NAMES[key]}へ`:`曲がった履歴がないため、${NAMES[key]}へ`);}
+function beginTimer(){const ms=settings.minutes*60000;trip.timer={status:'running',remainingMs:ms,deadline:Date.now()+ms,durationMs:ms};noticeFired=false;}
+function commit(){maybeTimerDone();if(rotating||!trip.pending)return;if(['running','paused'].includes(trip.timer.status)&&!trip.exception){flash('タイマー終了後に実行できます');return;}
+ const key=trip.pending;trip.history.push({direction:key,at:Date.now(),exception:trip.exception});trip.history=trip.history.slice(-60);trip.leg++;trip.pending=null;trip.exception=false;beginTimer();save();render();flash(`${NAMES[key]}を実行、${settings.minutes}分スタート`);}
+function pauseOrResume(){const t=trip.timer;if(t.status==='running'){t.remainingMs=remaining();t.deadline=0;t.status='paused';}else if(t.status==='paused'){t.deadline=Date.now()+t.remainingMs;t.status='running';}save();render();}
+function skip(){if(!['running','paused'].includes(trip.timer.status))return;trip.timer.status='elapsed';trip.timer.remainingMs=0;trip.timer.deadline=0;save();render();flash('タイマーを0にしました');}
+function reset(){if(rotating)return;trip=makeTrip();noticeFired=false;rotation=0;$('wheel').classList.add('noMotion');$('wheel').style.transform='rotate(0deg)';save();render();}
+function saveConfig(){settings.minutes=clamp($('minutes').value,1,120,10);$('minutes').value=settings.minutes;settings.sound=$('sound').checked;settings.vibrate=$('vibrate').checked;save();render();}
+function renderSettings(){$('minutes').value=settings.minutes;$('sound').checked=settings.sound;$('vibrate').checked=settings.vibrate;}
+function renderHistory(){const el=$('history');if(!trip.history.length){el.innerHTML='<p class="detail">まだ履歴はありません。</p>';return;}const rows=trip.history.slice().reverse().slice(0,15);el.innerHTML=rows.map((row,i)=>`<div class="historyItem"><span class="historySymbol">${SYMBOLS[row.direction]}</span><span><div class="historyName">${NAMES[row.direction]}</div><div class="historyDesc">${row.exception?'突き当たりで変更':'ルーレット'}・#${trip.leg-i}</div></span><span class="historyTime">${new Date(row.at).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}</span></div>`).join('');}
+function render(){const t=trip.timer,st=t.status,active=['running','paused'].includes(st),left=remaining(),picked=!!trip.pending,forced=trip.exception;
+ $('legNumber').textContent=String(trip.leg).padStart(2,'0');$('countDisplay').textContent=`${trip.leg} DIRECTIONS`;
+ $('phase').textContent=forced?'突き当たり':st==='none'?'出発準備':st==='running'?'直進中':st==='paused'?'一時停止':'時間経過';
+ $('clock').textContent=st==='none'?formatMs(settings.minutes*60000):formatMs(left);$('clockStatus').textContent=st==='none'?'準備中':st==='running'?'直進中':st==='paused'?'一時停止':'TIME UP';
+ const progress=st==='none'?1:t.durationMs>0?Math.max(0,Math.min(1,left/t.durationMs)):0;
+ $('timerFace').style.background=`conic-gradient(var(--mint) ${progress*100}%,#34494e ${progress*100}%)`;
+ const locked=net.mode==='guest'&&net.status!=='connected';
+ $('pauseBtn').disabled=!active||locked;$('pauseBtn').textContent=st==='paused'?'▶ 再開':'Ⅱ 一時停止';$('skipBtn').disabled=!active||locked;
+ $('choicePanel').classList.toggle('empty',!picked);$('choiceArrow').textContent=picked?SYMBOLS[trip.pending]:'?';$('choiceName').textContent=picked?NAMES[trip.pending]:'抽選待ち';
+ if(!picked)$('choiceDetails').textContent=active?'次の方向は直進中にも抽選できます。':'ルーレットを回してください。';
+ else if(forced)$('choiceDetails').textContent='直前の右左折と逆方向へ。曲がったら下のボタンを押します。';
+ else if(active)$('choiceDetails').textContent='タイマー終了後、この方向へ進みます。';
+ else if(trip.pending==='straight')$('choiceDetails').textContent='次の交差点で直進します。';
+ else $('choiceDetails').textContent=`${NAMES[trip.pending]}できる交差点まで直進します。`;
+ $('deadendBtn').classList.toggle('hidden',forced||!(active||(picked&&trip.pending==='straight')));
+ $('deadendBtn').disabled=rotating||locked;
+ const confirmPossible=picked&&!rotating&&(forced||!active);
+ $('executeBtn').disabled=!confirmPossible||locked;
+ $('executeBtn').textContent=!picked?'ルーレットで方向を決める':!confirmPossible?`${Math.max(1,Math.ceil(left/60000))}分の直進が終わるまで待つ`:`${SYMBOLS[trip.pending]} ${NAMES[trip.pending]}した → ${settings.minutes}分開始`;
+ $('spinBtn').disabled=rotating||locked;$('spinBtn').textContent=rotating?'ルーレット回転中…':picked?'↻ もう一度ルーレットを回す':'↻ ルーレットを回す';
+ $('minutes').disabled=locked;$('resetBtn').disabled=locked;
+ renderHistory();}
+// ---------------- Realtime session via PeerJS Cloud / WebRTC ----------------
+function roomUrl(room){const u=new URL(window.location.href);u.searchParams.set('room',room);u.hash='';return u.toString();}
+function getRoom(){return net.room;}
+function updateRoomUI(){const active=net.mode!=='solo';$('roomInfo').classList.toggle('hidden',!active);$('createRoomBtn').classList.toggle('hidden',active);$('joinRoomBtn').disabled=active;$('joinInput').disabled=active;
+ $('roomCode').textContent=getRoom()||'—';let status='未接続';
+ if(net.mode==='host')status=net.status==='connected'?'2人が接続中':net.status==='connecting'?'ルームを準備中':'相手の参加を待っています';
+ else if(net.mode==='guest')status=net.status==='connected'?'2人が接続中':net.status==='connecting'?'接続しています':'再接続を待っています';
+ $('roomBadge').textContent=active?net.status==='connected'?'同期中':net.status==='connecting'?'接続中':'待機中':'未接続';$('roomBadge').classList.toggle('live',net.status==='connected');$('connectionStatus').textContent=status;}
+function broadcast(msg){for(const c of net.clients)if(c.open)try{c.send(msg);}catch(e){}}
+function snapshot(){const t=trip.timer;return{type:'state',v:5,minutes:settings.minutes,trip:JSON.parse(JSON.stringify(trip)),remaining:remaining(),sentAt:Date.now()};}
+function broadcastSnapshot(){if(net.mode==='host')broadcast(snapshot());}
+function applySnapshot(msg){if(net.mode!=='guest'||!msg||msg.v!==5||!msg.trip)return;try{
+ const parsed=importPayload({settings:{...settings,minutes:msg.minutes},trip:msg.trip});settings.minutes=parsed.settings.minutes;trip=parsed.trip;
+ if(trip.timer.status==='running'){
+   const left=clamp(msg.remaining,0,7200000,0);trip.timer.deadline=Date.now()+left;
+   if(!left){trip.timer.status='elapsed';trip.timer.deadline=0;trip.timer.remainingMs=0;}
+ }
+ noticeFired=trip.timer.status==='elapsed';save();renderSettings();render();
+ }catch(e){}}
+function handleGuestData(msg){if(!msg||typeof msg!=='object')return;
+ if(msg.type==='state')applySnapshot(msg);
+ else if(msg.type==='spin'&&KEYS.includes(msg.key)&&Number.isFinite(msg.angle))animateSpin(msg.angle,msg.key,false);
+}
+function doAction(action,val){
+ if(action==='spin')spin();else if(action==='deadEnd')deadEnd();else if(action==='commit')commit();else if(action==='pause')pauseOrResume();else if(action==='skip')skip();else if(action==='reset')reset();else if(action==='minutes'){settings.minutes=clamp(val,1,120,10);save();renderSettings();render();}
+}
+function command(action,val){if(net.mode==='guest'){
+ if(net.status!=='connected'||!net.conn?.open){flash('接続が切れています。再接続中です');return;}
+ try{net.conn.send({type:'command',action,val});}catch(e){flash('送信できませんでした');}
+ }else doAction(action,val);}
+function disconnectAll(){if(net.retry)clearTimeout(net.retry);net.retry=null;try{net.conn?.close();}catch(e){}for(const c of net.clients)try{c.close();}catch(e){}try{net.peer?.destroy();}catch(e){}net={mode:'solo',room:'',status:'offline',peer:null,conn:null,clients:[],retry:null,retries:0};}
+function leaveRoom(){disconnectAll();try{sessionStorage.removeItem('wander-host-room');localStorage.removeItem('wander-host-room');}catch(e){}const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u);updateRoomUI();render();flash('ルームから退出しました');}
+function randomRoom(){const bytes=new Uint8Array(6);crypto.getRandomValues(bytes);return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();}
+function hostRoom(room){
+ if(!window.Peer){flash('通信ライブラリを読み込めません。ネット接続を確認してください');return;}
+ disconnectAll();net.mode='host';net.room=room;net.status='connecting';
+ const peer=net.peer=new Peer('wander-'+room.toLowerCase());
+ peer.on('open',()=>{net.status='waiting';net.retries=0;updateRoomUI();});
+ peer.on('connection',conn=>{
+   // One companion only; reject later connections to avoid divergent state.
+   if(net.clients.some(c=>c.open)){conn.on('open',()=>{conn.send({type:'full'});conn.close();});return;}
+   net.clients.push(conn);conn.on('open',()=>{net.status='connected';try{conn.send(snapshot());}catch(e){}updateRoomUI();flash('相手が参加しました');});
+   conn.on('data',msg=>{if(!msg||msg.type!=='command')return;if(!['spin','deadEnd','commit','pause','skip','reset','minutes'].includes(msg.action))return;
+     maybeTimerDone();if(rotating&&msg.action!=='minutes')return;doAction(msg.action,msg.val);});
+   conn.on('close',()=>{net.clients=net.clients.filter(c=>c!==conn);net.status='waiting';updateRoomUI();});
+   conn.on('error',()=>{net.clients=net.clients.filter(c=>c!==conn);net.status='waiting';updateRoomUI();});
+ });
+ peer.on('disconnected',()=>{net.status='connecting';updateRoomUI();try{peer.reconnect();}catch(e){}});
+ peer.on('error',err=>{net.status='offline';updateRoomUI();flash(err.type==='unavailable-id'?'ルームが使用中です。別のルームを作成してください':'通信エラー。ネット接続を確認してください');});
+ try{sessionStorage.setItem('wander-host-room',room);localStorage.setItem('wander-host-room',room);}catch(e){}
+ history.replaceState(null,'',roomUrl(room));$('liveDetails').open=true;updateRoomUI();render();
+}
+function attachGuestConnection(conn){net.conn=conn;
+ conn.on('open',()=>{net.status='connected';net.retries=0;if(net.retry){clearTimeout(net.retry);net.retry=null;}updateRoomUI();render();});
+ conn.on('data',msg=>{if(msg?.type==='full'){flash('このルームは既に2人参加しています');return;}handleGuestData(msg);});
+ conn.on('close',()=>{if(net.mode!=='guest'||net.conn!==conn)return;net.status='offline';updateRoomUI();render();retryGuest();});
+ conn.on('error',()=>{if(net.mode!=='guest')return;net.status='offline';updateRoomUI();render();retryGuest();});
+}
+function retryGuest(){if(net.mode!=='guest'||net.retry)return;net.retry=setTimeout(()=>{net.retry=null;if(net.mode!=='guest'||net.status==='connected')return;
+  if(!net.peer||net.peer.destroyed){startGuestPeer();return;}
+  if(net.peer.disconnected){try{net.peer.reconnect();}catch(e){startGuestPeer();}retryGuest();return;}
+  net.status='connecting';updateRoomUI();const c=net.peer.connect('wander-'+net.room.toLowerCase(),{reliable:true});attachGuestConnection(c);setTimeout(()=>{if(net.mode==='guest'&&net.conn===c&&!c.open){try{c.close();}catch(e){}retryGuest();}},12000);
+ },Math.min(12000,2200+net.retries++*800));}
+function startGuestPeer(){if(net.mode!=='guest')return;try{net.peer?.destroy();}catch(e){}
+ const peer=net.peer=new Peer();
+ peer.on('open',()=>{if(net.mode!=='guest'||net.peer!==peer)return;net.status='connecting';updateRoomUI();const c=peer.connect('wander-'+net.room.toLowerCase(),{reliable:true});attachGuestConnection(c);setTimeout(()=>{if(net.mode==='guest'&&net.conn===c&&!c.open){try{c.close();}catch(e){}retryGuest();}},12000);});
+ peer.on('disconnected',()=>{net.status='offline';updateRoomUI();retryGuest();});
+ peer.on('error',()=>{if(net.mode!=='guest')return;net.status='offline';updateRoomUI();retryGuest();});
+}
+function joinRoom(raw){const room=String(raw||'').trim().replace(/[^0-9a-f]/gi,'').toUpperCase();if(!/^[A-F0-9]{12}$/.test(room)){flash('ルームコードは12桁の英数字です');return;}
+ if(!window.Peer){flash('通信ライブラリを読み込めません。ネット接続を確認してください');return;}
+ disconnectAll();net.mode='guest';net.room=room;net.status='connecting';net.retries=0;
+ try{sessionStorage.removeItem('wander-host-room');localStorage.removeItem('wander-host-room');}catch(e){}
+ history.replaceState(null,'',roomUrl(room));$('liveDetails').open=true;updateRoomUI();render();startGuestPeer();}
+async function shareLink(){if(net.mode!=='host'){flash('先にルームを作成してください');return;}const url=roomUrl(net.room);
+ try{if(navigator.share){await navigator.share({title:'WANDER DRIVE 参加リンク',text:'このリンクから一緒にドライブしよう',url});return;}}catch(e){if(e.name==='AbortError')return;}
+ try{await navigator.clipboard.writeText(url);flash('招待リンクをコピーしました');}catch(e){prompt('このURLを相手に送ってください',url);}
+}
+// ---------------- Browser events ----------------
+$('spinBtn').addEventListener('click',()=>command('spin'));
+$('deadendBtn').addEventListener('click',()=>command('deadEnd'));
+$('executeBtn').addEventListener('click',()=>command('commit'));
+$('pauseBtn').addEventListener('click',()=>command('pause'));
+$('skipBtn').addEventListener('click',()=>command('skip'));
+$('resetBtn').addEventListener('click',()=>{if(confirm('2人の走行履歴とタイマーを初期化しますか？'))command('reset');});
+$('minutes').addEventListener('change',()=>{settings.sound=$('sound').checked;settings.vibrate=$('vibrate').checked;if(net.mode==='guest'){command('minutes',$('minutes').value);return;}saveConfig();});
+$('sound').addEventListener('change',saveConfig);$('vibrate').addEventListener('change',saveConfig);
+$('createRoomBtn').addEventListener('click',()=>hostRoom(randomRoom()));
+$('joinRoomBtn').addEventListener('click',()=>joinRoom($('joinInput').value));
+$('joinInput').addEventListener('keydown',e=>{if(e.key==='Enter')joinRoom($('joinInput').value);});
+$('copyLinkBtn').addEventListener('click',shareLink);
+$('leaveRoomBtn').addEventListener('click',leaveRoom);
+document.addEventListener('visibilitychange',()=>{maybeTimerDone();render();if(document.visibilityState==='visible'&&net.mode==='host')broadcastSnapshot();});
+load();renderSettings();drawWheel();maybeTimerDone();render();updateRoomUI();
+// Browser reload: the device that created the room resumes hosting; invitees rejoin as guests.
+const urlRoom=new URL(location.href).searchParams.get('room');
+if(urlRoom){let isHost=false;try{isHost=(sessionStorage.getItem('wander-host-room')||localStorage.getItem('wander-host-room'))===urlRoom.toUpperCase();}catch(e){}if(isHost)hostRoom(urlRoom.toUpperCase());else joinRoom(urlRoom);}
+setInterval(()=>{if(!maybeTimerDone()&&trip.timer.status==='running'){const left=remaining(),frac=Math.max(0,Math.min(100,left/trip.timer.durationMs*100));$('clock').textContent=formatMs(left);$('timerFace').style.background=`conic-gradient(var(--mint) ${frac}%,#34494e ${frac}%)`;}},250);
+setInterval(()=>{if(net.mode==='host'&&net.status==='connected')broadcastSnapshot();},15000);
+})();
+
+</script>
+</body>
+</html>
