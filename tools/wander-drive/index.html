@@ -18,6 +18,7 @@
 .brand strong{line-height:1.45}.brand small:empty{display:none}.duo{margin-top:16px}.choice{margin-top:18px}.choiceTitle:empty{display:none}.choiceDetails{max-width:380px}.deadendInline{margin-top:10px;border:1px solid #608075;border-radius:8px;background:transparent;color:#d9eac9;padding:6px 10px;font-size:12px;font-weight:750;min-height:33px;text-align:left}.deadendInline:disabled{opacity:.4}.shareDetails summary{cursor:pointer;padding:17px 19px;font-size:15px;font-weight:800}.shareBody{padding:0 18px 20px;display:grid;gap:11px}.shareBody textarea{width:100%;resize:vertical;min-height:68px;background:#0d1b21;border:1px solid #405a60;border-radius:9px;color:var(--white);padding:10px;font:12px/1.5 ui-monospace,monospace;overflow-wrap:anywhere}.shareBody .detail{margin-bottom:3px}.shareBody .settingTitle{margin-top:5px}.top{margin-bottom:16px}
 @media(max-width:520px){.choice{padding:14px}.duo{margin-top:12px}.choiceDetails{font-size:11px}}
 .miniStatus{font-size:11px;font-weight:700;color:var(--muted);margin-left:5px}.miniStatus.live{color:var(--mint)}.joinRow{display:flex;gap:8px}.joinRow input{flex:1;min-width:0;letter-spacing:.09em;outline:0;border:1px solid #496068;border-radius:10px;background:#0d1b21;padding:10px;color:var(--white);font:700 14px ui-monospace,monospace;text-transform:uppercase}.roomInfo{display:grid;gap:10px;padding:12px;border:1px solid #436257;background:#152b2b;border-radius:12px}.roomCodeLabel{text-align:center;color:var(--muted);font-size:11px}.roomCode{text-align:center;font-size:22px;letter-spacing:.18em;font-weight:850;color:var(--mint)}.liveStatus{text-align:center;font-size:12px;color:#cae6dc}.shareDetails[open] summary{padding-bottom:12px}.status.connected{background:#285039;color:var(--mint)}.btn.ghostBusy{opacity:.65} 
+.geoDetails summary{cursor:pointer;padding:17px 19px;font-size:15px;font-weight:800}.geoDetails[open] summary{padding-bottom:12px}.geoHint{font-size:12px;color:var(--muted);line-height:1.6;margin:0}.mapLink{display:inline-block;color:var(--mint);text-decoration:underline;text-underline-offset:3px;padding:3px 0;white-space:nowrap}.geoReading{color:var(--mint)}
 </style>
 </head>
 <body>
@@ -59,6 +60,11 @@
   <div class="roomInfo hidden" id="roomInfo"><div class="roomCodeLabel">ルームコード</div><div class="roomCode" id="roomCode">—</div><div class="liveStatus" id="connectionStatus" aria-live="polite">接続待ち</div><button class="btn btnPrimary btnFull btnSmall" id="copyLinkBtn" type="button">招待リンクを共有</button><button class="btn btnOutline btnFull btnSmall" id="leaveRoomBtn" type="button">ルームから退出</button></div>
   <p class="detail">同期には双方のインターネット接続と、このページを開いておく必要があります。通信が切れたときは自動再接続します。</p>
 </div></details></section>
+<section class="panel"><details class="geoDetails" id="geoDetails"><summary>曲がった場所を記録 <span class="miniStatus" id="geoBadge">オフ</span></summary><div class="shareBody">
+  <button class="btn btnPrimary btnFull" id="geoToggleBtn" type="button">位置情報を有効にする</button>
+  <p class="geoHint" id="geoStatus" aria-live="polite">位置情報を許可すると、右折・左折を確定した地点を履歴に追加します。</p>
+  <p class="geoHint">記録地点は約10m単位に丸め、2人の画面に同期します。GPS誤差があるため交差点の位置は目安です。</p>
+</div></details></section>
 <section class="panel"><div class="panelHead"><h2>進行履歴</h2><p>方向を実際に進んだときに記録</p></div><div class="history" id="history"><p class="detail">まだ履歴はありません。</p></div></section>
 </aside>
 </div><footer class="footer">運転中の画面操作は同乗者に任せてください。通信が切れてもタイマーの経過は保持されます。</footer>
@@ -67,7 +73,7 @@
 <script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id);
-const STORE='wander-drive-v5';
+const STORE='wander-drive-v5'; // Keep existing trip history and add optional turn locations.
 const KEYS=['left','straight','right'];
 const NAMES={left:'左折',straight:'直進',right:'右折'};
 const SYMBOLS={left:'↰',straight:'↑',right:'↱'};
@@ -75,10 +81,60 @@ const COLORS={left:'#e4ad71',straight:'#b7ed85',right:'#80cdd6'};
 const DEFAULT_SETTINGS={minutes:10,sound:true,vibrate:true};
 const makeTrip=()=>({pending:null,exception:false,leg:0,history:[],timer:{status:'none',remainingMs:600000,deadline:0,durationMs:600000}});
 let settings={...DEFAULT_SETTINGS},trip=makeTrip(),rotating=false,rotation=0,toastTimeout=0,noticeFired=false;
+let geo={enabled:false,watchId:null,last:null,state:'off',error:''};
+const MAX_FIX_AGE=20000,MAX_GPS_ERROR=1500;
+function safeLocation(x){
+ if(!x||typeof x!=='object')return null;
+ const lat=Number(x.lat),lng=Number(x.lng),accuracy=Number(x.accuracy),at=Number(x.at);
+ if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat<-90||lat>90||lng<-180||lng>180)return null;
+ return {lat:Math.round(lat*10000)/10000,lng:Math.round(lng*10000)/10000,
+  accuracy:Number.isFinite(accuracy)&&accuracy>=0&&accuracy<=200000?Math.round(accuracy):null,
+  at:Number.isFinite(at)&&at>0?at:Date.now()};
+}
+function getFreshFix(){const p=geo.last;if(!geo.enabled||!p||p.accuracy===null)return null;return Date.now()-p.at<=MAX_FIX_AGE&&p.accuracy<=MAX_GPS_ERROR?p:null;}
+function captureFix(pos){if(!pos?.coords)return null;const p=safeLocation({lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy,at:pos.timestamp||Date.now()});if(!p)return null;geo.last=p;geo.state='on';geo.error='';renderGeo();return p;}
+function renderGeo(){
+ const on=geo.enabled;const p=geo.last;
+ $('geoBadge').textContent=geo.state==='error'?'取得不可':!on?'オフ':p?'取得中':'取得待ち';
+ $('geoBadge').classList.toggle('live',on&&!!p);
+ $('geoToggleBtn').textContent=on?'位置情報を停止':'位置情報を有効にする';
+ $('geoToggleBtn').classList.toggle('btnPrimary',!on);
+ $('geoStatus').textContent=geo.error||(!on?'位置情報を許可すると、右折・左折を確定した地点を履歴に追加します。':!p?'GPSの位置を取得しています…':`GPS受信中（推定誤差 ±${p.accuracy??'?'}m）`);
+ $('geoStatus').classList.toggle('geoReading',on&&!!p);
+}
+function toggleGeo(){
+ if(geo.enabled){geo.enabled=false;geo.last=null;geo.state='off';geo.error='';if(geo.watchId!==null)try{navigator.geolocation.clearWatch(geo.watchId);}catch(e){}geo.watchId=null;renderGeo();return;}
+ if(!window.isSecureContext||!navigator.geolocation){geo.error='このブラウザでは利用できません。HTTPSの公開URLで開いてください。';geo.state='error';renderGeo();flash(geo.error);return;}
+ geo.enabled=true;geo.last=null;geo.state='waiting';geo.error='';renderGeo();
+ try{geo.watchId=navigator.geolocation.watchPosition(captureFix,err=>{
+  geo.state='error';geo.error=err.code===1?'位置情報の許可がありません。ブラウザ設定を確認してください。':err.code===2?'GPS位置を取得できません。場所や端末の設定を確認してください。':'GPS取得中です。電波状態を確認してください。';
+  if(err.code===1){geo.enabled=false;geo.last=null;if(geo.watchId!==null)try{navigator.geolocation.clearWatch(geo.watchId);}catch(e){}geo.watchId=null;}
+  renderGeo();
+ },{enableHighAccuracy:true,maximumAge:5000,timeout:15000});}catch(e){geo.enabled=false;geo.error='位置情報を開始できませんでした。';geo.state='error';renderGeo();}
+}
+function newEntryId(){return 't-'+(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));}
+function attachLocation(value){if(!value||typeof value!=='object'||typeof value.id!=='string')return;
+ const loc=safeLocation(value.location);if(!loc||loc.accuracy===null||loc.accuracy>MAX_GPS_ERROR)return;
+ const row=trip.history.find(x=>x.id===value.id&&(x.direction==='left'||x.direction==='right'));
+ if(!row||Math.abs(Date.now()-row.at)>30000)return;
+ if(row.location&&Number(row.location.accuracy)<=loc.accuracy)return;
+ row.location=loc;save();render();
+}
+function refineLocation(id,clickAt){
+ if(!geo.enabled||!navigator.geolocation)return;
+ try{navigator.geolocation.getCurrentPosition(pos=>{
+   if(!geo.enabled||Date.now()-clickAt>18000)return;
+   const fix=captureFix(pos);
+   if(fix&&fix.accuracy!==null&&fix.accuracy<=MAX_GPS_ERROR)command('markLocation',{id,location:fix});
+ },()=>{}, {enableHighAccuracy:true,maximumAge:0,timeout:11000});}catch(e){}
+}
+
 let net={mode:'solo',room:'',status:'offline',peer:null,conn:null,clients:[],retry:null,retries:0};
 function clamp(v,a,b,def){if(v===null||v===undefined||v==='')return def;const n=Number(v);return Number.isFinite(n)?Math.max(a,Math.min(b,Math.round(n))):def;}
 function importPayload(raw){if(!raw||typeof raw!=='object')throw Error('形式');const s=raw.settings||{},t=raw.trip||{};const ns={minutes:clamp(s.minutes,1,120,10),sound:s.sound!==false,vibrate:s.vibrate!==false},nt=makeTrip();nt.leg=clamp(t.leg,0,100000,0);
- nt.history=Array.isArray(t.history)?t.history.slice(-60).filter(x=>x&&KEYS.includes(x.direction)&&Number.isFinite(Number(x.at))).map(x=>({direction:x.direction,at:Number(x.at),exception:!!x.exception})) : [];
+ nt.history=Array.isArray(t.history)?t.history.slice(-60).filter(x=>x&&KEYS.includes(x.direction)&&Number.isFinite(Number(x.at))).map((x,i)=>({direction:x.direction,at:Number(x.at),exception:!!x.exception,
+ id:typeof x.id==='string'&&/^t-[a-zA-Z0-9-]{1,100}$/.test(x.id)?x.id:'old-'+Number(x.at)+'-'+i,
+ location:safeLocation(x.location)})) : [];
  nt.pending=KEYS.includes(t.pending)?t.pending:null;nt.exception=!!t.exception&&!!nt.pending;
  const old=t.timer||{};nt.timer.status=['none','running','paused','elapsed'].includes(old.status)?old.status:'none';nt.timer.durationMs=clamp(old.durationMs,60000,7200000,ns.minutes*60000);nt.timer.remainingMs=clamp(old.remainingMs,0,7200000,nt.timer.durationMs);nt.timer.deadline=Number.isFinite(Number(old.deadline))?Number(old.deadline):0;
  if(nt.timer.status==='running'&&!nt.timer.deadline)nt.timer.status='paused';return {settings:ns,trip:nt};}
@@ -109,14 +165,23 @@ function lastActualTurn(){for(let i=trip.history.length-1;i>=0;i--){const d=trip
 function deadEnd(){if(rotating||trip.exception)return;const prev=lastActualTurn(),key=prev==='left'?'right':prev==='right'?'left':Math.random()<.5?'left':'right';
  trip.pending=key;trip.exception=true;save();render();flash(prev?`前回${NAMES[prev]}のため、${NAMES[key]}へ`:`曲がった履歴がないため、${NAMES[key]}へ`);}
 function beginTimer(){const ms=settings.minutes*60000;trip.timer={status:'running',remainingMs:ms,deadline:Date.now()+ms,durationMs:ms};noticeFired=false;}
-function commit(){maybeTimerDone();if(rotating||!trip.pending)return;if(['running','paused'].includes(trip.timer.status)&&!trip.exception){flash('タイマー終了後に実行できます');return;}
- const key=trip.pending;trip.history.push({direction:key,at:Date.now(),exception:trip.exception});trip.history=trip.history.slice(-60);trip.leg++;trip.pending=null;trip.exception=false;beginTimer();save();render();flash(`${NAMES[key]}を実行、${settings.minutes}分スタート`);}
+function commit(options={}){maybeTimerDone();if(rotating||!trip.pending)return;if(['running','paused'].includes(trip.timer.status)&&!trip.exception){flash('タイマー終了後に実行できます');return;}
+ const key=trip.pending;
+ const id=typeof options?.id==='string'&&/^t-[a-zA-Z0-9-]{1,100}$/.test(options.id)?options.id:newEntryId();
+ const proposed=safeLocation(options?.location);
+ const fix=(key==='left'||key==='right')?((proposed&&proposed.accuracy!==null&&proposed.accuracy<=MAX_GPS_ERROR?proposed:null)||getFreshFix()):null;
+ trip.history.push({id,direction:key,at:Date.now(),exception:trip.exception,location:fix});trip.history=trip.history.slice(-60);trip.leg++;trip.pending=null;trip.exception=false;beginTimer();save();render();flash(`${NAMES[key]}を実行、${settings.minutes}分スタート`);}
 function pauseOrResume(){const t=trip.timer;if(t.status==='running'){t.remainingMs=remaining();t.deadline=0;t.status='paused';}else if(t.status==='paused'){t.deadline=Date.now()+t.remainingMs;t.status='running';}save();render();}
 function skip(){if(!['running','paused'].includes(trip.timer.status))return;trip.timer.status='elapsed';trip.timer.remainingMs=0;trip.timer.deadline=0;save();render();flash('タイマーを0にしました');}
 function reset(){if(rotating)return;trip=makeTrip();noticeFired=false;rotation=0;$('wheel').classList.add('noMotion');$('wheel').style.transform='rotate(0deg)';save();render();}
 function saveConfig(){settings.minutes=clamp($('minutes').value,1,120,10);$('minutes').value=settings.minutes;settings.sound=$('sound').checked;settings.vibrate=$('vibrate').checked;save();render();}
 function renderSettings(){$('minutes').value=settings.minutes;$('sound').checked=settings.sound;$('vibrate').checked=settings.vibrate;}
-function renderHistory(){const el=$('history');if(!trip.history.length){el.innerHTML='<p class="detail">まだ履歴はありません。</p>';return;}const rows=trip.history.slice().reverse().slice(0,15);el.innerHTML=rows.map((row,i)=>`<div class="historyItem"><span class="historySymbol">${SYMBOLS[row.direction]}</span><span><div class="historyName">${NAMES[row.direction]}</div><div class="historyDesc">${row.exception?'突き当たりで変更':'ルーレット'}・#${trip.leg-i}</div></span><span class="historyTime">${new Date(row.at).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}</span></div>`).join('');}
+function renderHistory(){const el=$('history');if(!trip.history.length){el.innerHTML='<p class="detail">まだ履歴はありません。</p>';return;}
+ const rows=trip.history.slice().reverse().slice(0,60);
+ el.innerHTML=rows.map((row,i)=>{
+   const p=safeLocation(row.location),map=p&&['left','right'].includes(row.direction)?` ・ <a class="mapLink" href="https://www.google.com/maps/search/?api=1&amp;query=${p.lat}%2C${p.lng}" target="_blank" rel="noopener noreferrer">地図で確認${p.accuracy===null?'':` (±${p.accuracy}m)`}</a>`:'';
+   return `<div class="historyItem"><span class="historySymbol">${SYMBOLS[row.direction]}</span><span><div class="historyName">${NAMES[row.direction]}</div><div class="historyDesc">${row.exception?'突き当たりで変更':'ルーレット'}・#${trip.leg-i}${map}</div></span><span class="historyTime">${new Date(row.at).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
+ }).join('');}
 function render(){const t=trip.timer,st=t.status,active=['running','paused'].includes(st),left=remaining(),picked=!!trip.pending,forced=trip.exception;
  $('legNumber').textContent=String(trip.leg).padStart(2,'0');$('countDisplay').textContent=`${trip.leg} DIRECTIONS`;
  $('phase').textContent=forced?'突き当たり':st==='none'?'出発準備':st==='running'?'直進中':st==='paused'?'一時停止':'時間経過';
@@ -163,7 +228,7 @@ function handleGuestData(msg){if(!msg||typeof msg!=='object')return;
  else if(msg.type==='spin'&&KEYS.includes(msg.key)&&Number.isFinite(msg.angle))animateSpin(msg.angle,msg.key,false);
 }
 function doAction(action,val){
- if(action==='spin')spin();else if(action==='deadEnd')deadEnd();else if(action==='commit')commit();else if(action==='pause')pauseOrResume();else if(action==='skip')skip();else if(action==='reset')reset();else if(action==='minutes'){settings.minutes=clamp(val,1,120,10);save();renderSettings();render();}
+ if(action==='spin')spin();else if(action==='deadEnd')deadEnd();else if(action==='commit')commit(val);else if(action==='markLocation')attachLocation(val);else if(action==='pause')pauseOrResume();else if(action==='skip')skip();else if(action==='reset')reset();else if(action==='minutes'){settings.minutes=clamp(val,1,120,10);save();renderSettings();render();}
 }
 function command(action,val){if(net.mode==='guest'){
  if(net.status!=='connected'||!net.conn?.open){flash('接続が切れています。再接続中です');return;}
@@ -181,7 +246,7 @@ function hostRoom(room){
    // One companion only; reject later connections to avoid divergent state.
    if(net.clients.some(c=>c.open)){conn.on('open',()=>{conn.send({type:'full'});conn.close();});return;}
    net.clients.push(conn);conn.on('open',()=>{net.status='connected';try{conn.send(snapshot());}catch(e){}updateRoomUI();flash('相手が参加しました');});
-   conn.on('data',msg=>{if(!msg||msg.type!=='command')return;if(!['spin','deadEnd','commit','pause','skip','reset','minutes'].includes(msg.action))return;
+   conn.on('data',msg=>{if(!msg||msg.type!=='command')return;if(!['spin','deadEnd','commit','markLocation','pause','skip','reset','minutes'].includes(msg.action))return;
      maybeTimerDone();if(rotating&&msg.action!=='minutes')return;doAction(msg.action,msg.val);});
    conn.on('close',()=>{net.clients=net.clients.filter(c=>c!==conn);net.status='waiting';updateRoomUI();});
    conn.on('error',()=>{net.clients=net.clients.filter(c=>c!==conn);net.status='waiting';updateRoomUI();});
@@ -220,7 +285,13 @@ async function shareLink(){if(net.mode!=='host'){flash('先にルームを作成
 // ---------------- Browser events ----------------
 $('spinBtn').addEventListener('click',()=>command('spin'));
 $('deadendBtn').addEventListener('click',()=>command('deadEnd'));
-$('executeBtn').addEventListener('click',()=>command('commit'));
+$('executeBtn').addEventListener('click',()=>{
+ // Capture only actual left/right turns; straight passages do not create GPS history.
+ const key=trip.pending,id=newEntryId(),clicked=Date.now(),location=key==='left'||key==='right'?getFreshFix():null;
+ command('commit',{id,location});
+ if((key==='left'||key==='right')&&geo.enabled&&(!location||location.accuracy>60))refineLocation(id,clicked);
+});
+$('geoToggleBtn').addEventListener('click',toggleGeo);
 $('pauseBtn').addEventListener('click',()=>command('pause'));
 $('skipBtn').addEventListener('click',()=>command('skip'));
 $('resetBtn').addEventListener('click',()=>{if(confirm('2人の走行履歴とタイマーを初期化しますか？'))command('reset');});
@@ -232,7 +303,7 @@ $('joinInput').addEventListener('keydown',e=>{if(e.key==='Enter')joinRoom($('joi
 $('copyLinkBtn').addEventListener('click',shareLink);
 $('leaveRoomBtn').addEventListener('click',leaveRoom);
 document.addEventListener('visibilitychange',()=>{maybeTimerDone();render();if(document.visibilityState==='visible'&&net.mode==='host')broadcastSnapshot();});
-load();renderSettings();drawWheel();maybeTimerDone();render();updateRoomUI();
+load();renderSettings();drawWheel();maybeTimerDone();render();updateRoomUI();renderGeo();
 // Browser reload: the device that created the room resumes hosting; invitees rejoin as guests.
 const urlRoom=new URL(location.href).searchParams.get('room');
 if(urlRoom){let isHost=false;try{isHost=(sessionStorage.getItem('wander-host-room')||localStorage.getItem('wander-host-room'))===urlRoom.toUpperCase();}catch(e){}if(isHost)hostRoom(urlRoom.toUpperCase());else joinRoom(urlRoom);}
