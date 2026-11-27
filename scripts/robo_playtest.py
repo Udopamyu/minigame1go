@@ -168,7 +168,7 @@ def run_attempt(page, number, max_seconds=125):
     page.locator("#startBtn").click()
     pilot = Pilot(page)
     started = time.monotonic()
-    stages, fight_intervals, reloads = [], [], []
+    stages, fight_intervals, reloads, finishers = [], [], [], []
     max_depth, max_fights, closest_distance = 0, 0, 10000
     currently_fighting = False
     reached_boss = False
@@ -210,6 +210,14 @@ def run_attempt(page, number, max_seconds=125):
                 })
             pilot.fight_step(q)
             total_steps += 1
+        elif state == "finisher":
+            pilot.release()
+            finishers.append({"stage":q["depth"]+1,"kind":q.get("finishKind"),"t":round(time.monotonic()-started,2)})
+            try:
+                page.wait_for_function("() => ['winCard','loseCard'].includes(window.__roboQA().state)", timeout=5000)
+            except Exception:
+                fail_reason = "finisher_timeout"
+                break
         elif state in ("winCard", "loseCard"):
             pilot.release()
             page.locator("#phaseContinue").click()
@@ -258,6 +266,7 @@ def run_attempt(page, number, max_seconds=125):
         "research_points_at_end":q["meta"]["points"],
         "research_levels_at_start":beginning["upgrades"],
         "stages":stages,
+        "finisher_events":finishers,
         "combat_samples":fight_intervals,
         "reload_samples":reloads[::max(1,len(reloads)//60)],
         "observed_min_distance":round(closest_distance,1) if closest_distance < 10000 else None,
